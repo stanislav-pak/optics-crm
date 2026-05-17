@@ -65,13 +65,12 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
     setSending(false);
   };
 
-  const archiveChat = async () => {
+  const toggleArchive = async () => {
     if (archiving) return;
-    const action = isArchived ? "Восстановить чат?" : "Архивировать этот чат?";
-    const confirm = window.confirm(action);
-    if (!confirm) return;
+    const msg = isArchived ? 'Восстановить чат?' : 'Архивировать этот чат?';
+    if (!window.confirm(msg)) return;
     setArchiving(true);
-    await supabase.from("chats").update({ status: isArchived ? "active" : "archived" }).eq("id", chat.id);
+    await supabase.from('chats').update({ status: isArchived ? 'active' : 'archived' }).eq('id', chat.id);
     setArchiving(false);
     onArchive?.();
   };
@@ -124,18 +123,22 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
             )}
           </div>
         </div>
-        {(
-          <button
-            onClick={archiveChat}
-            disabled={archiving}
-            title={isArchived ? "Восстановить чат" : "Архивировать чат"}
-            className={`text-[#8696a0] ${isArchived ? "hover:text-emerald-400" : "hover:text-amber-400"}` transition-colors disabled:opacity-50"
-          >
+        <button
+          onClick={toggleArchive}
+          disabled={archiving}
+          title={isArchived ? 'Восстановить чат' : 'Архивировать чат'}
+          className={`transition-colors disabled:opacity-50 ${isArchived ? 'text-[#8696a0] hover:text-emerald-400' : 'text-[#8696a0] hover:text-amber-400'}`}
+        >
+          {isArchived ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+          ) : (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
-          </button>
-        )}
+          )}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: '#0b141a' }}>
@@ -189,7 +192,3 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
     </div>
   );
 }
-
-
-
-
