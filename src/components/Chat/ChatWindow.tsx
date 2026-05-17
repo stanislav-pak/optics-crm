@@ -5,18 +5,20 @@ import type { Chat, Message } from '../../types';
 
 interface ChatWindowProps {
   chat: Chat;
+  onArchive?: () => void;
 }
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ChatWindow({ chat }: ChatWindowProps) {
+export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
   const { employee } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const fetchMessages = async () => {
@@ -63,6 +65,16 @@ export function ChatWindow({ chat }: ChatWindowProps) {
     setSending(false);
   };
 
+  const archiveChat = async () => {
+    if (archiving) return;
+    const confirm = window.confirm('Архивировать этот чат?');
+    if (!confirm) return;
+    setArchiving(true);
+    await supabase.from('chats').update({ status: 'archived' }).eq('id', chat.id);
+    setArchiving(false);
+    onArchive?.();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -94,6 +106,7 @@ export function ChatWindow({ chat }: ChatWindowProps) {
   }, [messages]);
 
   const client = chat.client;
+  const isArchived = chat.status === 'archived';
 
   return (
     <div className="flex flex-col h-full">
@@ -101,10 +114,27 @@ export function ChatWindow({ chat }: ChatWindowProps) {
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold">
           {client?.name ? client.name[0].toUpperCase() : '#'}
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-medium text-[#e9edef]">{client?.name || client?.phone || 'Клиент'}</p>
-          <p className="text-xs text-[#8696a0]">{client?.phone}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-[#8696a0]">{client?.phone}</p>
+            {isArchived && (
+              <span className="text-[10px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-full">Архив</span>
+            )}
+          </div>
         </div>
+        {!isArchived && (
+          <button
+            onClick={archiveChat}
+            disabled={archiving}
+            title="Архивировать чат"
+            className="text-[#8696a0] hover:text-amber-400 transition-colors disabled:opacity-50"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: '#0b141a' }}>
@@ -139,14 +169,15 @@ export function ChatWindow({ chat }: ChatWindowProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Написать сообщение..."
+          placeholder={isArchived ? 'Чат в архиве' : 'Написать сообщение...'}
+          disabled={isArchived}
           rows={1}
-          className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500 transition-all"
+          className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ scrollbarWidth: 'none' }}
         />
         <button
           onClick={sendMessage}
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() || sending || isArchived}
           className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
         >
           <svg className="w-5 h-5 text-white rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">

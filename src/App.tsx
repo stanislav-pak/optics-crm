@@ -100,7 +100,7 @@ function AppContent() {
           ) : activeChat ? (
             <>
               <div className="flex-1 flex flex-col overflow-hidden">
-                <ChatWindow chat={activeChat} />
+                <ChatWindow chat={activeChat} onArchive={() => setActiveChat(null)} />
               </div>
               <CRMSidebar chat={activeChat} />
             </>
@@ -123,3 +123,4 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
