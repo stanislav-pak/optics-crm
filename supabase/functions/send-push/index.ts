@@ -1,4 +1,5 @@
 ﻿import webPush from 'npm:web-push@3.6.7';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { subscription, title, body } = await req.json();
+    const { employee_id, title, body } = await req.json();
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('subscription')
+      .eq('employee_id', employee_id);
+
+    if (!subs || subs.length === 0) {
+      return new Response(JSON.stringify({ message: 'No subscriptions' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     webPush.setVapidDetails(
       'mailto:b2b-product@mail.ru',
@@ -19,7 +36,11 @@ Deno.serve(async (req) => {
       Deno.env.get('VAPID_PRIVATE_KEY')!,
     );
 
-    await webPush.sendNotification(subscription, JSON.stringify({ title, body }));
+    await Promise.all(
+      subs.map((s) =>
+        webPush.sendNotification(s.subscription, JSON.stringify({ title, body }))
+      )
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
