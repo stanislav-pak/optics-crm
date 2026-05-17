@@ -1,36 +1,37 @@
-﻿import { useEffect, useRef } from 'react';
+﻿import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 
-function playSound() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.frequency.value = 880;
-    oscillator.type = 'sine';
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.4);
-  } catch (e) {
-    console.error('Sound error:', e);
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
   }
+  return outputArray;
+}
+
+async function subscribeToPush(): Promise<PushSubscription | null> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return null;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) return existing;
+  return reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
 }
 
 export function usePushNotifications(employeeId?: string) {
-  const permissionRef = useRef<NotificationPermission>('default');
-
-  const requestPermission = async () => {
-    if (!('Notification' in window)) return;
-    const permission = await Notification.requestPermission();
-    permissionRef.current = permission;
-  };
-
   useEffect(() => {
     if (!employeeId) return;
-    requestPermission();
+
+    subscribeToPush().catch(console.error);
 
     const channel = supabase
       .channel('push-notifications')
@@ -50,21 +51,19 @@ export function usePushNotifications(employeeId?: string) {
 
         if (!chat || chat.employee_id !== employeeId) return;
 
-        playSound();
+        const reg = await navigator.serviceWorker.ready;
+        const subscription = await reg.pushManager.getSubscription();
+        if (!subscription) return;
 
-        if (permissionRef.current === 'granted' && document.visibilityState !== 'visible') {
-          const client = chat.client as any;
-          const name = client?.name || client?.phone || 'Клиент';
-          new Notification(`Новое сообщение от ${name}`, {
-            body: msg.content,
-            icon: '/favicon.ico',
-          });
-        }
+        const client = chat.client as any;
+        const name = client?.name || client?.phone || 'Клиент';
+
+        await supabase.functions.invoke('send-push', {
+          body: { subscription, title: `Новое сообщение от ${name}`, body: msg.content },
+        });
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [employeeId]);
-
-  return { requestPermission };
 }
