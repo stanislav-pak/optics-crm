@@ -6,13 +6,14 @@ import { ChatWindow } from './components/Chat/ChatWindow';
 import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
+import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { signOut } from './services/auth';
 import type { Chat } from './types';
 
 function AppContent() {
   const { employee, loading, refetch } = useAuthProvider();
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports'>('dashboard');
 
   if (loading) {
     return (
@@ -32,9 +33,7 @@ function AppContent() {
   return (
     <AuthContext.Provider value={{ employee, loading, refetch }}>
       <div className="flex h-screen bg-[#0b141a]">
-        {/* Sidebar */}
         <div className="w-80 flex-shrink-0 flex flex-col border-r border-white/5">
-          {/* Profile header */}
           <div className="px-4 py-3 bg-[#202c33] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -47,15 +46,26 @@ function AppContent() {
             </div>
             <div className="flex items-center gap-2">
               {employee.role === 'admin' && (
-                <button
-                  onClick={() => { setAdminView('dashboard'); setActiveChat(null); }}
-                  className={`text-xs px-2 py-1 rounded-lg transition-colors ${adminView === 'dashboard' ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                  title="Dashboard"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
+                <>
+                  <button
+                    onClick={() => { setAdminView('dashboard'); setActiveChat(null); }}
+                    className={`text-xs px-2 py-1 rounded-lg transition-colors ${adminView === 'dashboard' ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                    title="Dashboard"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => { setAdminView('reports'); setActiveChat(null); }}
+                    className={`text-xs px-2 py-1 rounded-lg transition-colors ${adminView === 'reports' ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                    title="Аналитика"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </button>
+                </>
               )}
               <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors" title="Выйти">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -70,9 +80,10 @@ function AppContent() {
           </div>
         </div>
 
-        {/* Main area */}
         <div className="flex-1 flex overflow-hidden">
-          {employee.role === 'admin' && adminView === 'dashboard' && !activeChat ? (
+          {employee.role === 'admin' && adminView === 'reports' ? (
+            <ReportsPanel />
+          ) : employee.role === 'admin' && adminView === 'dashboard' && !activeChat ? (
             <AdminDashboard onChatSelect={handleChatSelect} activeChatId={activeChat?.id} />
           ) : activeChat ? (
             <>
