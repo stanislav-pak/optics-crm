@@ -2,17 +2,21 @@
 import { supabase } from '../services/supabase';
 
 function playSound() {
-  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
-  oscillator.connect(gain);
-  gain.connect(ctx.destination);
-  oscillator.frequency.value = 880;
-  oscillator.type = 'sine';
-  gain.gain.setValueAtTime(0.3, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-  oscillator.start(ctx.currentTime);
-  oscillator.stop(ctx.currentTime + 0.4);
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.frequency.value = 880;
+    oscillator.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    console.error('Sound error:', e);
+  }
 }
 
 export function usePushNotifications(employeeId?: string) {
@@ -34,9 +38,9 @@ export function usePushNotifications(employeeId?: string) {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: 'direction=eq.inbound',
       }, async (payload) => {
         const msg = payload.new as any;
+        if (msg.direction !== 'inbound') return;
 
         const { data: chat } = await supabase
           .from('chats')
