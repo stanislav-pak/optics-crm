@@ -1,6 +1,20 @@
 ﻿import { useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 
+function playSound() {
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.frequency.value = 880;
+  oscillator.type = 'sine';
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.4);
+}
+
 export function usePushNotifications(employeeId?: string) {
   const permissionRef = useRef<NotificationPermission>('default');
 
@@ -8,16 +22,6 @@ export function usePushNotifications(employeeId?: string) {
     if (!('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     permissionRef.current = permission;
-  };
-
-  const showNotification = (title: string, body: string) => {
-    if (permissionRef.current !== 'granted') return;
-    if (document.visibilityState === 'visible') return;
-    new Notification(title, {
-      body,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-    });
   };
 
   useEffect(() => {
@@ -30,7 +34,7 @@ export function usePushNotifications(employeeId?: string) {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `direction=eq.inbound`,
+        filter: 'direction=eq.inbound',
       }, async (payload) => {
         const msg = payload.new as any;
 
@@ -42,9 +46,16 @@ export function usePushNotifications(employeeId?: string) {
 
         if (!chat || chat.employee_id !== employeeId) return;
 
-        const client = chat.client as any;
-        const name = client?.name || client?.phone || 'Клиент';
-        showNotification(`Новое сообщение от ${name}`, msg.content);
+        playSound();
+
+        if (permissionRef.current === 'granted' && document.visibilityState !== 'visible') {
+          const client = chat.client as any;
+          const name = client?.name || client?.phone || 'Клиент';
+          new Notification(`Новое сообщение от ${name}`, {
+            body: msg.content,
+            icon: '/favicon.ico',
+          });
+        }
       })
       .subscribe();
 
