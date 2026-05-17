@@ -9,10 +9,12 @@ import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { signOut } from './services/auth';
+import { usePushNotifications } from './hooks/usePushNotifications';
 import type { Chat } from './types';
 
 function AppContent() {
   const { employee, loading, refetch } = useAuthProvider();
+  usePushNotifications(employee?.id);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
 
@@ -123,4 +125,6 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
+
 
