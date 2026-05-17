@@ -67,10 +67,11 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
 
   const archiveChat = async () => {
     if (archiving) return;
-    const confirm = window.confirm('Архивировать этот чат?');
+    const action = isArchived ? "Восстановить чат?" : "Архивировать этот чат?";
+    const confirm = window.confirm(action);
     if (!confirm) return;
     setArchiving(true);
-    await supabase.from('chats').update({ status: 'archived' }).eq('id', chat.id);
+    await supabase.from("chats").update({ status: isArchived ? "active" : "archived" }).eq("id", chat.id);
     setArchiving(false);
     onArchive?.();
   };
@@ -123,12 +124,12 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
             )}
           </div>
         </div>
-        {!isArchived && (
+        {(
           <button
             onClick={archiveChat}
             disabled={archiving}
-            title="Архивировать чат"
-            className="text-[#8696a0] hover:text-amber-400 transition-colors disabled:opacity-50"
+            title={isArchived ? "Восстановить чат" : "Архивировать чат"}
+            className={`text-[#8696a0] ${isArchived ? "hover:text-emerald-400" : "hover:text-amber-400"}` transition-colors disabled:opacity-50"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -188,3 +189,7 @@ export function ChatWindow({ chat, onArchive }: ChatWindowProps) {
     </div>
   );
 }
+
+
+
+
