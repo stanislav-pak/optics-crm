@@ -65,6 +65,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
 
   const fetchMessages = async () => {
+    supabase.from('messages').update({ is_read: true })
+      .eq('chat_id', chat.id).eq('direction', 'inbound').eq('is_read', false)
+      .then(() => window.dispatchEvent(new Event('messages-read')));
     const { data } = await supabase
       .from('messages')
       .select('*')
@@ -321,6 +324,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
 
 
 

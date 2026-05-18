@@ -13,6 +13,10 @@ export function useChats(filters?: ChatListFilters) {
       setError(null);
       const data = await getChats(filters);
       setChats(data);
+      const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+      if ('setAppBadge' in navigator) {
+        totalUnread > 0 ? (navigator as any).setAppBadge(totalUnread) : (navigator as any).clearAppBadge();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки чатов');
     } finally {
@@ -25,6 +29,7 @@ export function useChats(filters?: ChatListFilters) {
 
     const handleClientUpdate = () => fetchChats();
     window.addEventListener('client-updated', handleClientUpdate);
+    window.addEventListener('messages-read', fetchChats);
 
     const channel = supabase
       .channel('chats-realtime')
@@ -33,6 +38,7 @@ export function useChats(filters?: ChatListFilters) {
       .subscribe();
 
     return () => {
+      window.removeEventListener('messages-read', fetchChats);
       window.removeEventListener('client-updated', handleClientUpdate);
       supabase.removeChannel(channel);
     };
@@ -40,3 +46,4 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
