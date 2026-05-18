@@ -41,9 +41,15 @@ function AppContent() {
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - swipeRef.current.x;
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
-      if (swipeRef.current.x < 50 && dx > 60 && dy < 80) {
-        if (mobileViewRef.current === 'crm') setMobileView('chat');
-        else if (mobileViewRef.current === 'chat' && activeChatRef.current) handleBack();
+      if (dy < 80 && dx > 60) {
+        if (swipeRef.current.x < 50) {
+          // Left edge — go to list
+          if (activeChatRef.current) handleBack();
+        } else {
+          // Middle swipe — go back one step
+          if (mobileViewRef.current === 'crm') setMobileView('chat');
+          else if (mobileViewRef.current === 'chat' && activeChatRef.current) handleBack();
+        }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -195,6 +201,7 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
 
 
 

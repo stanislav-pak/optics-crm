@@ -6,11 +6,7 @@ import type { Chat, ChatListFilters } from '../types';
 export function useChats(filters?: ChatListFilters) {
   useEffect(() => {
     const clearBadge = () => {
-      if (navigator.serviceWorker?.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: 0 });
-      } else if ('setAppBadge' in navigator) {
-        (navigator as any).setAppBadge(0);
-      }
+      if ('setAppBadge' in navigator) (navigator as any).setAppBadge(0);
     };
     document.addEventListener('visibilitychange', () => { if (!document.hidden) clearBadge(); });
     return () => document.removeEventListener('visibilitychange', clearBadge);
@@ -25,10 +21,8 @@ export function useChats(filters?: ChatListFilters) {
       const data = await getChats(filters);
       setChats(data);
       const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
-      if (navigator.serviceWorker?.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: totalUnread });
-      } else if ('setAppBadge' in navigator) {
-        totalUnread > 0 ? (navigator as any).setAppBadge(totalUnread) : (navigator as any).setAppBadge(0);
+      if ('setAppBadge' in navigator) {
+        (navigator as any).setAppBadge(totalUnread);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки чатов');
@@ -59,6 +53,7 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
 
 
