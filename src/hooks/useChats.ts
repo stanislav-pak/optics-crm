@@ -17,7 +17,7 @@ export function useChats(filters?: ChatListFilters) {
       if (navigator.serviceWorker?.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: totalUnread });
       } else if ('setAppBadge' in navigator) {
-        totalUnread > 0 ? (navigator as any).setAppBadge(totalUnread) : (navigator as any).clearAppBadge();
+        totalUnread > 0 ? (navigator as any).setAppBadge(totalUnread) : (navigator as any).setAppBadge(0);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки чатов');
@@ -48,5 +48,6 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
 

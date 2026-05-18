@@ -48,7 +48,8 @@ self.addEventListener('message', (event) => {
     if ('setAppBadge' in self.registration) {
       count > 0
         ? self.registration.setAppBadge(count)
-        : self.registration.clearAppBadge();
+        : self.registration.setAppBadge(0);
     }
   }
 });
+
