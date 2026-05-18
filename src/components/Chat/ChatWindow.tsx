@@ -38,6 +38,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const mediaModalRef = useRef<MediaModal | null>(null);
+  useEffect(() => { mediaModalRef.current = mediaModal; }, [mediaModal]);
+  const onBackRef = useRef(onBack);
+  useEffect(() => { onBackRef.current = onBack; }, [onBack]);
+
   useEffect(() => {
     let startX = 0, startY = 0;
     const onStart = (e: TouchEvent) => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; };
@@ -45,13 +50,14 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (startX < 30 && dx > 70 && dy < 60) {
-        setMediaModal(prev => { if (prev) return null; if (onBack) onBack(); return null; });
+        if (mediaModalRef.current) { setMediaModal(null); }
+        else if (onBackRef.current) { onBackRef.current(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
     return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
-  }, [onBack]);
+  }, []);
 
 
 
@@ -312,6 +318,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
 
 
 
