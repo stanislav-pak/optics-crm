@@ -26,19 +26,7 @@ const CLIENT_STATUSES = [
 ];
 
 export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
-  useEffect(() => {
-    if (!onBack) return;
-    let sx = 0, sy = 0;
-    const t0 = (e: TouchEvent) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; };
-    const t1 = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - sx;
-      const dy = Math.abs(e.changedTouches[0].clientY - sy);
-      if (dx > 50 && dy < 100) onBack();
-    };
-    document.addEventListener('touchstart', t0, { passive: true });
-    document.addEventListener('touchend', t1, { passive: true });
-    return () => { document.removeEventListener('touchstart', t0); document.removeEventListener('touchend', t1); };
-  }, [onBack]);
+
   const { employee } = useAuth();
   const [stage, setStage] = useState<string>('new');
   const [tasks, setTasks] = useState<Task[]>([]);

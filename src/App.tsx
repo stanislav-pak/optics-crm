@@ -140,7 +140,7 @@ function AppContent() {
                   {mobileView === 'crm' ? (
                     <CRMSidebar chat={activeChat} onBack={() => setMobileView("chat")} />
                   ) : (
-                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={() => { if (mobileViewRef.current === 'crm') setMobileView('chat'); else handleBackRef.current(); }} />
+                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={handleBack} />
                   )}
                 </div>
                 <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
