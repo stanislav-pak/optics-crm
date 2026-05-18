@@ -182,6 +182,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           placeholder={isArchived ? 'Чат в архиве' : 'Написать сообщение...'}
           disabled={isArchived}
           rows={1}
+          onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
           className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ scrollbarWidth: 'none' }}
         />
@@ -198,6 +199,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
 
 
 
