@@ -180,7 +180,7 @@ function AppContent() {
       <AuthContext.Provider value={{ employee, loading, refetch }}>
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
-          {mobileView === 'chat' && MainArea}
+          {(mobileView === 'chat' || mobileView === 'crm') && MainArea}
         </div>
       </AuthContext.Provider>
     );
@@ -199,6 +199,3 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
-
-
-
