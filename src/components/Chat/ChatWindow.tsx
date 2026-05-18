@@ -38,6 +38,21 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    let startX = 0, startY = 0;
+    const onStart = (e: TouchEvent) => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = Math.abs(e.changedTouches[0].clientY - startY);
+      if (startX < 30 && dx > 70 && dy < 60) {
+        setMediaModal(prev => { if (prev) return null; if (onBack) onBack(); return null; });
+      }
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
+  }, [onBack]);
+
 
 
   const fetchMessages = async () => {
@@ -162,7 +177,12 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             {mediaModal.type === 'file' && (
               <div className="flex flex-col items-center w-full h-full">
                 {mediaModal.url.match(/\.pdf$/i) ? (
-                  <iframe src={mediaModal.url} className="w-full flex-1 rounded-lg bg-white" style={{minHeight: '70vh'}} />
+                  <a href={mediaModal.url} target="_blank" rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-3 text-emerald-400 hover:text-emerald-300 flex-1 justify-center flex">
+                    <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span className="text-base font-medium">Открыть {mediaModal.name}</span>
+                    <span className="text-xs text-[#8696a0]">Откроется в браузере</span>
+                  </a>
                 ) : (
                   <div className="text-center flex-1 flex flex-col items-center justify-center">
                     <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -292,6 +312,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
+
 
 
 
