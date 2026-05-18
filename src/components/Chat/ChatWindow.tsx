@@ -15,6 +15,12 @@ interface PendingFile {
   type: 'image' | 'video' | 'file';
 }
 
+interface MediaModal {
+  url: string;
+  type: 'image' | 'video' | 'file';
+  name?: string;
+}
+
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
@@ -28,7 +34,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [archiving, setArchiving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [mediaModal, setMediaModal] = useState<MediaModal | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,37 +49,21 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   };
 
   const sendMessage = async () => {
-    if (pendingFiles.length > 0) {
-      await sendPendingFiles();
-      return;
-    }
+    if (pendingFiles.length > 0) { await sendPendingFiles(); return; }
     if (!text.trim() || !employee || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
-
     const tempMsg: Message = {
-      id: crypto.randomUUID(),
-      chat_id: chat.id,
-      direction: 'outbound',
-      sender_type: 'employee',
-      sender_id: employee.id,
-      content,
-      message_type: 'text',
-      is_read: false,
-      created_at: new Date().toISOString(),
+      id: crypto.randomUUID(), chat_id: chat.id, direction: 'outbound',
+      sender_type: 'employee', sender_id: employee.id, content,
+      message_type: 'text', is_read: false, created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempMsg]);
-
     const { data } = await supabase.from('messages').insert({
-      chat_id: chat.id,
-      direction: 'outbound',
-      sender_type: 'employee',
-      sender_id: employee.id,
-      content,
-      message_type: 'text',
+      chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
+      sender_id: employee.id, content, message_type: 'text',
     }).select().single();
-
     if (data) setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? data : m));
     setSending(false);
   };
@@ -81,29 +71,21 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const sendPendingFiles = async () => {
     if (!employee || uploading) return;
     setUploading(true);
-
     for (const pending of pendingFiles) {
       const ext = pending.file.name.split('.').pop();
       const path = `${chat.id}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from('chat-media').upload(path, pending.file);
       if (error) continue;
-
       const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
       const content = pending.type === 'image' ? '📷 Фото' : pending.type === 'video' ? '🎥 Видео' : `📎 ${pending.file.name}`;
-
       const { data } = await supabase.from('messages').insert({
-        chat_id: chat.id,
-        direction: 'outbound',
-        sender_type: 'employee',
-        sender_id: employee.id,
-        content,
+        chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
+        sender_id: employee.id, content,
         message_type: pending.type === 'image' ? 'image' : 'file',
         media_url: urlData.publicUrl,
       }).select().single();
-
       if (data) setMessages((prev) => [...prev, data]);
     }
-
     setPendingFiles([]);
     setUploading(false);
   };
@@ -111,22 +93,22 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     const newPending: PendingFile[] = files.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
+      file, preview: URL.createObjectURL(file),
       type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file',
     }));
     setPendingFiles(prev => [...prev, ...newPending]);
     e.target.value = '';
   };
 
-  const removePending = (index: number) => {
-    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  const removePending = (index: number) => setPendingFiles(prev => prev.filter((_, i) => i !== index));
+
+  const openMedia = (url: string, type: 'image' | 'video' | 'file', name?: string) => {
+    setMediaModal({ url, type, name });
   };
 
   const toggleArchive = async () => {
     if (archiving) return;
-    const msg = isArchived ? 'Восстановить чат?' : 'Архивировать этот чат?';
-    if (!window.confirm(msg)) return;
+    if (!window.confirm(isArchived ? 'Восстановить чат?' : 'Архивировать этот чат?')) return;
     setArchiving(true);
     await supabase.from('chats').update({ status: isArchived ? 'active' : 'archived' }).eq('id', chat.id);
     setArchiving(false);
@@ -134,26 +116,20 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   useEffect(() => {
     setLoading(true);
     setMessages([]);
     fetchMessages();
-    const channel = supabase
-      .channel(`chat-${chat.id}`)
+    const channel = supabase.channel(`chat-${chat.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` }, (payload) => {
         setMessages((prev) => {
-          const exists = prev.find((m) => m.id === (payload.new as Message).id);
-          if (exists) return prev;
+          if (prev.find((m) => m.id === (payload.new as Message).id)) return prev;
           return [...prev, payload.new as Message];
         });
-      })
-      .subscribe();
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [chat.id]);
 
@@ -167,11 +143,28 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Video modal */}
-      {videoUrl && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={() => setVideoUrl(null)}>
-          <button className="absolute top-4 right-4 text-white text-2xl z-10" onClick={() => setVideoUrl(null)}>✕</button>
-          <video src={videoUrl} controls autoPlay className="max-w-full max-h-full rounded-lg" onClick={e => e.stopPropagation()} />
+      {/* Media Modal */}
+      {mediaModal && (
+        <div className="fixed inset-0 bg-black/95 z-50 flex flex-col" onClick={() => setMediaModal(null)}>
+          <div className="flex items-center justify-between px-4 py-3 bg-black/50">
+            <p className="text-white text-sm truncate">{mediaModal.name || 'Медиафайл'}</p>
+            <button className="text-white text-2xl leading-none" onClick={() => setMediaModal(null)}>✕</button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+            {mediaModal.type === 'image' && (
+              <img src={mediaModal.url} alt="фото" className="max-w-full max-h-full object-contain rounded-lg" />
+            )}
+            {mediaModal.type === 'video' && (
+              <video src={mediaModal.url} controls autoPlay className="max-w-full max-h-full rounded-lg" />
+            )}
+            {mediaModal.type === 'file' && (
+              <div className="text-center">
+                <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <p className="text-white mb-4">{mediaModal.name}</p>
+                <a href={mediaModal.url} download className="bg-emerald-500 text-white px-6 py-2 rounded-lg text-sm">Скачать</a>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -208,27 +201,26 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         {!loading && messages.length === 0 && <div className="flex justify-center py-8"><p className="text-sm text-[#8696a0]">Нет сообщений</p></div>}
         {messages.map((msg) => {
           const isOutbound = msg.direction === 'outbound';
+          const isVideo = msg.media_url?.match(/\.(mp4|mov|avi|webm)$/i);
           return (
             <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[70%] rounded-lg overflow-hidden text-sm ${isOutbound ? 'bg-[#005c4b] text-[#e9edef]' : 'bg-[#202c33] text-[#e9edef]'}`}>
                 {msg.message_type === 'image' && msg.media_url ? (
                   <div>
-                    <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => window.open(msg.media_url, '_blank')} />
+                    <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
                     <p className={`text-[10px] px-3 pb-2 mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                   </div>
                 ) : msg.message_type === 'file' && msg.media_url ? (
                   <div className="px-3 py-2">
-                    {msg.media_url.match(/\.(mp4|mov|avi|webm)$/i) ? (
-                      <button onClick={() => setVideoUrl(msg.media_url!)} className="flex items-center gap-2 text-emerald-400">
+                    <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)}
+                      className="flex items-center gap-2 text-emerald-400">
+                      {isVideo ? (
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span className="text-xs">Видео</span>
-                      </button>
-                    ) : (
-                      <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-400 underline">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                        <span className="text-xs">{msg.content}</span>
-                      </a>
-                    )}
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      )}
+                      <span className="text-xs">{msg.content}</span>
+                    </button>
                     <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                   </div>
                 ) : (
@@ -271,11 +263,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleFileChange} />
         <button onClick={() => fileInputRef.current?.click()} disabled={isArchived || uploading}
           className="w-10 h-10 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
-          {uploading ? (
-            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-          )}
+          {uploading ? <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> :
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>}
         </button>
         <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={handleKeyDown}
           placeholder={isArchived ? 'Чат в архиве' : 'Написать сообщение...'}

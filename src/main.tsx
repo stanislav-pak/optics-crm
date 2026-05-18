@@ -9,4 +9,13 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      navigator.serviceWorker.ready.then(reg => reg.active?.postMessage('clearBadge'));
+      if ('clearAppBadge' in navigator) navigator.clearAppBadge();
+    }
+  });
+}
+
