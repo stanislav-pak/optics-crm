@@ -109,7 +109,31 @@ function AppContent() {
       ) : activeChat ? (
         <>
           <div className="flex-1 flex flex-col overflow-hidden">
-            <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={isMobile ? handleBack : undefined} />
+            {isMobile ? (
+              <>
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  {mobileView === 'crm' ? (
+                    <CRMSidebar chat={activeChat} />
+                  ) : (
+                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={handleBack} />
+                  )}
+                </div>
+                <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
+                  <button onClick={() => setMobileView('chat')}
+                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView !== 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                    Чат
+                  </button>
+                  <button onClick={() => setMobileView('crm')}
+                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    CRM
+                  </button>
+                </div>
+              </>
+            ) : (
+              <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={undefined} />
+            )}
           </div>
           {!isMobile && <CRMSidebar chat={activeChat} />}
         </>
@@ -150,3 +174,4 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
