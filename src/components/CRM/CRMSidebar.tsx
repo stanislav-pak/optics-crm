@@ -96,7 +96,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   useEffect(() => { fetchData(); }, [chat.id]);
 
   return (
-    <div className="w-72 flex-shrink-0 flex flex-col border-l border-white/5 bg-[#111b21] overflow-y-auto">
+    <div className="w-full md:w-72 md:flex-shrink-0 flex flex-col md:border-l border-white/5 bg-[#111b21] overflow-y-auto h-full">
       <div className="p-4 border-b border-white/5">
         <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Клиент</p>
         <div className="space-y-2">
