@@ -158,10 +158,20 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <video src={mediaModal.url} controls autoPlay className="max-w-full max-h-full rounded-lg" />
             )}
             {mediaModal.type === 'file' && (
-              <div className="text-center">
-                <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                <p className="text-white mb-4">{mediaModal.name}</p>
-                <a href={mediaModal.url} download className="bg-emerald-500 text-white px-6 py-2 rounded-lg text-sm">Скачать</a>
+              <div className="flex flex-col items-center w-full h-full">
+                {mediaModal.url.match(/\.pdf$/i) ? (
+                  <iframe src={mediaModal.url} className="w-full flex-1 rounded-lg bg-white" style={{minHeight: '70vh'}} />
+                ) : (
+                  <div className="text-center flex-1 flex flex-col items-center justify-center">
+                    <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <p className="text-white mb-2">{mediaModal.name}</p>
+                    <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
+                  </div>
+                )}
+                <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer"
+                  className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
+                  ⬇ Скачать файл
+                </a>
               </div>
             )}
           </div>
@@ -280,3 +290,4 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
