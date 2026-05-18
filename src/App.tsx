@@ -30,6 +30,26 @@ function AppContent() {
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm'>('list');
   const isMobile = useIsMobile();
   const swipeRef = useRef({ x: 0, y: 0 });
+  const mobileViewRef = useRef(mobileView);
+  useEffect(() => { mobileViewRef.current = mobileView; }, [mobileView]);
+  const activeChatRef = useRef(activeChat);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const onStart = (e: TouchEvent) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+      const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
+      if (swipeRef.current.x < 50 && dx > 60 && dy < 80) {
+        if (mobileViewRef.current === 'crm') setMobileView('chat');
+        else if (mobileViewRef.current === 'chat' && activeChatRef.current) handleBack();
+      }
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
+  }, [isMobile]);
 
   if (loading) {
     return (
@@ -112,17 +132,7 @@ function AppContent() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {isMobile ? (
               <>
-                <div className="flex-1 overflow-hidden flex flex-col"
-                  onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
-                  onTouchEnd={(e) => {
-                    const dx = e.changedTouches[0].clientX - swipeRef.current.x;
-                    const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
-                    if (swipeRef.current.x < 30 && dx > 70 && dy < 60) {
-                      if (mobileView === 'crm') setMobileView('chat');
-                      else handleBack();
-                    }
-                  }}
-                >
+                <div className="flex-1 overflow-hidden flex flex-col">
                   {mobileView === 'crm' ? (
                     <CRMSidebar chat={activeChat} />
                   ) : (
@@ -185,5 +195,6 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
 
 

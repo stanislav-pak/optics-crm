@@ -4,6 +4,17 @@ import { getChats } from '../services/chats';
 import type { Chat, ChatListFilters } from '../types';
 
 export function useChats(filters?: ChatListFilters) {
+  useEffect(() => {
+    const clearBadge = () => {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: 0 });
+      } else if ('setAppBadge' in navigator) {
+        (navigator as any).setAppBadge(0);
+      }
+    };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) clearBadge(); });
+    return () => document.removeEventListener('visibilitychange', clearBadge);
+  }, []);
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +59,7 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
 
 
