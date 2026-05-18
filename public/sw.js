@@ -41,3 +41,14 @@ self.addEventListener('message', (event) => {
     self.registration.getNotifications().then(n => n.forEach(n => n.close()));
   }
 });
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SET_BADGE') {
+    const count = event.data.count;
+    if ('setAppBadge' in self.registration) {
+      count > 0
+        ? self.registration.setAppBadge(count)
+        : self.registration.clearAppBadge();
+    }
+  }
+});

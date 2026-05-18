@@ -14,7 +14,9 @@ export function useChats(filters?: ChatListFilters) {
       const data = await getChats(filters);
       setChats(data);
       const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
-      if ('setAppBadge' in navigator) {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: totalUnread });
+      } else if ('setAppBadge' in navigator) {
         totalUnread > 0 ? (navigator as any).setAppBadge(totalUnread) : (navigator as any).clearAppBadge();
       }
     } catch (err) {
@@ -46,4 +48,5 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
