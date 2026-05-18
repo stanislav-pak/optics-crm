@@ -43,10 +43,8 @@ function AppContent() {
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
         if (swipeRef.current.x < 50) {
-          // Left edge — go to list
           if (activeChatRef.current) handleBack();
         } else {
-          // Middle swipe — go back one step
           if (mobileViewRef.current === 'crm') setMobileView('chat');
           else if (mobileViewRef.current === 'chat' && activeChatRef.current) handleBack();
         }
@@ -201,7 +199,6 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
-
 
 
 
