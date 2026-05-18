@@ -38,20 +38,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Swipe back from left edge
-  useEffect(() => {
-    if (!onBack) return;
-    let startX = 0, startY = 0;
-    const onStart = (e: TouchEvent) => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; };
-    const onEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = Math.abs(e.changedTouches[0].clientY - startY);
-      if (startX < 30 && dx > 70 && dy < 60) onBack();
-    };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend', onEnd, { passive: true });
-    return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
-  }, [onBack]);
+
 
   const fetchMessages = async () => {
     const { data } = await supabase
@@ -305,6 +292,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
 
 
 

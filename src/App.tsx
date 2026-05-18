@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { AuthContext, useAuthProvider } from './hooks/useAuth';
 import { LoginForm } from './components/Auth/LoginForm';
 import { ChatList } from './components/Chat/ChatList';
@@ -29,6 +29,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm'>('list');
   const isMobile = useIsMobile();
+  const swipeRef = useRef({ x: 0, y: 0 });
 
   if (loading) {
     return (
@@ -111,7 +112,17 @@ function AppContent() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {isMobile ? (
               <>
-                <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-hidden flex flex-col"
+                  onTouchStart={(e) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+                  onTouchEnd={(e) => {
+                    const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+                    const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
+                    if (swipeRef.current.x < 30 && dx > 70 && dy < 60) {
+                      if (mobileView === 'crm') setMobileView('chat');
+                      else handleBack();
+                    }
+                  }}
+                >
                   {mobileView === 'crm' ? (
                     <CRMSidebar chat={activeChat} />
                   ) : (
@@ -174,4 +185,5 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
 
