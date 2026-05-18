@@ -52,8 +52,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       if (mediaModalRef.current) {
         // Modal open — any right swipe closes it
         if (dx > 80 && dy < 100) { setMediaModal(null); }
-      } else if (startX < 50 && dx > 60 && dy < 80) {
-        // No modal — left edge swipe goes back
+      } else if (dx > 50 && dy < 100) {
+        // No modal — swipe right goes back
         if (onBackRef.current) { onBackRef.current(); }
       }
     };

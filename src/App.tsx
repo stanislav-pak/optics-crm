@@ -138,9 +138,9 @@ function AppContent() {
               <>
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {mobileView === 'crm' ? (
-                    <CRMSidebar chat={activeChat} />
+                    <CRMSidebar chat={activeChat} onBack={() => setMobileView("chat")} />
                   ) : (
-                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={handleBack} />
+                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={() => { if (mobileViewRef.current === 'crm') setMobileView('chat'); else handleBackRef.current(); }} />
                   )}
                 </div>
                 <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
@@ -160,7 +160,7 @@ function AppContent() {
               <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={undefined} />
             )}
           </div>
-          {!isMobile && <CRMSidebar chat={activeChat} />}
+          {!isMobile && <CRMSidebar chat={activeChat} onBack={() => setMobileView("chat")} />}
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
