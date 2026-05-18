@@ -49,9 +49,12 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
-      if (startX < 30 && dx > 70 && dy < 60) {
-        if (mediaModalRef.current) { setMediaModal(null); }
-        else if (onBackRef.current) { onBackRef.current(); }
+      if (mediaModalRef.current) {
+        // Modal open — any right swipe closes it
+        if (dx > 80 && dy < 100) { setMediaModal(null); }
+      } else if (startX < 50 && dx > 60 && dy < 80) {
+        // No modal — left edge swipe goes back
+        if (onBackRef.current) { onBackRef.current(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -318,6 +321,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
+
 
 
 
