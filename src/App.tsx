@@ -1,5 +1,6 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthContext, useAuthProvider } from './hooks/useAuth';
+import { supabase } from './services/supabase';
 import { LoginForm } from './components/Auth/LoginForm';
 import { ChatList } from './components/Chat/ChatList';
 import { ChatWindow } from './components/Chat/ChatWindow';
@@ -9,6 +10,7 @@ import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { signOut } from './services/auth';
+import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import type { Chat } from './types';
 
@@ -25,9 +27,14 @@ function useIsMobile() {
 function AppContent() {
   const { employee, loading, refetch } = useAuthProvider();
   usePushNotifications(employee?.id);
+  useEffect(() => {
+    supabase.from('branches').select('id, name, city').then(({ data }) => setSidebarBranches(data ?? []));
+  }, []);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm'>('list');
+  const [showImport, setShowImport] = useState(false);
+  const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
   const swipeRef = useRef({ x: 0, y: 0 });
   const mobileViewRef = useRef(mobileView);
@@ -111,6 +118,12 @@ function AppContent() {
               </button>
             </>
           )}
+          {employee.role === 'admin' && (
+              <button onClick={() => setShowImport(true)}
+                className="px-2 py-1 rounded-lg transition-colors text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              </button>
+            )}
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors" title="Выйти">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
@@ -182,6 +195,7 @@ function AppContent() {
           {mobileView === 'list' && Sidebar}
           {(mobileView === 'chat' || mobileView === 'crm') && MainArea}
         </div>
+        {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
       </AuthContext.Provider>
     );
   }
