@@ -11,6 +11,7 @@ const STAGES = [
 ];
 
 interface ChatWithStage extends Chat {
+  deal_amount?: number | null;
   current_stage: string;
 }
 
