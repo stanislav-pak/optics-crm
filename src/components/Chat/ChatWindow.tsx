@@ -33,7 +33,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [archiving, setArchiving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [mediaModal, setMediaModal] = useState<MediaModal | null>(null);
@@ -135,15 +134,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setMediaModal({ url, type, name });
   };
 
-  const toggleArchive = async () => {
-    if (archiving) return;
-    if (!window.confirm(isArchived ? 'Восстановить чат?' : 'Архивировать этот чат?')) return;
-    setArchiving(true);
-    await supabase.from('chats').update({ status: isArchived ? 'active' : 'archived' }).eq('id', chat.id);
-    setArchiving(false);
-    onArchive?.();
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
@@ -173,7 +163,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* Основная часть чата */}
       <div className="flex flex-col flex-1 min-w-0">
 
         {/* Media Modal */}
@@ -182,7 +171,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             <div className="flex items-center justify-between px-4 py-3 bg-black/50">
               <p className="text-white text-sm truncate">{mediaModal.name || 'Медиафайл'}</p>
               <button className="text-white text-2xl leading-none" onClick={() => setMediaModal(null)}>✕</button>
-            </button>
+            </div>
             <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
               {mediaModal.type === 'image' && (
                 <img src={mediaModal.url} alt="фото" className="max-w-full max-h-full object-contain rounded-lg" />
@@ -204,16 +193,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       <p className="text-white mb-2">{mediaModal.name}</p>
                       <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
-                    </button>
+                    </div>
                   )}
                   <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer"
                     className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
                     ⬇ Скачать файл
                   </a>
-                </button>
+                </div>
               )}
-            </button>
-          </button>
+            </div>
+          </div>
         )}
 
         {/* Header */}
@@ -223,18 +212,21 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
           )}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-            {client?.name ? client.name[0].toUpperCase() : '#'}
-          </button>
-          <button onClick={() => setShowInfo(true)} className="flex-1 min-w-0 text-left">
-            <p className="text-sm font-medium text-[#e9edef] truncate hover:text-emerald-400 transition-colors">{client?.name || client?.phone || 'Клиент'}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-[#8696a0]">{client?.phone}</p>
-              {isArchived && <span className="text-[10px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-full">Архив</span>}
-            </button>
+          {/* Кликабельная область — аватар + имя */}
+          <button onClick={() => setShowInfo(true)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+              {client?.name ? client.name[0].toUpperCase() : '#'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[#e9edef] truncate">{client?.name || client?.phone || 'Клиент'}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-[#8696a0]">{client?.phone}</p>
+                {isArchived && <span className="text-[10px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-full">Архив</span>}
+              </div>
+            </div>
           </button>
 
-          {/* CRM toggle button */}
+          {/* CRM toggle */}
           <button
             onClick={() => setShowCRM(v => !v)}
             title="CRM панель"
@@ -244,16 +236,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </button>
-
-          <button onClick={toggleArchive} disabled={archiving}
-            className={`transition-colors disabled:opacity-50 ${isArchived ? 'text-[#8696a0] hover:text-emerald-400' : 'text-[#8696a0] hover:text-amber-400'}`}>
-            {isArchived ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-            )}
-          </button>
-        </button>
+        </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: '#0b141a' }}>
@@ -269,7 +252,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                     <div>
                       <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
                       <p className={`text-[10px] px-3 pb-2 mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </button>
+                    </div>
                   ) : msg.message_type === 'file' && msg.media_url ? (
                     <div className="px-3 py-2">
                       <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)}
@@ -282,21 +265,21 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                         <span className="text-xs">{msg.content}</span>
                       </button>
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </button>
+                    </div>
                   ) : (
                     <div className="px-3 py-2">
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </button>
+                    </div>
                   )}
-                </button>
-              </button>
+                </div>
+              </div>
             );
           })}
           <div ref={bottomRef} />
-        </button>
+        </div>
 
-        {/* Pending files preview */}
+        {/* Pending files */}
         {pendingFiles.length > 0 && (
           <div className="px-4 py-2 bg-[#202c33] border-t border-white/5 flex gap-2 overflow-x-auto flex-shrink-0">
             {pendingFiles.map((pf, i) => (
@@ -306,16 +289,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                 ) : pf.type === 'video' ? (
                   <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                  </button>
+                  </div>
                 ) : (
                   <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </button>
+                  </div>
                 )}
                 <button onClick={() => removePending(i)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">✕</button>
-              </button>
+              </div>
             ))}
-          </button>
+          </div>
         )}
 
         {/* Input */}
@@ -336,14 +319,22 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
             <svg className="w-5 h-5 text-white rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
           </button>
-        </button>
+        </div>
 
-      </button>
+      </div>
 
-      {/* CRM Sidebar — показывается по кнопке */}
+      {/* CRM Sidebar */}
       {showCRM && <CRMSidebar chat={chat} />}
-      {showInfo && <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)} onArchive={() => { setShowInfo(false); onArchive?.(); }} />}
 
-    </button>
+      {/* Chat Info Panel */}
+      {showInfo && (
+        <ChatInfoPanel
+          chat={chat}
+          onClose={() => setShowInfo(false)}
+          onArchive={() => { setShowInfo(false); onArchive?.(); }}
+        />
+      )}
+
+    </div>
   );
 }
