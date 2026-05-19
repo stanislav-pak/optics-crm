@@ -1,4 +1,4 @@
-п»їimport { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Reminders } from './Reminders';
@@ -10,19 +10,19 @@ interface CRMSidebarProps {
 }
 
 const STAGES = [
-  { key: 'new',         label: 'РќРѕРІС‹Р№',      color: 'bg-blue-500' },
-  { key: 'negotiation', label: 'РџРµСЂРµРіРѕРІРѕСЂС‹', color: 'bg-amber-500' },
-  { key: 'quote',       label: 'РЎС‡С‘С‚',       color: 'bg-purple-500' },
-  { key: 'payment',     label: 'РћРїР»Р°С‚Р°',     color: 'bg-emerald-500' },
-  { key: 'closed',      label: 'Р—Р°РєСЂС‹С‚',     color: 'bg-gray-500' },
+  { key: 'new',         label: 'Новый',      color: 'bg-blue-500' },
+  { key: 'negotiation', label: 'Переговоры', color: 'bg-amber-500' },
+  { key: 'quote',       label: 'Счёт',       color: 'bg-purple-500' },
+  { key: 'payment',     label: 'Оплата',     color: 'bg-emerald-500' },
+  { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
 ];
 
 const CLIENT_STATUSES = [
-  { key: 'new',         label: 'РќРѕРІС‹Р№' },
-  { key: 'in_progress', label: 'Р’ СЂР°Р±РѕС‚Рµ' },
-  { key: 'deal',        label: 'РЎРґРµР»РєР°' },
-  { key: 'paid',        label: 'РћРїР»Р°С‡РµРЅ' },
-  { key: 'closed',      label: 'Р—Р°РєСЂС‹С‚' },
+  { key: 'new',         label: 'Новый' },
+  { key: 'in_progress', label: 'В работе' },
+  { key: 'deal',        label: 'Сделка' },
+  { key: 'paid',        label: 'Оплачен' },
+  { key: 'closed',      label: 'Закрыт' },
 ];
 
 interface LastStageInfo {
@@ -67,7 +67,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
       setStage(stages[0].current_stage);
       setLastStageInfo({
         stage: stages[0].current_stage,
-        employeeName: stages[0].employee?.name ?? 'РќРµРёР·РІРµСЃС‚РЅРѕ',
+        employeeName: stages[0].employee?.name ?? 'Неизвестно',
         changedAt: stages[0].moved_to_stage_at,
       });
     }
@@ -86,9 +86,9 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     const newIdx = STAGES.findIndex(s => s.key === newStage);
     const newLabel = STAGES.find(s => s.key === newStage)?.label ?? newStage;
 
-    // РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїСЂРё РѕС‚РєР°С‚Рµ РЅР°Р·Р°Рґ
+    // Подтверждение при откате назад
     if (newIdx < currentIdx) {
-      const confirmed = window.confirm(`Р’РµСЂРЅСѓС‚СЊ СЌС‚Р°Рї РЅР°Р·Р°Рґ РЅР° "${newLabel}"? Р­С‚Рѕ РЅРµР¶РµР»Р°С‚РµР»СЊРЅРѕ вЂ” СЌС‚Р°РїС‹ РґРѕР»Р¶РЅС‹ РёРґС‚Рё РІРїРµСЂС‘Рґ.`);
+      const confirmed = window.confirm(`Вернуть этап назад на "${newLabel}"? Это нежелательно — этапы должны идти вперёд.`);
       if (!confirmed) return;
     }
 
@@ -103,15 +103,15 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     });
 
     if (error) {
-      showToast('РћС€РёР±РєР° РїСЂРё СЃРјРµРЅРµ СЌС‚Р°РїР°');
-      setStage(stage); // РѕС‚РєР°С‚
+      showToast('Ошибка при смене этапа');
+      setStage(stage); // откат
     } else {
       setLastStageInfo({
         stage: newStage,
         employeeName: employee.name,
         changedAt: new Date().toISOString(),
       });
-      showToast(`Р­С‚Р°Рї РёР·РјРµРЅС‘РЅ: ${newLabel}`);
+      showToast(`Этап изменён: ${newLabel}`);
     }
     setStageChanging(false);
   };
@@ -168,19 +168,19 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
         </div>
       )}
 
-      {/* РљР»РёРµРЅС‚ */}
+      {/* Клиент */}
       <div className="p-4 border-b border-white/5">
-        <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">РљР»РёРµРЅС‚</p>
+        <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Клиент</p>
         <div className="space-y-2">
           {editingName ? (
             <div className="flex gap-2">
               <input autoFocus type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveName()} className="flex-1 bg-[#202c33] text-[#d1d7db] rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
-              <button onClick={saveName} className="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1.5 rounded-lg">вњ“</button>
-              <button onClick={() => setEditingName(false)} className="text-xs bg-white/5 text-[#8696a0] px-2 py-1.5 rounded-lg">вњ•</button>
+              <button onClick={saveName} className="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1.5 rounded-lg">?</button>
+              <button onClick={() => setEditingName(false)} className="text-xs bg-white/5 text-[#8696a0] px-2 py-1.5 rounded-lg">?</button>
             </div>
           ) : (
             <button onClick={() => setEditingName(true)} className="w-full text-left flex items-center gap-2 group">
-              <p className="text-sm font-medium text-[#e9edef] flex-1">{client?.name || 'Р‘РµР· РёРјРµРЅРё'}</p>
+              <p className="text-sm font-medium text-[#e9edef] flex-1">{client?.name || 'Без имени'}</p>
               <svg className="w-3 h-3 text-[#8696a0] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </button>
           )}
@@ -194,9 +194,9 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
         </div>
       </div>
 
-      {/* Р­С‚Р°Рї СЃРґРµР»РєРё */}
+      {/* Этап сделки */}
       <div className="p-4 border-b border-white/5">
-        <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Р­С‚Р°Рї СЃРґРµР»РєРё</p>
+        <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Этап сделки</p>
         <div className="flex flex-col gap-1.5">
           {STAGES.map((s, i) => (
             <button
@@ -215,37 +215,37 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
           ))}
         </div>
 
-        {/* РљС‚Рѕ Рё РєРѕРіРґР° РјРµРЅСЏР» */}
+        {/* Кто и когда менял */}
         {lastStageInfo && (
           <p className="text-[10px] text-[#8696a0] mt-3 leading-relaxed">
-            РР·РјРµРЅРёР»: <span className="text-[#d1d7db]">{lastStageInfo.employeeName}</span>
-            {' В· '}{formatDate(lastStageInfo.changedAt)}
+            Изменил: <span className="text-[#d1d7db]">{lastStageInfo.employeeName}</span>
+            {' · '}{formatDate(lastStageInfo.changedAt)}
           </p>
         )}
       </div>
 
-      {/* РўР°Р±С‹ */}
+      {/* Табы */}
       <div className="flex border-b border-white/5">
         <button onClick={() => setTab('tasks')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'tasks' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
-          Р—Р°РґР°С‡Рё ({tasks.filter(t => t.status === 'open').length})
+          Задачи ({tasks.filter(t => t.status === 'open').length})
         </button>
         <button onClick={() => setTab('comments')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'comments' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
-          Р—Р°РјРµС‚РєРё ({comments.length})
+          Заметки ({comments.length})
         </button>
         <button onClick={() => setTab('reminders')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'reminders' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
-          рџ””
+          ??
         </button>
       </div>
 
-      {/* РљРѕРЅС‚РµРЅС‚ С‚Р°Р±РѕРІ */}
+      {/* Контент табов */}
       <div className="flex-1">
         {tab === 'tasks' && (
           <div className="p-4 space-y-2">
             <div className="flex gap-2">
-              <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} placeholder="РќРѕРІР°СЏ Р·Р°РґР°С‡Р°..." className="flex-1 bg-[#202c33] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
+              <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} placeholder="Новая задача..." className="flex-1 bg-[#202c33] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
               <button onClick={addTask} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 rounded-lg text-xs transition-colors">+</button>
             </div>
-            {tasks.length === 0 && <p className="text-xs text-[#8696a0] text-center py-4">РќРµС‚ Р·Р°РґР°С‡</p>}
+            {tasks.length === 0 && <p className="text-xs text-[#8696a0] text-center py-4">Нет задач</p>}
             {tasks.map((task) => (
               <div key={task.id} className="flex items-start gap-2 bg-[#202c33] rounded-lg px-3 py-2">
                 <button onClick={() => toggleTask(task)} className={`w-4 h-4 rounded flex-shrink-0 mt-0.5 border transition-colors ${task.status === 'completed' ? 'bg-emerald-500 border-emerald-500' : 'border-[#8696a0]'}`}>
@@ -259,14 +259,14 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
         {tab === 'comments' && (
           <div className="p-4 space-y-2">
             <div className="flex gap-2">
-              <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addComment()} placeholder="Р”РѕР±Р°РІРёС‚СЊ Р·Р°РјРµС‚РєСѓ..." className="flex-1 bg-[#202c33] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
+              <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addComment()} placeholder="Добавить заметку..." className="flex-1 bg-[#202c33] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
               <button onClick={addComment} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 rounded-lg text-xs transition-colors">+</button>
             </div>
-            {comments.length === 0 && <p className="text-xs text-[#8696a0] text-center py-4">РќРµС‚ Р·Р°РјРµС‚РѕРє</p>}
+            {comments.length === 0 && <p className="text-xs text-[#8696a0] text-center py-4">Нет заметок</p>}
             {comments.map((comment) => (
               <div key={comment.id} className="bg-[#202c33] rounded-lg px-3 py-2">
                 <p className="text-xs text-[#d1d7db]">{comment.text}</p>
-                <p className="text-[10px] text-[#8696a0] mt-1">{comment.employee?.name} В· {new Date(comment.created_at).toLocaleDateString('ru-RU')}</p>
+                <p className="text-[10px] text-[#8696a0] mt-1">{comment.employee?.name} · {new Date(comment.created_at).toLocaleDateString('ru-RU')}</p>
               </div>
             ))}
           </div>
