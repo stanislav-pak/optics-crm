@@ -31,14 +31,28 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
     fetchMedia();
   }, [chat.id]);
 
-  // Блокируем свайп пока панель открыта
+  // Блокируем только горизонтальный свайп вправо (навигация назад)
   useEffect(() => {
-    const prevent = (e: TouchEvent) => e.stopPropagation();
-    document.addEventListener('touchstart', prevent, { capture: true });
-    document.addEventListener('touchend', prevent, { capture: true });
+    let startX = 0, startY = 0;
+    const onStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = Math.abs(e.changedTouches[0].clientY - startY);
+      // Блокируем только правый свайп (не скролл)
+      if (dx > 30 && dy < 80) {
+        e.stopPropagation();
+        // Свайп вправо внутри панели — закрываем панель
+        onClose();
+      }
+    };
+    document.addEventListener('touchstart', onStart, { passive: true, capture: true });
+    document.addEventListener('touchend', onEnd, { capture: true });
     return () => {
-      document.removeEventListener('touchstart', prevent, { capture: true });
-      document.removeEventListener('touchend', prevent, { capture: true });
+      document.removeEventListener('touchstart', onStart, { capture: true });
+      document.removeEventListener('touchend', onEnd, { capture: true });
     };
   }, []);
 
