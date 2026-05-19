@@ -239,17 +239,8 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                         </p>
                       )}
                     </button>
-                      <div className="mt-1.5" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="number"
-                          placeholder="Сумма сделки..."
-                          defaultValue={chat.deal_amount ?? ""}
-                          onBlur={async (e) => {
-                            const val = e.target.value ? parseFloat(e.target.value) : null;
-                            await supabase.from("chats").update({ deal_amount: val }).eq("id", chat.id);
-                          }}
-                          className="w-full bg-white/5 text-[#d1d7db] text-[10px] rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
-                        />
+                      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                        <input type="number" placeholder="Сумма сделки..." defaultValue={chat.deal_amount ?? ""} onBlur={async (e) => { const val = e.target.value ? parseFloat(e.target.value) : null; await supabase.from("chats").update({ deal_amount: val }).eq("id", chat.id); }} className="w-full bg-white/5 text-[#d1d7db] text-[10px] rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]" />
                       </div>
                   ))}
                 </div>
