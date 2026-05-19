@@ -1,7 +1,8 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { CRMSidebar } from '../CRM/CRMSidebar';
+import { ChatInfoPanel } from './ChatInfoPanel';
 import type { Chat, Message } from '../../types';
 
 interface ChatWindowProps {
@@ -37,6 +38,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [mediaModal, setMediaModal] = useState<MediaModal | null>(null);
   const [showCRM, setShowCRM] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,7 +182,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             <div className="flex items-center justify-between px-4 py-3 bg-black/50">
               <p className="text-white text-sm truncate">{mediaModal.name || 'Медиафайл'}</p>
               <button className="text-white text-2xl leading-none" onClick={() => setMediaModal(null)}>✕</button>
-            </div>
+            </button>
             <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
               {mediaModal.type === 'image' && (
                 <img src={mediaModal.url} alt="фото" className="max-w-full max-h-full object-contain rounded-lg" />
@@ -202,16 +204,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       <p className="text-white mb-2">{mediaModal.name}</p>
                       <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
-                    </div>
+                    </button>
                   )}
                   <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer"
                     className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
                     ⬇ Скачать файл
                   </a>
-                </div>
+                </button>
               )}
-            </div>
-          </div>
+            </button>
+          </button>
         )}
 
         {/* Header */}
@@ -223,14 +225,14 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           )}
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
             {client?.name ? client.name[0].toUpperCase() : '#'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[#e9edef] truncate">{client?.name || client?.phone || 'Клиент'}</p>
+          </button>
+          <button onClick={() => setShowInfo(true)} className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-medium text-[#e9edef] truncate hover:text-emerald-400 transition-colors">{client?.name || client?.phone || 'Клиент'}</p>
             <div className="flex items-center gap-2">
               <p className="text-xs text-[#8696a0]">{client?.phone}</p>
               {isArchived && <span className="text-[10px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-full">Архив</span>}
-            </div>
-          </div>
+            </button>
+          </button>
 
           {/* CRM toggle button */}
           <button
@@ -251,7 +253,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
             )}
           </button>
-        </div>
+        </button>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: '#0b141a' }}>
@@ -267,7 +269,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                     <div>
                       <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
                       <p className={`text-[10px] px-3 pb-2 mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </div>
+                    </button>
                   ) : msg.message_type === 'file' && msg.media_url ? (
                     <div className="px-3 py-2">
                       <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)}
@@ -280,19 +282,19 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                         <span className="text-xs">{msg.content}</span>
                       </button>
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </div>
+                    </button>
                   ) : (
                     <div className="px-3 py-2">
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </div>
+                    </button>
                   )}
-                </div>
-              </div>
+                </button>
+              </button>
             );
           })}
           <div ref={bottomRef} />
-        </div>
+        </button>
 
         {/* Pending files preview */}
         {pendingFiles.length > 0 && (
@@ -304,16 +306,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                 ) : pf.type === 'video' ? (
                   <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                  </div>
+                  </button>
                 ) : (
                   <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
+                  </button>
                 )}
                 <button onClick={() => removePending(i)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">✕</button>
-              </div>
+              </button>
             ))}
-          </div>
+          </button>
         )}
 
         {/* Input */}
@@ -334,13 +336,14 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
             <svg className="w-5 h-5 text-white rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
           </button>
-        </div>
+        </button>
 
-      </div>
+      </button>
 
       {/* CRM Sidebar — показывается по кнопке */}
       {showCRM && <CRMSidebar chat={chat} />}
+      {showInfo && <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)} onArchive={() => { setShowInfo(false); onArchive?.(); }} />}
 
-    </div>
+    </button>
   );
 }
