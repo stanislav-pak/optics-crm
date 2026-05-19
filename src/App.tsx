@@ -202,10 +202,10 @@ function AppContent() {
 
   return (
     <AuthContext.Provider value={{ employee, loading, refetch }}>
-      <div className="flex h-screen bg-[#0b141a]">
-        {Sidebar}
+      <div className="flex h-screen bg-[#0b141a]">        {Sidebar}
         {MainArea}
       </div>
+      {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
     </AuthContext.Provider>
   );
 }
@@ -213,3 +213,4 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
