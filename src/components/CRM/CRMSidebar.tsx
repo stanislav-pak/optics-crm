@@ -10,23 +10,28 @@ interface CRMSidebarProps {
 }
 
 const STAGES = [
-  { key: 'new', label: 'Новый' },
-  { key: 'negotiation', label: 'Переговоры' },
-  { key: 'quote', label: 'Счёт' },
-  { key: 'payment', label: 'Оплата' },
-  { key: 'closed', label: 'Закрыт' },
+  { key: 'new',         label: 'Новый',      color: 'bg-blue-500' },
+  { key: 'negotiation', label: 'Переговоры', color: 'bg-amber-500' },
+  { key: 'quote',       label: 'Счёт',       color: 'bg-purple-500' },
+  { key: 'payment',     label: 'Оплата',     color: 'bg-emerald-500' },
+  { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
 ];
 
 const CLIENT_STATUSES = [
-  { key: 'new', label: 'Новый' },
+  { key: 'new',         label: 'Новый' },
   { key: 'in_progress', label: 'В работе' },
-  { key: 'deal', label: 'Сделка' },
-  { key: 'paid', label: 'Оплачен' },
-  { key: 'closed', label: 'Закрыт' },
+  { key: 'deal',        label: 'Сделка' },
+  { key: 'paid',        label: 'Оплачен' },
+  { key: 'closed',      label: 'Закрыт' },
 ];
 
-export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
+interface LastStageInfo {
+  stage: string;
+  employeeName: string;
+  changedAt: string;
+}
 
+export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   const { employee } = useAuth();
   const [stage, setStage] = useState<string>('new');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -37,15 +42,35 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   const [newTask, setNewTask] = useState('');
   const [newComment, setNewComment] = useState('');
   const [tab, setTab] = useState<'tasks' | 'comments' | 'reminders'>('tasks');
+  const [lastStageInfo, setLastStageInfo] = useState<LastStageInfo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [stageChanging, setStageChanging] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchData = async () => {
     const [{ data: stages }, { data: tasksData }, { data: commentsData }, { data: clientData }] = await Promise.all([
-      supabase.from('deal_stages').select('*').eq('chat_id', chat.id).order('moved_to_stage_at', { ascending: false }).limit(1),
+      supabase.from('deal_stages')
+        .select('*, employee:employees(name)')
+        .eq('chat_id', chat.id)
+        .order('moved_to_stage_at', { ascending: false })
+        .limit(1),
       supabase.from('tasks').select('*').eq('chat_id', chat.id).order('created_at', { ascending: false }),
       supabase.from('comments').select('*, employee:employees(name)').eq('chat_id', chat.id).order('created_at', { ascending: false }),
       supabase.from('clients').select('*').eq('id', chat.client_id).single(),
     ]);
-    if (stages?.[0]) setStage(stages[0].current_stage);
+
+    if (stages?.[0]) {
+      setStage(stages[0].current_stage);
+      setLastStageInfo({
+        stage: stages[0].current_stage,
+        employeeName: stages[0].employee?.name ?? 'Неизвестно',
+        changedAt: stages[0].moved_to_stage_at,
+      });
+    }
     setTasks(tasksData ?? []);
     setComments(commentsData ?? []);
     if (clientData) { setClient(clientData); setClientName(clientData.name ?? ''); }
@@ -54,9 +79,41 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   const notifyUpdate = () => window.dispatchEvent(new Event('client-updated'));
 
   const changeStage = async (newStage: string) => {
-    if (!employee) return;
+    if (!employee || stageChanging) return;
+    if (newStage === stage) return;
+
+    const currentIdx = STAGES.findIndex(s => s.key === stage);
+    const newIdx = STAGES.findIndex(s => s.key === newStage);
+    const newLabel = STAGES.find(s => s.key === newStage)?.label ?? newStage;
+
+    // Подтверждение при откате назад
+    if (newIdx < currentIdx) {
+      const confirmed = window.confirm(`Вернуть этап назад на "${newLabel}"? Это нежелательно — этапы должны идти вперёд.`);
+      if (!confirmed) return;
+    }
+
+    setStageChanging(true);
     setStage(newStage);
-    await supabase.from('deal_stages').insert({ chat_id: chat.id, current_stage: newStage, moved_to_stage_at: new Date().toISOString(), moved_by_id: employee.id });
+
+    const { error } = await supabase.from('deal_stages').insert({
+      chat_id: chat.id,
+      current_stage: newStage,
+      moved_to_stage_at: new Date().toISOString(),
+      moved_by_id: employee.id,
+    });
+
+    if (error) {
+      showToast('Ошибка при смене этапа');
+      setStage(stage); // откат
+    } else {
+      setLastStageInfo({
+        stage: newStage,
+        employeeName: employee.name,
+        changedAt: new Date().toISOString(),
+      });
+      showToast(`Этап изменён: ${newLabel}`);
+    }
+    setStageChanging(false);
   };
 
   const saveName = async () => {
@@ -82,7 +139,10 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   };
 
   const toggleTask = async (task: Task) => {
-    await supabase.from('tasks').update({ status: task.status === 'open' ? 'completed' : 'open', completed_at: task.status === 'open' ? new Date().toISOString() : null }).eq('id', task.id);
+    await supabase.from('tasks').update({
+      status: task.status === 'open' ? 'completed' : 'open',
+      completed_at: task.status === 'open' ? new Date().toISOString() : null,
+    }).eq('id', task.id);
     fetchData();
   };
 
@@ -93,10 +153,22 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     fetchData();
   };
 
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
   useEffect(() => { fetchData(); }, [chat.id]);
 
   return (
-    <div className="w-full md:w-72 md:flex-shrink-0 flex flex-col md:border-l border-white/5 bg-[#111b21] overflow-y-auto h-full">
+    <div className="w-full md:w-72 md:flex-shrink-0 flex flex-col md:border-l border-white/5 bg-[#111b21] overflow-y-auto h-full relative">
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-xs px-4 py-2 rounded-full shadow-lg animate-pulse">
+          {toast}
+        </div>
+      )}
+
+      {/* Клиент */}
       <div className="p-4 border-b border-white/5">
         <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Клиент</p>
         <div className="space-y-2">
@@ -121,22 +193,51 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
           </select>
         </div>
       </div>
+
+      {/* Этап сделки */}
       <div className="p-4 border-b border-white/5">
         <p className="text-xs text-[#8696a0] mb-3 font-medium uppercase tracking-wide">Этап сделки</p>
         <div className="flex flex-col gap-1.5">
           {STAGES.map((s, i) => (
-            <button key={s.key} onClick={() => changeStage(s.key)} className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${stage === s.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'}`}>
+            <button
+              key={s.key}
+              onClick={() => changeStage(s.key)}
+              disabled={stageChanging}
+              className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 ${
+                stage === s.key
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
+              }`}
+            >
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${stage === s.key ? 'bg-white/20' : 'bg-white/10'}`}>{i + 1}</span>
               {s.label}
             </button>
           ))}
         </div>
+
+        {/* Кто и когда менял */}
+        {lastStageInfo && (
+          <p className="text-[10px] text-[#8696a0] mt-3 leading-relaxed">
+            Изменил: <span className="text-[#d1d7db]">{lastStageInfo.employeeName}</span>
+            {' · '}{formatDate(lastStageInfo.changedAt)}
+          </p>
+        )}
       </div>
+
+      {/* Табы */}
       <div className="flex border-b border-white/5">
-        <button onClick={() => setTab('tasks')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'tasks' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>Задачи ({tasks.filter(t => t.status === 'open').length})</button>
-        <button onClick={() => setTab('comments')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'comments' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>Заметки ({comments.length})</button>
-        <button onClick={() => setTab('reminders')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'reminders' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>🔔</button>
+        <button onClick={() => setTab('tasks')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'tasks' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
+          Задачи ({tasks.filter(t => t.status === 'open').length})
+        </button>
+        <button onClick={() => setTab('comments')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'comments' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
+          Заметки ({comments.length})
+        </button>
+        <button onClick={() => setTab('reminders')} className={`flex-1 py-2 text-[10px] font-medium transition-colors ${tab === 'reminders' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-[#8696a0] hover:text-[#d1d7db]'}`}>
+          🔔
+        </button>
       </div>
+
+      {/* Контент табов */}
       <div className="flex-1">
         {tab === 'tasks' && (
           <div className="p-4 space-y-2">
