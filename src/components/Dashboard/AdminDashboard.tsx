@@ -3,11 +3,11 @@ import { supabase } from '../../services/supabase';
 import type { Chat } from '../../types';
 
 const STAGES = [
-  { key: 'new',         label: 'Новый',      color: 'bg-blue-500' },
-  { key: 'negotiation', label: 'Переговоры', color: 'bg-amber-500' },
-  { key: 'quote',       label: 'Счёт',       color: 'bg-purple-500' },
-  { key: 'payment',     label: 'Оплата',     color: 'bg-emerald-500' },
-  { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
+  { key: 'new',         label: 'Новый',      color: 'bg-blue-500',    dot: 'bg-blue-500' },
+  { key: 'negotiation', label: 'Переговоры', color: 'bg-amber-500',   dot: 'bg-amber-500' },
+  { key: 'quote',       label: 'Счёт',       color: 'bg-purple-500',  dot: 'bg-purple-500' },
+  { key: 'payment',     label: 'Оплата',     color: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500',    dot: 'bg-gray-500' },
 ];
 
 interface ChatWithStage extends Chat {
@@ -31,6 +31,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [activeStage, setActiveStage] = useState('new');
 
   const fetchChats = async () => {
     const { data } = await supabase
@@ -86,7 +87,9 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
   const totalChats = filteredChats.length;
   const closedChats = filteredChats.filter(c => c.current_stage === 'closed').length;
   const conversionRate = totalChats > 0 ? Math.round((closedChats / totalChats) * 100) : 0;
-  const totalAmount = filteredChats.reduce((sum, c) => sum + (c.deal_amount ?? 0), 0);
+
+  const activeStageChats = filteredChats.filter(c => c.current_stage === activeStage);
+  const activeStageInfo = STAGES.find(s => s.key === activeStage)!;
 
   async function updateAmount(chatId: string, val: number | null) {
     await supabase.from('chats').update({ deal_amount: val }).eq('id', chatId);
@@ -101,7 +104,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0b141a]" style={{ overflow: 'hidden', maxWidth: '100vw', width: '100%' }}>
+    <div className="flex-1 flex flex-col bg-[#0b141a] overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-[#202c33] border-b border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -113,7 +116,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="relative flex-1 min-w-[100px]">
+          <div className="relative col-span-2">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -121,97 +124,96 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
               className="w-full bg-[#2a3942] text-[#d1d7db] text-xs rounded-lg pl-8 pr-3 py-1.5 outline-none border border-white/5 placeholder-[#8696a0]" />
           </div>
           <select value={filterBranch} onChange={(e) => { setFilterBranch(e.target.value); setFilterEmployee('all'); }}
-            className="bg-[#2a3942] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5 flex-1 min-w-[100px]">
+            className="bg-[#2a3942] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5 w-full">
             <option value="all">Все филиалы</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}
-            className="bg-[#2a3942] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5 flex-1 min-w-[100px]">
+            className="bg-[#2a3942] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5 w-full">
             <option value="all">Все менеджеры</option>
             {filteredEmployees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
-          {(filterBranch !== 'all' || filterEmployee !== 'all' || search) && (
-            <button onClick={() => { setFilterBranch('all'); setFilterEmployee('all'); setSearch(''); }}
-              className="text-xs text-[#8696a0] hover:text-[#e9edef] px-2 py-1.5 flex-shrink-0">
-              Сбросить
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Kanban */}
-      <div className="flex-1 min-h-0 p-3 kanban-scroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-        <div className="flex gap-3 h-full">
-          {STAGES.map((stage) => {
-            const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
-            const stageTotal = stageChats.reduce((sum, c) => sum + (c.deal_amount ?? 0), 0);
-            return (
-              <div key={stage.key} className="flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden" style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-                <div className="px-3 py-2.5 flex items-center gap-2 border-b border-white/5 flex-shrink-0">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.color}`} />
-                  <span className="text-xs font-medium text-[#e9edef] flex-1 truncate">{stage.label}</span>
-                  <span className="text-xs text-[#8696a0] bg-white/5 px-1.5 py-0.5 rounded-full flex-shrink-0">{stageChats.length}</span>
+      {/* Current stage label */}
+      <div className="px-4 py-2 bg-[#161e25] flex items-center gap-2 flex-shrink-0">
+        <span className={`w-2.5 h-2.5 rounded-full ${activeStageInfo.dot}`} />
+        <span className="text-sm font-semibold text-[#e9edef]">{activeStageInfo.label}</span>
+        <span className="text-xs text-[#8696a0] bg-white/5 px-2 py-0.5 rounded-full ml-1">{activeStageChats.length}</span>
+      </div>
+
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {activeStageChats.length === 0 && (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-sm text-[#8696a0]">Нет чатов в этом статусе</p>
+          </div>
+        )}
+        {activeStageChats.map((chat) => (
+          <div key={chat.id} className={`rounded-xl overflow-hidden transition-colors ${
+            activeChatId === chat.id ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-[#202c33]'
+          }`}>
+            <button onClick={() => onChatSelect(chat)} className="w-full text-left p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                  {chat.client?.name ? chat.client.name[0].toUpperCase() : '#'}
                 </div>
-                {stageTotal > 0 && (
-                  <div className="px-3 py-1 border-b border-white/5 flex-shrink-0">
-                    <p className="text-[10px] text-emerald-400 font-medium">{stageTotal.toLocaleString('ru-RU')} ₸</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#e9edef] truncate">
+                    {chat.client?.name || chat.client?.phone}
+                  </p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <svg className="w-3 h-3 text-[#8696a0] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <p className="text-xs text-[#8696a0] truncate">{chat.employee?.name}</p>
                   </div>
-                )}
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                  {stageChats.length === 0 && (
-                    <p className="text-xs text-[#8696a0] text-center py-6">Нет чатов</p>
-                  )}
-                  {stageChats.map((chat) => (
-                    <div key={chat.id} className={`rounded-xl overflow-hidden transition-colors ${
-                      activeChatId === chat.id ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-[#2a3942]'
-                    }`}>
-                      <button onClick={() => onChatSelect(chat)} className="w-full text-left p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                            {chat.client?.name ? chat.client.name[0].toUpperCase() : '#'}
-                          </div>
-                          <p className="text-xs font-semibold text-[#e9edef] leading-tight line-clamp-2 flex-1">
-                            {chat.client?.name || chat.client?.phone}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 mb-1">
-                          <svg className="w-3 h-3 text-[#8696a0] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <p className="text-[10px] text-[#8696a0] truncate">{chat.employee?.name}</p>
-                        </div>
-                        {chat.last_message_at && (
-                          <p className="text-[10px] text-[#8696a0]">
-                            {new Date(chat.last_message_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                          </p>
-                        )}
-                      </button>
-                      <div className="px-3 pb-3">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Сумма сделки..."
-                          defaultValue={chat.deal_amount ?? ''}
-                          onBlur={(e) => {
-                            const val = e.target.value ? parseFloat(e.target.value) : null;
-                            updateAmount(chat.id, val);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full bg-white/5 text-[#d1d7db] rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
-                          style={{ fontSize: '16px' }}
-                        />
-                      </div>
-                    </div>
-                  ))}
                 </div>
+                {chat.last_message_at && (
+                  <p className="text-xs text-[#8696a0] flex-shrink-0">
+                    {new Date(chat.last_message_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                  </p>
+                )}
               </div>
-            );
-          })}
-        </div>
+            </button>
+            <div className="px-4 pb-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Сумма сделки..."
+                defaultValue={chat.deal_amount ?? ''}
+                onBlur={(e) => {
+                  const val = e.target.value ? parseFloat(e.target.value) : null;
+                  updateAmount(chat.id, val);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full bg-white/5 text-[#d1d7db] rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stage tabs */}
+      <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
+        {STAGES.map((stage) => {
+          const count = filteredChats.filter(c => c.current_stage === stage.key).length;
+          const isActive = activeStage === stage.key;
+          return (
+            <button
+              key={stage.key}
+              onClick={() => setActiveStage(stage.key)}
+              className={`flex-1 py-2.5 flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-white' : 'text-[#8696a0]'}`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${stage.dot} ${isActive ? 'opacity-100' : 'opacity-40'}`} />
+              <span className="text-[9px] font-medium leading-none truncate px-0.5">{stage.label}</span>
+              <span className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-[#8696a0]'}`}>{count}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
-
-
-
