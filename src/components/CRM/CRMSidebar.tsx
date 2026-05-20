@@ -273,3 +273,4 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     </div>
   );
 }
+
