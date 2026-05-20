@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useChats } from '../../hooks/useChats';
 import type { Chat, ChatListFilters } from '../../types';
 
@@ -11,11 +11,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  new: 'РќРѕРІС‹Р№',
-  in_progress: 'Р’ СЂР°Р±РѕС‚Рµ',
-  deal: 'РЎРґРµР»РєР°',
-  paid: 'РћРїР»Р°С‡РµРЅ',
-  closed: 'Р—Р°РєСЂС‹С‚',
+  new: 'Новый',
+  in_progress: 'В работе',
+  deal: 'Сделка',
+  paid: 'Оплачен',
+  closed: 'Закрыт',
 };
 
 function formatTime(dateStr?: string): string {
@@ -64,7 +64,7 @@ function ChatItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <span className="font-medium text-[#e9edef] text-sm truncate">
-            {client?.name || client?.phone || 'РќРµРёР·РІРµСЃС‚РЅС‹Р№'}
+            {client?.name || client?.phone || 'Неизвестный'}
           </span>
           <span className="text-xs text-[#8696a0] flex-shrink-0 ml-2">
             {formatTime(chat.last_message_at)}
@@ -72,7 +72,7 @@ function ChatItem({
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-[#8696a0] truncate">
-            {client?.status ? STATUS_LABELS[client.status] : 'вЂ”'}
+            {client?.status ? STATUS_LABELS[client.status] : '—'}
           </span>
           {unread > 0 && (
             <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] bg-emerald-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
@@ -105,7 +105,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
     <div className="flex flex-col h-full bg-[#111b21] select-none">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-        <h1 className="text-[#e9edef] font-semibold text-base tracking-wide">Р§Р°С‚С‹</h1>
+        <h1 className="text-[#e9edef] font-semibold text-base tracking-wide">Чаты</h1>
         <span className="text-xs text-[#8696a0] bg-white/5 px-2 py-0.5 rounded-full">
           {chats.length}
         </span>
@@ -121,7 +121,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="РџРѕРёСЃРє РїРѕ РёРјРµРЅРё РёР»Рё РЅРѕРјРµСЂСѓ"
+            placeholder="Поиск по имени или номеру"
             className="flex-1 bg-transparent py-2 text-sm text-[#d1d7db] placeholder-[#8696a0] outline-none"
           />
           {search && (
@@ -146,7 +146,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
                 : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
             }`}
           >
-            {s === undefined ? 'Р’СЃРµ' : s === 'active' ? 'РђРєС‚РёРІРЅС‹Рµ' : 'РђСЂС…РёРІ'}
+            {s === undefined ? 'Все' : s === 'active' ? 'Активные' : 'Архив'}
           </button>
         ))}
       </div>
@@ -171,7 +171,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <p className="text-sm text-[#8696a0]">
-              {search ? 'РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ' : 'РќРµС‚ Р°РєС‚РёРІРЅС‹С… С‡Р°С‚РѕРІ'}
+              {search ? 'Ничего не найдено' : 'Нет активных чатов'}
             </p>
           </div>
         )}
@@ -189,4 +189,3 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
     </div>
   );
 }
-
