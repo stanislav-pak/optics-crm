@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { AuthContext, useAuthProvider } from './hooks/useAuth';
 import { supabase } from './services/supabase';
 import { LoginForm } from './components/Auth/LoginForm';
@@ -58,8 +58,8 @@ function AppContent() {
         const view = mobileViewRef.current;
         const chat = activeChatRef.current;
         if (view === 'crm') setMobileView('chat');
-        else if (view === 'chat' && chat) handleBack();
-        else if (view === 'main') handleBackToList();
+        else if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
+        else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -267,3 +267,5 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
+
