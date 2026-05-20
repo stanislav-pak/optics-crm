@@ -63,7 +63,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
       supabase.from('clients').select('*').eq('id', chat.client_id).single(),
     ]);
 
-    if (stages?.[0]) {
+    if (stages?.[0] && employee?.role !== 'admin') {
       setStage(stages[0].current_stage);
       setLastStageInfo({
         stage: stages[0].current_stage,
@@ -264,4 +264,5 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     </div>
   );
 }
+
 
