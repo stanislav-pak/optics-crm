@@ -11,8 +11,8 @@ interface CRMSidebarProps {
 
 const STAGES = [
   { key: 'new',         label: 'Новый',      color: 'bg-blue-500' },
-  { key: 'negotiation', label: 'Переговоры', color: 'bg-amber-500' },
-  { key: 'quote',       label: 'Счёт',       color: 'bg-purple-500' },
+  { key: 'negotiation', label: 'В работе', color: 'bg-amber-500' },
+  { key: 'quote',       label: 'Оплата',       color: 'bg-purple-500' },
   { key: 'payment',     label: 'Оплата',     color: 'bg-emerald-500' },
   { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
 ];
