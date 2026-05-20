@@ -41,7 +41,7 @@ function AppContent() {
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm' | 'main' | 'manager-crm'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm'>('list');
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
@@ -63,8 +63,7 @@ function AppContent() {
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
         const chat = activeChatRef.current;
-        if (view === 'crm') setMobileView('chat');
-        else if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
+        if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
         else if (view === 'manager-crm') setMobileView('list');
       }
@@ -176,7 +175,7 @@ function AppContent() {
       <div className="flex-1 overflow-hidden">
         <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} />
       </div>
-      {/* Нижний таб-бар для менеджера на мобиле */}
+      {/* Нижний таб-бар только для менеджера на мобиле */}
       {isManager && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
           <button
@@ -216,33 +215,9 @@ function AppContent() {
       ) : activeChat ? (
         <>
           <div className="flex-1 flex flex-col overflow-hidden">
-            {isMobile ? (
-              <>
-                <div className="flex-1 overflow-hidden flex flex-col">
-                  {mobileView === 'crm' ? (
-                    <CRMSidebar chat={activeChat} onBack={() => setMobileView('chat')} />
-                  ) : (
-                    <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={handleBack} />
-                  )}
-                </div>
-                <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
-                  <button onClick={() => setMobileView('chat')}
-                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView !== 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-                    Чат
-                  </button>
-                  <button onClick={() => setMobileView('crm')}
-                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                    CRM
-                  </button>
-                </div>
-              </>
-            ) : (
-              <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={undefined} />
-            )}
+            <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={isMobile ? handleBack : undefined} />
           </div>
-          {!isMobile && <CRMSidebar chat={activeChat} onBack={() => setMobileView('chat')} />}
+          {!isMobile && <CRMSidebar chat={activeChat} />}
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
@@ -265,11 +240,10 @@ function AppContent() {
           {mobileView === 'manager-crm' && (
             <ManagerCRMPanel
               onBack={() => setMobileView('list')}
-              onChatSelect={handleChatSelect}
               employeeId={employee.id}
             />
           )}
-          {(mobileView === 'chat' || mobileView === 'crm' || mobileView === 'main') && MainArea}
+          {(mobileView === 'chat' || mobileView === 'main') && MainArea}
         </div>
         {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
       </AuthContext.Provider>
