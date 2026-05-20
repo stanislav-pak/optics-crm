@@ -255,7 +255,7 @@ function AppContent() {
 
   return (
     <AuthContext.Provider value={{ employee, loading, refetch }}>
-      <div className="fleh h-screen bg-[#0b141a]">
+      <div className="flex h-screen bg-[#0b141a]">
         {Sidebar}
         {MainArea}
       </div>
@@ -267,5 +267,6 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
 
 
