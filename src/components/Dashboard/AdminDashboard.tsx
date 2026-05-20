@@ -151,12 +151,12 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
 
       {/* Kanban — горизонтальный скролл на мобиле */}
       <div className="flex-1 p-3" style={{overflowX:`auto`,overflowY:`hidden`,width:`100%`,maxWidth:`100vw`}}>
-        <div className="flex gap-3 h-full" style={{ minWidth: `${STAGES.length * 220}px` }}>
+        <div className="flex gap-3 h-full" >
           {STAGES.map((stage) => {
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
             const stageTotal = stageChats.reduce((sum, c) => sum + (c.deal_amount ?? 0), 0);
             return (
-              <div key={stage.key} className="flex-1 min-w-[200px] flex flex-col bg-[#202c33] rounded-xl overflow-hidden">
+              <div key={stage.key} className="w-[72vw] md:w-48 flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden">
                 {/* Column header */}
                 <div className="px-3 py-2.5 flex items-center gap-2 border-b border-white/5 flex-shrink-0">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.color}`} />
@@ -226,6 +226,8 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
+
 
 
 
