@@ -146,7 +146,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
             const stageTotal = stageChats.reduce((sum, c) => sum + (c.deal_amount ?? 0), 0);
             return (
-              <div key={stage.key} className="flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden" style={{ width: '72vw', maxWidth: '260px', minWidth: '160px' }}>
+              <div key={stage.key} className="flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden" style={{ flex: '1 1 0', minWidth: 0 }}>
                 <div className="px-3 py-2.5 flex items-center gap-2 border-b border-white/5 flex-shrink-0">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.color}`} />
                   <span className="text-xs font-medium text-[#e9edef] flex-1 truncate">{stage.label}</span>
@@ -212,3 +212,4 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
