@@ -258,7 +258,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
 
       {/* Фильтр по периоду */}
       <div className="px-3 pb-2">
-        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+        <div className="grid grid-cols-5 gap-1">
           {DATE_PERIODS.map(p => (
             <button key={p.key} onClick={() => { setActivePeriod(p.key); setShowDatePicker(p.key === 'custom'); }}
               className={`flex-shrink-0 text-[10px] px-2 py-1 rounded-full transition-colors ${
@@ -290,7 +290,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
 
       {/* Status filters (non-admin) */}
       {!showAdminMobile && (
-        <div className="px-3 pb-2 flex gap-1 overflow-x-auto scrollbar-none">
+        <div className="px-3 pb-2 grid grid-cols-5 gap-1">
           {([undefined, 'active', 'archived'] as const).map((s) => (
             <button key={s ?? 'all'} onClick={() => setStatusFilter(s)}
               className={`flex-shrink-0 text-[10px] px-2 py-1 rounded-full transition-colors ${
@@ -342,3 +342,4 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
     </div>
   );
 }
+
