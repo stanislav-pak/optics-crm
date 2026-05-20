@@ -238,6 +238,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                           {new Date(chat.last_message_at).toLocaleDateString('ru-RU')}
                         </p>
                       )}
+                    </button>
                       <div className="mt-1.5" onClick={e => e.stopPropagation()}>
                         <input
                           type="number"
@@ -249,7 +250,6 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                           }}
                           className="w-full bg-white/5 text-[#d1d7db] text-[10px] rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
                         />
-                    </button>
                       </div>
                   ))}
                 </div>
