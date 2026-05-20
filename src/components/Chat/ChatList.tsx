@@ -13,7 +13,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новый',
   in_progress: 'В работе',
-  deal: 'Сделка',
+  deal: 'В ожидании оплаты',
   paid: 'Оплачен',
   closed: 'Закрыт',
 };
