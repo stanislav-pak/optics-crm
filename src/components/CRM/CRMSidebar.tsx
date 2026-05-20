@@ -195,7 +195,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
             <button
               key={s.key}
               onClick={() => changeStage(s.key)}
-              disabled={stageChanging}
+              disabled={stageChanging || employee?.role === 'admin'}
               className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 ${
                 stage === s.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
               }`}
@@ -264,3 +264,4 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     </div>
   );
 }
+
