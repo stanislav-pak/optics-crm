@@ -212,7 +212,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                             updateAmount(chat.id, val);
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full bg-white/5 text-[#d1d7db] text-[10px] rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
+                          className="w-full bg-white/5 text-[#d1d7db] text-sm rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
                         />
                       </div>
                     </div>
