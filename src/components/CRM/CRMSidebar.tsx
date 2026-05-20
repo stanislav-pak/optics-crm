@@ -73,7 +73,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     }
     setTasks(tasksData ?? []);
     setComments(commentsData ?? []);
-    if (clientData) { setClient(clientData); setClientName(clientData.name ?? ''); }
+    if (clientData) { setClient(clientData); setClientName(clientData.name ?? ''); if (employee?.role === 'admin') { const statusToStage: Record<string, string> = { new: 'new', in_progress: 'negotiation', deal: 'quote', pending_payment: 'quote', paid: 'payment', closed: 'closed' }; setStage(statusToStage[clientData.status] ?? 'new'); } }
   };
 
   const notifyUpdate = () => window.dispatchEvent(new Event('client-updated'));
@@ -264,5 +264,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     </div>
   );
 }
+
 
 
