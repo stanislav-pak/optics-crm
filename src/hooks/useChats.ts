@@ -41,6 +41,7 @@ export function useChats(filters?: ChatListFilters) {
     const channel = supabase
       .channel('chats-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchChats())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, () => fetchChats())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chats' }, () => fetchChats())
       .subscribe();
 
@@ -53,6 +54,7 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
 
 
