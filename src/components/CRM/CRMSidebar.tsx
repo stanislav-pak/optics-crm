@@ -20,7 +20,7 @@ const STAGES = [
 const STATUS_MAP: Record<string, string> = {
   new: 'new',
   negotiation: 'in_progress',
-  quote: 'in_progress',
+  quote: 'deal',
   payment: 'deal',
   closed: 'closed',
 };
