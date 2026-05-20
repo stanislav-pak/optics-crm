@@ -184,7 +184,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                 placeholder="Сумма сделки..."
                 defaultValue={chat.deal_amount ?? ''}
                 onBlur={(e) => {
-                  const val = e.target.value ? parseFloat(e.target.value) : null;
+                  const val = e.target.value ? parseFloat(e.target.value.replace(/\s/g, "")) : null;
                   updateAmount(chat.id, val);
                 }}
                 onClick={(e) => e.stopPropagation()}
