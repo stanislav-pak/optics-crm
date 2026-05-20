@@ -133,7 +133,7 @@ function AppContent() {
           {employee.role === 'admin' && (
             <>
               <button
-                onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                onClick={() => { setAdminView(`dashboard`); setActiveChat(null); if (isMobile) setMobileView(`main`); }} style={{display: isMobile ? `none` : `inline-flex`}}
                 className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('dashboard') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Dashboard"
               >
@@ -267,6 +267,7 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
+
 
 
 
