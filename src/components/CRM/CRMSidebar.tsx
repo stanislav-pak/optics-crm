@@ -21,7 +21,7 @@ const STATUS_MAP: Record<string, string> = {
   new: 'new',
   negotiation: 'in_progress',
   quote: 'deal',
-  payment: 'deal',
+  payment: 'paid',
   closed: 'closed',
 };
 
