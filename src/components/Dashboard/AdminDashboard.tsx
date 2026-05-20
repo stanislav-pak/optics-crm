@@ -200,11 +200,11 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
 
       {/* Kanban */}
       <div className="flex-1 overflow-x-auto p-4">
-        <div className="grid grid-cols-5 gap-3 h-full w-full">
+        <div className="flex gap-3 h-full min-w-max">
           {STAGES.map((stage) => {
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
             return (
-              <div key={stage.key} className="flex flex-col bg-[#202c33] rounded-xl overflow-hidden flex-shrink-0">
+              <div key={stage.key} className="w-52 flex flex-col bg-[#202c33] rounded-xl overflow-hidden flex-shrink-0">
                 <div className="px-4 py-3 flex items-center gap-2 border-b border-white/5">
                   <span className={`w-2 h-2 rounded-full ${stage.color}`} />
                   <span className="text-xs font-medium text-[#e9edef]">{stage.label}</span>
@@ -239,18 +239,6 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                         </p>
                       )}
                     </button>
-                      <div className="mt-1.5" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="number"
-                          placeholder="Сумма сделки..."
-                          defaultValue={chat.deal_amount ?? ""}
-                          onBlur={async (e) => {
-                            const val = e.target.value ? parseFloat(e.target.value) : null;
-                            await supabase.from("chats").update({ deal_amount: val }).eq("id", chat.id);
-                          }}
-                          className="w-full bg-white/5 text-[#d1d7db] text-[10px] rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500 placeholder-[#8696a0]"
-                        />
-                      </div>
                   ))}
                 </div>
               </div>
@@ -261,6 +249,4 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
-
-
 
