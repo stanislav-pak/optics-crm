@@ -34,7 +34,7 @@ export function useChats(filters?: ChatListFilters) {
   useEffect(() => {
     fetchChats();
 
-    const handleClientUpdate = () => fetchChats();
+    const handleClientUpdate = () => setTimeout(() => fetchChats(), 500);
     window.addEventListener('client-updated', handleClientUpdate);
     window.addEventListener('messages-read', fetchChats);
 
@@ -54,6 +54,7 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
+
 
 
 
