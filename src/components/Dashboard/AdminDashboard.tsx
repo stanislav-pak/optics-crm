@@ -140,7 +140,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
       </div>
 
       {/* Kanban */}
-      <div className="flex-1 min-h-0 p-3" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+      <div className="flex-1 min-h-0 p-3 kanban-scroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <div className="flex gap-3 h-full">
           {STAGES.map((stage) => {
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
