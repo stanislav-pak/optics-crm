@@ -9,6 +9,7 @@ import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
+import { ManagerCRMPanel } from './components/CRM/ManagerCRMPanel';
 import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
@@ -33,15 +34,18 @@ const ROLE_LABELS: Record<string, string> = {
 function AppContent() {
   const { employee, loading, refetch } = useAuthProvider();
   usePushNotifications(employee?.id);
+
   useEffect(() => {
     supabase.from('branches').select('id, name, city').then(({ data }) => setSidebarBranches(data ?? []));
   }, []);
+
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm' | 'main'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'crm' | 'main' | 'manager-crm'>('list');
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
+
   const swipeRef = useRef({ x: 0, y: 0 });
   const mobileViewRef = useRef(mobileView);
   useEffect(() => { mobileViewRef.current = mobileView; }, [mobileView]);
@@ -50,7 +54,9 @@ function AppContent() {
 
   useEffect(() => {
     if (!isMobile) return;
-    const onStart = (e: TouchEvent) => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+    const onStart = (e: TouchEvent) => {
+      swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    };
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - swipeRef.current.x;
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
@@ -60,11 +66,15 @@ function AppContent() {
         if (view === 'crm') setMobileView('chat');
         else if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
+        else if (view === 'manager-crm') setMobileView('list');
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
-    return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend', onEnd);
+    };
   }, [isMobile]);
 
   if (loading) {
@@ -77,16 +87,19 @@ function AppContent() {
 
   if (!employee) return <LoginForm onSuccess={refetch} />;
 
+  const isManager = employee.role === 'manager';
+  const isAdmin = employee.role === 'admin' || employee.role === 'branch_admin';
+
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
-    if (employee.role === 'admin') setAdminView('chat');
+    if (isAdmin) setAdminView('chat');
     if (isMobile) setMobileView('chat');
   };
 
   const handleBack = () => {
     setActiveChat(null);
     setMobileView('list');
-    if (employee.role === 'admin') setAdminView('dashboard');
+    if (isAdmin) setAdminView('dashboard');
   };
 
   const handleBackToList = () => {
@@ -105,10 +118,8 @@ function AppContent() {
 
   const MobilePageHeader = ({ title }: { title: string }) => (
     <div className="flex items-center gap-3 px-4 py-3 bg-[#202c33] border-b border-white/10 flex-shrink-0">
-      <button
-        onClick={handleBackToList}
-        className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform"
-      >
+      <button onClick={handleBackToList}
+        className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -130,65 +141,74 @@ function AppContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {employee.role === 'admin' && (
+          {isAdmin && (
             <>
               <button
-                onClick={() => { setAdminView(`dashboard`); setActiveChat(null); if (isMobile) setMobileView(`main`); }} style={{display: isMobile ? `none` : `inline-flex`}}
+                onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('dashboard') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                title="Dashboard"
-              >
+                style={{ display: isMobile ? 'none' : 'inline-flex' }} title="Dashboard">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
               </button>
               <button
                 onClick={() => { setAdminView('reports'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('reports') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                title="Аналитика"
-              >
+                title="Аналитика">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               </button>
               <button
                 onClick={() => { setAdminView('activity'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('activity') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                title="Активность"
-              >
+                title="Активность">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
+              <button onClick={() => setShowImport(true)}
+                className="px-2 py-1 rounded-lg transition-colors text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              </button>
             </>
-          )}
-          {employee.role === 'admin' && (
-            <button
-              onClick={() => setShowImport(true)}
-              className="px-2 py-1 rounded-lg transition-colors text-[#8696a0] hover:text-[#e9edef]"
-              title="Импорт Excel"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            </button>
           )}
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors" title="Выйти">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
         </div>
       </div>
-      {employee.role === 'admin' && <PendingManagers />}
+      {isAdmin && <PendingManagers />}
       <div className="flex-1 overflow-hidden">
         <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} />
       </div>
+      {/* Нижний таб-бар для менеджера на мобиле */}
+      {isManager && isMobile && (
+        <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
+          <button
+            onClick={() => setMobileView('list')}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'list' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+            <span className="text-[10px] font-medium">Чаты</span>
+          </button>
+          <button
+            onClick={() => setMobileView('manager-crm')}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'manager-crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            <span className="text-[10px] font-medium">CRM</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 
   const MainArea = (
     <div className="flex-1 flex overflow-hidden">
-      {employee.role === 'admin' && adminView === 'reports' ? (
+      {isAdmin && adminView === 'reports' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Аналитика" />}
           <ReportsPanel />
         </div>
-      ) : employee.role === 'admin' && adminView === 'activity' ? (
+      ) : isAdmin && adminView === 'activity' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Активность" />}
           <EmployeeActivity />
         </div>
-      ) : employee.role === 'admin' && adminView === 'dashboard' && !activeChat ? (
+      ) : isAdmin && adminView === 'dashboard' && !activeChat ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Dashboard" />}
           <AdminDashboard onChatSelect={handleChatSelect} activeChatId={activeChat?.id} />
@@ -206,17 +226,13 @@ function AppContent() {
                   )}
                 </div>
                 <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
-                  <button
-                    onClick={() => setMobileView('chat')}
-                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView !== 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}
-                  >
+                  <button onClick={() => setMobileView('chat')}
+                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView !== 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                     Чат
                   </button>
-                  <button
-                    onClick={() => setMobileView('crm')}
-                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}
-                  >
+                  <button onClick={() => setMobileView('crm')}
+                    className={`flex-1 py-2 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                     CRM
                   </button>
@@ -246,6 +262,13 @@ function AppContent() {
       <AuthContext.Provider value={{ employee, loading, refetch }}>
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
+          {mobileView === 'manager-crm' && (
+            <ManagerCRMPanel
+              onBack={() => setMobileView('list')}
+              onChatSelect={handleChatSelect}
+              employeeId={employee.id}
+            />
+          )}
           {(mobileView === 'chat' || mobileView === 'crm' || mobileView === 'main') && MainArea}
         </div>
         {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
@@ -267,7 +290,3 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
-
-
-
-
