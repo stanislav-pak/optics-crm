@@ -29,6 +29,35 @@ const STAGES = [
   { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
 ];
 
+const DATE_PERIODS = [
+  { key: 'all',   label: 'Всё время' },
+  { key: 'today', label: 'Сегодня' },
+  { key: 'week',  label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'custom', label: 'Период' },
+];
+
+function getPeriodDates(period: string, customFrom?: string, customTo?: string): { from?: Date; to?: Date } {
+  const now = new Date();
+  if (period === 'today') {
+    const from = new Date(now); from.setHours(0, 0, 0, 0);
+    const to = new Date(now); to.setHours(23, 59, 59, 999);
+    return { from, to };
+  }
+  if (period === 'week') {
+    const from = new Date(now); from.setDate(now.getDate() - 7); from.setHours(0, 0, 0, 0);
+    return { from, to: now };
+  }
+  if (period === 'month') {
+    const from = new Date(now); from.setDate(1); from.setHours(0, 0, 0, 0);
+    return { from, to: now };
+  }
+  if (period === 'custom' && customFrom && customTo) {
+    return { from: new Date(customFrom), to: new Date(customTo + 'T23:59:59') };
+  }
+  return {};
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -57,12 +86,10 @@ function ChatItem({ chat, isActive, onClick, dealAmount }: {
   const showAmount = dealAmount != null && dealAmount > 0;
 
   return (
-    <button
-      onClick={onClick}
+    <button onClick={onClick}
       className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors border-b border-white/5 ${
         isActive ? 'bg-white/10' : 'hover:bg-white/5'
-      }`}
-    >
+      }`}>
       <div className="relative flex-shrink-0">
         <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
           {client?.name ? client.name[0].toUpperCase() : '#'}
@@ -117,6 +144,10 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   const [filterBranch, setFilterBranch] = useState('all');
   const [filterEmployee, setFilterEmployee] = useState('all');
   const [activeStage, setActiveStage] = useState('all');
+  const [activePeriod, setActivePeriod] = useState('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stageMap, setStageMap] = useState<Record<string, string>>({});
@@ -140,7 +171,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       });
     supabase.from('chats').select('id, deal_amount').then(({ data }) => {
       const map: Record<string, number | null> = {};
-      data?.forEach(c => { map[c.id] = c.deal_amount; });
+      data?.forEach((c: any) => { map[c.id] = c.deal_amount; });
       setAmountMap(map);
     });
   }, [showAdminMobile]);
@@ -154,14 +185,26 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
 
   const { chats, loading, error } = useChats(filters);
 
+  const { from: periodFrom, to: periodTo } = getPeriodDates(activePeriod, customFrom, customTo);
+
+  const filteredByDate = chats.filter(c => {
+    if (!periodFrom) return true;
+    const d = c.last_message_at ? new Date(c.last_message_at) : null;
+    if (!d) return false;
+    if (periodFrom && d < periodFrom) return false;
+    if (periodTo && d > periodTo) return false;
+    return true;
+  });
+
   const filteredByStage = activeStage === 'all'
-    ? chats
-    : chats.filter(c => (stageMap[c.id] ?? 'new') === activeStage);
+    ? filteredByDate
+    : filteredByDate.filter(c => (stageMap[c.id] ?? 'new') === activeStage);
 
   const filteredEmployees = filterBranch === 'all' ? employees : employees.filter(e => e.branch_id === filterBranch);
 
   const stageCounts = STAGES.reduce((acc, s) => {
-    acc[s.key] = s.key === 'all' ? chats.length : chats.filter(c => (stageMap[c.id] ?? 'new') === s.key).length;
+    const base = s.key === 'all' ? filteredByDate : filteredByDate.filter(c => (stageMap[c.id] ?? 'new') === s.key);
+    acc[s.key] = base.length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -213,10 +256,34 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         </div>
       </div>
 
-      {/* Итоговая сумма — только для Оплата и Закрыт */}
+      {/* Фильтр по периоду */}
+      <div className="px-3 pb-2">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+          {DATE_PERIODS.map(p => (
+            <button key={p.key} onClick={() => { setActivePeriod(p.key); setShowDatePicker(p.key === 'custom'); }}
+              className={`flex-shrink-0 text-xs px-3 py-1 rounded-full transition-colors ${
+                activePeriod === p.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
+              }`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {showDatePicker && (
+          <div className="flex gap-2 mt-2">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
+          </div>
+        )}
+      </div>
+
+      {/* Итоговая сумма */}
       {showTotal && (
         <div className="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between">
-          <span className="text-xs text-[#8696a0]">Итого по {activeStage === 'payment' ? 'оплате' : 'закрытым'}:</span>
+          <span className="text-xs text-[#8696a0]">
+            Итого по {activeStage === 'payment' ? 'оплате' : 'закрытым'}:
+          </span>
           <span className="text-sm font-bold text-emerald-400">{totalAmount.toLocaleString('ru-RU')} ₸</span>
         </div>
       )}
@@ -251,17 +318,12 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
           </div>
         )}
         {!loading && filteredByStage.map((chat) => (
-          <ChatItem
-            key={chat.id}
-            chat={chat}
-            isActive={chat.id === activeChatId}
-            onClick={() => onChatSelect(chat)}
-            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
-          />
+          <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
+            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null} />
         ))}
       </div>
 
-      {/* Stage tabs — только для admin на мобиле */}
+      {/* Stage tabs */}
       {showAdminMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
           {STAGES.map((stage) => {
