@@ -112,7 +112,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
             <span>Конверсия: <span className="text-emerald-400 font-medium">{conversionRate}%</span></span>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 gap-2">
           <div className="relative flex-1 min-w-[100px]">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -146,7 +146,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
             const stageTotal = stageChats.reduce((sum, c) => sum + (c.deal_amount ?? 0), 0);
             return (
-              <div key={stage.key} className="flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden" style={{ flex: '1 1 0', minWidth: 0 }}>
+              <div key={stage.key} className="flex-shrink-0 flex flex-col bg-[#202c33] rounded-xl overflow-hidden" style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                 <div className="px-3 py-2.5 flex items-center gap-2 border-b border-white/5 flex-shrink-0">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.color}`} />
                   <span className="text-xs font-medium text-[#e9edef] flex-1 truncate">{stage.label}</span>
@@ -212,4 +212,6 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
+
 
