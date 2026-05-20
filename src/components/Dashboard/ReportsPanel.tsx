@@ -32,12 +32,42 @@ const STAGE_META: Record<string, { label: string; color: string }> = {
   closed:      { label: 'Закрыт',     color: 'bg-gray-500' },
 };
 
+const DATE_PERIODS = [
+  { key: 'all',   label: 'Всё время' },
+  { key: 'today', label: 'Сегодня' },
+  { key: 'week',  label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'custom', label: 'Период' },
+];
+
+function getPeriodDates(period: string, customFrom?: string, customTo?: string): { from?: Date; to?: Date } {
+  const now = new Date();
+  if (period === 'today') {
+    const from = new Date(now); from.setHours(0, 0, 0, 0);
+    const to = new Date(now); to.setHours(23, 59, 59, 999);
+    return { from, to };
+  }
+  if (period === 'week') {
+    const from = new Date(now); from.setDate(now.getDate() - 7); from.setHours(0, 0, 0, 0);
+    return { from, to: now };
+  }
+  if (period === 'month') {
+    const from = new Date(now); from.setDate(1); from.setHours(0, 0, 0, 0);
+    return { from, to: now };
+  }
+  if (period === 'custom' && customFrom && customTo) {
+    return { from: new Date(customFrom), to: new Date(customTo + 'T23:59:59') };
+  }
+  return {};
+}
+
 export function ReportsPanel() {
-  const [stageStats, setStageStats] = useState<StageStats[]>([]);
-  const [employeeStats, setEmployeeStats] = useState<EmployeeStat[]>([]);
-  const [branchStats, setBranchStats] = useState<BranchStat[]>([]);
-  const [totalChats, setTotalChats] = useState(0);
+  const [allChatsWithStage, setAllChatsWithStage] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activePeriod, setActivePeriod] = useState('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -46,8 +76,7 @@ export function ReportsPanel() {
   const fetchStats = async () => {
     const { data: chats } = await supabase
       .from('chats')
-      .select(`id, branch_id, employee:employees(id, name), branch:branches(id, name, city)`)
-      .eq('status', 'active');
+      .select('id, branch_id, last_message_at, employee:employees(id, name), branch:branches(id, name, city)');
 
     const { data: stages } = await supabase
       .from('deal_stages')
@@ -59,49 +88,59 @@ export function ReportsPanel() {
       if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
     });
 
-    const chatsWithStage = (chats ?? []).map(c => ({
+    setAllChatsWithStage((chats ?? []).map(c => ({
       ...c,
       current_stage: latestStage[c.id] ?? 'new',
-    }));
-
-    setTotalChats(chatsWithStage.length);
-
-    const stageCounts: Record<string, number> = {};
-    chatsWithStage.forEach(c => {
-      stageCounts[c.current_stage] = (stageCounts[c.current_stage] ?? 0) + 1;
-    });
-    setStageStats(
-      Object.entries(STAGE_META).map(([key, meta]) => ({
-        stage: key, label: meta.label, color: meta.color, count: stageCounts[key] ?? 0,
-      }))
-    );
-
-    const empMap: Record<string, EmployeeStat> = {};
-    chatsWithStage.forEach(c => {
-      const emp = c.employee as any;
-      if (!emp) return;
-      if (!empMap[emp.id]) empMap[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0, conversion: 0 };
-      empMap[emp.id].total++;
-      if (c.current_stage === 'closed') empMap[emp.id].closed++;
-    });
-    setEmployeeStats(Object.values(empMap).map(e => ({
-      ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0,
-    })).sort((a, b) => b.total - a.total));
-
-    const branchMap: Record<string, BranchStat> = {};
-    chatsWithStage.forEach(c => {
-      const br = c.branch as any;
-      if (!br) return;
-      if (!branchMap[br.id]) branchMap[br.id] = { id: br.id, name: br.name, city: br.city, total: 0, closed: 0 };
-      branchMap[br.id].total++;
-      if (c.current_stage === 'closed') branchMap[br.id].closed++;
-    });
-    setBranchStats(Object.values(branchMap).sort((a, b) => b.total - a.total));
+    })));
     setLoading(false);
   };
 
-  const totalClosed = stageStats.find(s => s.stage === 'closed')?.count ?? 0;
+  const { from: periodFrom, to: periodTo } = getPeriodDates(activePeriod, customFrom, customTo);
+
+  const chatsWithStage = allChatsWithStage.filter(c => {
+    if (!periodFrom) return true;
+    const d = c.last_message_at ? new Date(c.last_message_at) : null;
+    if (!d) return false;
+    if (periodFrom && d < periodFrom) return false;
+    if (periodTo && d > periodTo) return false;
+    return true;
+  });
+
+  const totalChats = chatsWithStage.length;
+  const totalClosed = chatsWithStage.filter(c => c.current_stage === 'closed').length;
   const conversionRate = totalChats > 0 ? Math.round((totalClosed / totalChats) * 100) : 0;
+
+  const stageCounts: Record<string, number> = {};
+  chatsWithStage.forEach(c => {
+    stageCounts[c.current_stage] = (stageCounts[c.current_stage] ?? 0) + 1;
+  });
+
+  const stageStats: StageStats[] = Object.entries(STAGE_META).map(([key, meta]) => ({
+    stage: key, label: meta.label, color: meta.color, count: stageCounts[key] ?? 0,
+  }));
+
+  const empMap: Record<string, EmployeeStat> = {};
+  chatsWithStage.forEach(c => {
+    const emp = c.employee as any;
+    if (!emp) return;
+    if (!empMap[emp.id]) empMap[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0, conversion: 0 };
+    empMap[emp.id].total++;
+    if (c.current_stage === 'closed') empMap[emp.id].closed++;
+  });
+  const employeeStats: EmployeeStat[] = Object.values(empMap).map(e => ({
+    ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0,
+  })).sort((a, b) => b.total - a.total);
+
+  const branchMap: Record<string, BranchStat> = {};
+  chatsWithStage.forEach(c => {
+    const br = c.branch as any;
+    if (!br) return;
+    if (!branchMap[br.id]) branchMap[br.id] = { id: br.id, name: br.name, city: br.city, total: 0, closed: 0 };
+    branchMap[br.id].total++;
+    if (c.current_stage === 'closed') branchMap[br.id].closed++;
+  });
+  const branchStats: BranchStat[] = Object.values(branchMap).sort((a, b) => b.total - a.total);
+
   const maxStageCount = Math.max(...stageStats.map(s => s.count), 1);
 
   if (loading) return (
@@ -112,11 +151,33 @@ export function ReportsPanel() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0b141a] p-4">
+      {/* Фильтр по периоду */}
+      <div className="mb-4">
+        <div className="grid grid-cols-5 gap-1 mb-2">
+          {DATE_PERIODS.map(p => (
+            <button key={p.key} onClick={() => { setActivePeriod(p.key); setShowDatePicker(p.key === 'custom'); }}
+              className={`text-[10px] px-1 py-1.5 rounded-full transition-colors text-center ${
+                activePeriod === p.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
+              }`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {showDatePicker && (
+          <div className="flex gap-2">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
+          </div>
+        )}
+      </div>
+
       {/* Top stats */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
-          { label: 'Всего чатов',   value: totalChats,        color: 'text-[#e9edef]' },
-          { label: 'Закрыто сделок', value: totalClosed,       color: 'text-emerald-400' },
+          { label: 'Всего чатов',    value: totalChats,           color: 'text-[#e9edef]' },
+          { label: 'Закрыто сделок', value: totalClosed,          color: 'text-emerald-400' },
           { label: 'Конверсия',      value: `${conversionRate}%`, color: 'text-amber-400' },
         ].map((m) => (
           <div key={m.label} className="bg-[#202c33] rounded-xl p-3">
@@ -126,56 +187,53 @@ export function ReportsPanel() {
         ))}
       </div>
 
-      {/* Funnel + Branches — одна колонка на мобиле */}
-      <div className="grid grid-cols-1 gap-3 mb-3">
-        {/* Воронка */}
-        <div className="bg-[#202c33] rounded-xl p-4">
-          <h3 className="text-xs font-medium text-[#e9edef] mb-3">Воронка продаж</h3>
-          <div className="space-y-3">
-            {stageStats.map((s) => (
-              <div key={s.stage}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${s.color}`} />
-                    <span className="text-xs text-[#d1d7db]">{s.label}</span>
-                  </div>
-                  <span className="text-xs font-medium text-[#e9edef]">{s.count}</span>
+      {/* Воронка */}
+      <div className="bg-[#202c33] rounded-xl p-4 mb-3">
+        <h3 className="text-xs font-medium text-[#e9edef] mb-3">Воронка продаж</h3>
+        <div className="space-y-3">
+          {stageStats.map((s) => (
+            <div key={s.stage}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${s.color}`} />
+                  <span className="text-xs text-[#d1d7db]">{s.label}</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.count / maxStageCount) * 100}%` }} />
+                <span className="text-xs font-medium text-[#e9edef]">{s.count}</span>
+              </div>
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.count / maxStageCount) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* По филиалам */}
+      <div className="bg-[#202c33] rounded-xl p-4 mb-3">
+        <h3 className="text-xs font-medium text-[#e9edef] mb-3">По филиалам</h3>
+        {branchStats.length === 0 ? (
+          <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
+        ) : (
+          <div className="space-y-3">
+            {branchStats.map((b) => (
+              <div key={b.id} className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-[#e9edef]">{b.name}</p>
+                  <p className="text-[10px] text-[#8696a0]">{b.city}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-[#e9edef]">{b.total} чатов</p>
+                  <p className="text-[10px] text-emerald-400">
+                    {b.total > 0 ? Math.round((b.closed / b.total) * 100) : 0}% закрыто
+                  </p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* По филиалам */}
-        <div className="bg-[#202c33] rounded-xl p-4">
-          <h3 className="text-xs font-medium text-[#e9edef] mb-3">По филиалам</h3>
-          {branchStats.length === 0 ? (
-            <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
-          ) : (
-            <div className="space-y-3">
-              {branchStats.map((b) => (
-                <div key={b.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-[#e9edef]">{b.name}</p>
-                    <p className="text-[10px] text-[#8696a0]">{b.city}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-medium text-[#e9edef]">{b.total} чатов</p>
-                    <p className="text-[10px] text-emerald-400">
-                      {b.total > 0 ? Math.round((b.closed / b.total) * 100) : 0}% закрыто
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* По менеджерам — всегда одна колонка, резиновые карточки */}
+      {/* По менеджерам */}
       <div className="bg-[#202c33] rounded-xl p-4">
         <h3 className="text-xs font-medium text-[#e9edef] mb-3">По менеджерам</h3>
         {employeeStats.length === 0 ? (
