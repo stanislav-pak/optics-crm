@@ -30,7 +30,7 @@ export function useChats(filters?: ChatListFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters?.status, filters?.search]);
+  }, [filters?.status, filters?.search, filters?.branch_id, filters?.employee_id]);
 
   useEffect(() => {
     fetchChats();

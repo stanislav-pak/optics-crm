@@ -12,6 +12,8 @@ export async function getChats(filters?: ChatListFilters): Promise<Chat[]> {
     .order('last_message_at', { ascending: false });
 
   if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.branch_id) query = query.eq('branch_id', filters.branch_id);
+if (filters?.employee_id) query = query.eq('employee_id', filters.employee_id);
   if (filters?.search) {
     query = query.or(
       `client.name.ilike.%${filters.search}%,client.phone.ilike.%${filters.search}%`
