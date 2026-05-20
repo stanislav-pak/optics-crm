@@ -150,7 +150,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
       </div>
 
       {/* Kanban — горизонтальный скролл на мобиле */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-3">
+      <div className="flex-1 p-3" style={{overflowX:`auto`,overflowY:`hidden`,width:`100%`,maxWidth:`100vw`}}>
         <div className="flex gap-3 h-full" style={{ minWidth: `${STAGES.length * 220}px` }}>
           {STAGES.map((stage) => {
             const stageChats = filteredChats.filter(c => c.current_stage === stage.key);
@@ -226,5 +226,6 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
 
 
