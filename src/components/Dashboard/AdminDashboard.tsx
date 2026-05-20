@@ -204,7 +204,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
                       {/* Amount input */}
                       <div className="px-3 pb-3">
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Сумма сделки..."
                           defaultValue={chat.deal_amount ?? ''}
                           onBlur={(e) => {
@@ -226,4 +226,5 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
 
