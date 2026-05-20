@@ -106,7 +106,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#0b141a]">
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#0b141a] w-full max-w-full">
       {/* Header */}
       <div className="px-4 py-3 bg-[#202c33] border-b border-white/5 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -226,6 +226,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
     </div>
   );
 }
+
 
 
 
