@@ -11,6 +11,7 @@ export function useChats(filters?: ChatListFilters) {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) clearBadge(); });
     return () => document.removeEventListener('visibilitychange', clearBadge);
   }, []);
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,16 +34,15 @@ export function useChats(filters?: ChatListFilters) {
 
   useEffect(() => {
     fetchChats();
-
-    const handleClientUpdate = () => setTimeout(() => fetchChats(), 500);
+    const handleClientUpdate = () => fetchChats();
     window.addEventListener('client-updated', handleClientUpdate);
     window.addEventListener('messages-read', fetchChats);
 
     const channel = supabase
       .channel('chats-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchChats())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, () => fetchChats())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chats' }, () => fetchChats())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, () => fetchChats())
       .subscribe();
 
     return () => {
@@ -54,10 +54,3 @@ export function useChats(filters?: ChatListFilters) {
 
   return { chats, loading, error, refetch: fetchChats };
 }
-
-
-
-
-
-
-

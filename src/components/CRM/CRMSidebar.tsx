@@ -17,13 +17,13 @@ const STAGES = [
   { key: 'closed',      label: 'Закрыт',     color: 'bg-gray-500' },
 ];
 
-const CLIENT_STATUSES = [
-  { key: 'new',         label: 'Новый' },
-  { key: 'in_progress', label: 'В работе' },
-  { key: 'deal',        label: 'Сделка' },
-  { key: 'paid',        label: 'Оплачен' },
-  { key: 'closed',      label: 'Закрыт' },
-];
+const STATUS_MAP: Record<string, string> = {
+  new: 'new',
+  negotiation: 'in_progress',
+  quote: 'in_progress',
+  payment: 'deal',
+  closed: 'closed',
+};
 
 interface LastStageInfo {
   stage: string;
@@ -86,7 +86,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     const newIdx = STAGES.findIndex(s => s.key === newStage);
     const newLabel = STAGES.find(s => s.key === newStage)?.label ?? newStage;
 
-    // Подтверждение при откате назад
     if (newIdx < currentIdx) {
       const confirmed = window.confirm(`Вернуть этап назад на "${newLabel}"? Это нежелательно — этапы должны идти вперёд.`);
       if (!confirmed) return;
@@ -104,7 +103,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
 
     if (error) {
       showToast('Ошибка при смене этапа');
-      setStage(stage); // откат
+      setStage(stage);
     } else {
       setLastStageInfo({
         stage: newStage,
@@ -112,6 +111,11 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
         changedAt: new Date().toISOString(),
       });
       showToast(`Этап изменён: ${newLabel}`);
+      // Обновляем статус клиента синхронно
+      await supabase.from('clients')
+        .update({ status: STATUS_MAP[newStage] ?? 'new' })
+        .eq('id', chat.client_id);
+      notifyUpdate();
     }
     setStageChanging(false);
   };
@@ -121,13 +125,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     await supabase.from('clients').update({ name: clientName }).eq('id', client.id);
     setClient({ ...client, name: clientName });
     setEditingName(false);
-    notifyUpdate();
-  };
-
-  const changeClientStatus = async (status: string) => {
-    if (!client) return;
-    await supabase.from('clients').update({ status }).eq('id', client.id);
-    setClient({ ...client, status: status as Client['status'] });
     notifyUpdate();
   };
 
@@ -161,7 +158,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   return (
     <div className="w-full md:w-72 md:flex-shrink-0 flex flex-col md:border-l border-white/5 bg-[#111b21] overflow-y-auto h-full relative">
 
-      {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-xs px-4 py-2 rounded-full shadow-lg animate-pulse">
           {toast}
@@ -201,9 +197,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
               onClick={() => changeStage(s.key)}
               disabled={stageChanging}
               className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 disabled:opacity-50 ${
-                stage === s.key
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
+                stage === s.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
               }`}
             >
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${stage === s.key ? 'bg-white/20' : 'bg-white/10'}`}>{i + 1}</span>
@@ -211,8 +205,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
             </button>
           ))}
         </div>
-
-        {/* Кто и когда менял */}
         {lastStageInfo && (
           <p className="text-[10px] text-[#8696a0] mt-3 leading-relaxed">
             Изменил: <span className="text-[#d1d7db]">{lastStageInfo.employeeName}</span>
@@ -234,7 +226,6 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
         </button>
       </div>
 
-      {/* Контент табов */}
       <div className="flex-1">
         {tab === 'tasks' && (
           <div className="p-4 space-y-2">
@@ -273,6 +264,3 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     </div>
   );
 }
-
-
-
