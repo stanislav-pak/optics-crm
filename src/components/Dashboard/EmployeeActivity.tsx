@@ -38,13 +38,13 @@ function formatTime(dateStr: string | null): string {
 
 const STATUS_COLORS = {
   online: 'bg-emerald-400',
-  away: 'bg-amber-400',
-  offline: 'bg-gray-500',
+  away:   'bg-amber-400',
+  offline:'bg-gray-500',
 };
 
 const STATUS_LABELS = {
-  online: 'Онлайн',
-  away: 'Недавно',
+  online:  'Онлайн',
+  away:    'Недавно',
   offline: 'Офлайн',
 };
 
@@ -112,13 +112,19 @@ export function EmployeeActivity() {
 
   const online = employees.filter(e => e.status === 'online').length;
 
+  const sorted = [...employees].sort((a, b) => {
+    const order = { online: 0, away: 1, offline: 2 };
+    return order[a.status] - order[b.status];
+  });
+
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0b141a] p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="flex-1 overflow-y-auto bg-[#0b141a] p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-[#e9edef]">Активность сотрудников</h2>
-        <div className="flex items-center gap-2 text-xs text-[#8696a0]">
+        <div className="flex items-center gap-1.5 text-xs text-[#8696a0]">
           <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-          <span>{online} онлайн из {employees.length}</span>
+          <span>{online} из {employees.length}</span>
         </div>
       </div>
 
@@ -126,13 +132,10 @@ export function EmployeeActivity() {
         <p className="text-xs text-[#8696a0] text-center py-12">Нет активных менеджеров</p>
       ) : (
         <div className="space-y-2">
-          {employees
-            .sort((a, b) => {
-              const order = { online: 0, away: 1, offline: 2 };
-              return order[a.status] - order[b.status];
-            })
-            .map(emp => (
-              <div key={emp.id} className="bg-[#202c33] rounded-xl p-4 flex items-center gap-4">
+          {sorted.map(emp => (
+            <div key={emp.id} className="bg-[#202c33] rounded-xl p-3">
+              {/* Строка 1: аватар + имя + статус + кол-во чатов */}
+              <div className="flex items-center gap-3 mb-2">
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold">
                     {emp.name[0].toUpperCase()}
@@ -140,29 +143,29 @@ export function EmployeeActivity() {
                   <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#202c33] ${STATUS_COLORS[emp.status]}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-medium text-[#e9edef] truncate">{emp.name}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      emp.status === 'online' ? 'bg-emerald-500/20 text-emerald-400' :
-                      emp.status === 'away' ? 'bg-amber-500/20 text-amber-400' :
-                      'bg-white/5 text-[#8696a0]'
-                    }`}>
-                      {STATUS_LABELS[emp.status]}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#8696a0] truncate">
-                    {emp.lastAction ? ACTION_LABELS[emp.lastAction] ?? emp.lastAction : 'Нет активности'}
-                  </p>
+                  <p className="text-sm font-semibold text-[#e9edef] truncate">{emp.name}</p>
+                  <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${
+                    emp.status === 'online' ? 'bg-emerald-500/20 text-emerald-400' :
+                    emp.status === 'away'   ? 'bg-amber-500/20 text-amber-400' :
+                    'bg-white/5 text-[#8696a0]'
+                  }`}>
+                    {STATUS_LABELS[emp.status]}
+                  </span>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-medium text-[#e9edef]">{emp.activeChats}</p>
+                  <p className="text-base font-semibold text-[#e9edef]">{emp.activeChats}</p>
                   <p className="text-[10px] text-[#8696a0]">чатов</p>
                 </div>
-                <div className="text-right flex-shrink-0 min-w-[80px]">
-                  <p className="text-[10px] text-[#8696a0]">{formatTime(emp.lastActionAt)}</p>
-                </div>
               </div>
-            ))}
+              {/* Строка 2: последнее действие + время */}
+              <div className="flex items-center justify-between pl-0">
+                <p className="text-[11px] text-[#8696a0] flex-1 truncate">
+                  {emp.lastAction ? ACTION_LABELS[emp.lastAction] ?? emp.lastAction : 'Нет активности'}
+                </p>
+                <p className="text-[10px] text-[#8696a0] flex-shrink-0 ml-2">{formatTime(emp.lastActionAt)}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

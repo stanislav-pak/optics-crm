@@ -111,23 +111,26 @@ export function ReportsPanel() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0b141a] p-6">
-      <h2 className="text-sm font-semibold text-[#e9edef] mb-6">Аналитика</h2>
-      <div className="grid grid-cols-3 gap-3 mb-6">
+    <div className="flex-1 overflow-y-auto bg-[#0b141a] p-4">
+      {/* Top stats */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
         {[
-          { label: 'Всего чатов', value: totalChats, color: 'text-[#e9edef]' },
-          { label: 'Закрыто сделок', value: totalClosed, color: 'text-emerald-400' },
-          { label: 'Конверсия', value: `${conversionRate}%`, color: 'text-amber-400' },
+          { label: 'Всего чатов',   value: totalChats,        color: 'text-[#e9edef]' },
+          { label: 'Закрыто сделок', value: totalClosed,       color: 'text-emerald-400' },
+          { label: 'Конверсия',      value: `${conversionRate}%`, color: 'text-amber-400' },
         ].map((m) => (
-          <div key={m.label} className="bg-[#202c33] rounded-xl p-4">
-            <p className="text-xs text-[#8696a0] mb-1">{m.label}</p>
-            <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+          <div key={m.label} className="bg-[#202c33] rounded-xl p-3">
+            <p className="text-[10px] text-[#8696a0] mb-1 leading-tight">{m.label}</p>
+            <p className={`text-xl font-bold ${m.color}`}>{m.value}</p>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-4">
+
+      {/* Funnel + Branches — одна колонка на мобиле */}
+      <div className="grid grid-cols-1 gap-3 mb-3">
+        {/* Воронка */}
         <div className="bg-[#202c33] rounded-xl p-4">
-          <h3 className="text-xs font-medium text-[#e9edef] mb-4">Воронка продаж</h3>
+          <h3 className="text-xs font-medium text-[#e9edef] mb-3">Воронка продаж</h3>
           <div className="space-y-3">
             {stageStats.map((s) => (
               <div key={s.stage}>
@@ -145,9 +148,13 @@ export function ReportsPanel() {
             ))}
           </div>
         </div>
+
+        {/* По филиалам */}
         <div className="bg-[#202c33] rounded-xl p-4">
-          <h3 className="text-xs font-medium text-[#e9edef] mb-4">По филиалам</h3>
-          {branchStats.length === 0 ? <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p> : (
+          <h3 className="text-xs font-medium text-[#e9edef] mb-3">По филиалам</h3>
+          {branchStats.length === 0 ? (
+            <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
+          ) : (
             <div className="space-y-3">
               {branchStats.map((b) => (
                 <div key={b.id} className="flex items-center justify-between">
@@ -157,37 +164,40 @@ export function ReportsPanel() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-medium text-[#e9edef]">{b.total} чатов</p>
-                    <p className="text-[10px] text-emerald-400">{b.total > 0 ? Math.round((b.closed / b.total) * 100) : 0}% закрыто</p>
+                    <p className="text-[10px] text-emerald-400">
+                      {b.total > 0 ? Math.round((b.closed / b.total) * 100) : 0}% закрыто
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="bg-[#202c33] rounded-xl p-4 col-span-2">
-          <h3 className="text-xs font-medium text-[#e9edef] mb-4">По менеджерам</h3>
-          {employeeStats.length === 0 ? <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p> : (
-            <div className="grid grid-cols-2 gap-2">
-              {employeeStats.map((e) => (
-                <div key={e.id} className="bg-[#2a3942] rounded-lg p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-semibold">
-                      {e.name[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-[#e9edef]">{e.name}</p>
-                      <p className="text-[10px] text-[#8696a0]">{e.total} чатов</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-emerald-400">{e.conversion}%</p>
-                    <p className="text-[10px] text-[#8696a0]">{e.closed} закрыто</p>
-                  </div>
+      </div>
+
+      {/* По менеджерам — всегда одна колонка, резиновые карточки */}
+      <div className="bg-[#202c33] rounded-xl p-4">
+        <h3 className="text-xs font-medium text-[#e9edef] mb-3">По менеджерам</h3>
+        {employeeStats.length === 0 ? (
+          <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
+        ) : (
+          <div className="space-y-2">
+            {employeeStats.map((e) => (
+              <div key={e.id} className="bg-[#2a3942] rounded-xl p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                  {e.name[0].toUpperCase()}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-[#e9edef] truncate">{e.name}</p>
+                  <p className="text-[10px] text-[#8696a0]">{e.total} чатов · {e.closed} закрыто</p>
+                </div>
+                <span className={`text-sm font-bold flex-shrink-0 ${e.conversion > 0 ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+                  {e.conversion}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
