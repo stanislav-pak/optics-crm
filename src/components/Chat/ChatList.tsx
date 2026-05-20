@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+﻿import { useState, useEffect, useContext } from 'react';
 import { useChats } from '../../hooks/useChats';
 import { AuthContext } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
@@ -258,10 +258,10 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
 
       {/* Фильтр по периоду */}
       <div className="px-3 pb-2">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {DATE_PERIODS.map(p => (
             <button key={p.key} onClick={() => { setActivePeriod(p.key); setShowDatePicker(p.key === 'custom'); }}
-              className={`flex-shrink-0 text-xs px-3 py-1 rounded-full transition-colors ${
+              className={`flex-shrink-0 text-[10px] px-2 py-1 rounded-full transition-colors ${
                 activePeriod === p.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
               }`}>
               {p.label}
@@ -290,10 +290,10 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
 
       {/* Status filters (non-admin) */}
       {!showAdminMobile && (
-        <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="px-3 pb-2 flex gap-1 overflow-x-auto scrollbar-none">
           {([undefined, 'active', 'archived'] as const).map((s) => (
             <button key={s ?? 'all'} onClick={() => setStatusFilter(s)}
-              className={`flex-shrink-0 text-xs px-3 py-1 rounded-full transition-colors ${
+              className={`flex-shrink-0 text-[10px] px-2 py-1 rounded-full transition-colors ${
                 statusFilter === s ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
               }`}>
               {s === undefined ? 'Все' : s === 'active' ? 'Активные' : 'Архив'}
