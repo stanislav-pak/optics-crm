@@ -48,10 +48,13 @@ function formatTime(dateStr?: string): string {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }
 
-function ChatItem({ chat, isActive, onClick }: { chat: Chat; isActive: boolean; onClick: () => void }) {
+function ChatItem({ chat, isActive, onClick, dealAmount }: {
+  chat: Chat; isActive: boolean; onClick: () => void; dealAmount?: number | null;
+}) {
   const client = chat.client;
   const unread = chat.unread_count ?? 0;
   const statusColor = client?.status ? STATUS_COLORS[client.status] : '#6b7280';
+  const showAmount = dealAmount != null && dealAmount > 0;
 
   return (
     <button
@@ -77,11 +80,18 @@ function ChatItem({ chat, isActive, onClick }: { chat: Chat; isActive: boolean; 
           <span className="text-xs text-[#8696a0] truncate">
             {client?.status ? STATUS_LABELS[client.status] : '—'}
           </span>
-          {unread > 0 && (
-            <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] bg-emerald-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
+          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+            {showAmount && (
+              <span className="text-xs font-semibold text-emerald-400">
+                {dealAmount!.toLocaleString('ru-RU')} ₸
+              </span>
+            )}
+            {unread > 0 && (
+              <span className="min-w-[18px] h-[18px] bg-emerald-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </button>
@@ -110,6 +120,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stageMap, setStageMap] = useState<Record<string, string>>({});
+  const [amountMap, setAmountMap] = useState<Record<string, number | null>>({});
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -127,6 +138,11 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         data?.forEach(s => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
         setStageMap(map);
       });
+    supabase.from('chats').select('id, deal_amount').then(({ data }) => {
+      const map: Record<string, number | null> = {};
+      data?.forEach(c => { map[c.id] = c.deal_amount; });
+      setAmountMap(map);
+    });
   }, [showAdminMobile]);
 
   const filters: ChatListFilters = {
@@ -148,6 +164,11 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
     acc[s.key] = s.key === 'all' ? chats.length : chats.filter(c => (stageMap[c.id] ?? 'new') === s.key).length;
     return acc;
   }, {} as Record<string, number>);
+
+  const showTotal = showAdminMobile && (activeStage === 'payment' || activeStage === 'closed');
+  const totalAmount = showTotal
+    ? filteredByStage.reduce((sum, c) => sum + (amountMap[c.id] ?? 0), 0)
+    : 0;
 
   return (
     <div className="flex flex-col h-full bg-[#111b21] select-none">
@@ -192,6 +213,14 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         </div>
       </div>
 
+      {/* Итоговая сумма — только для Оплата и Закрыт */}
+      {showTotal && (
+        <div className="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between">
+          <span className="text-xs text-[#8696a0]">Итого по {activeStage === 'payment' ? 'оплате' : 'закрытым'}:</span>
+          <span className="text-sm font-bold text-emerald-400">{totalAmount.toLocaleString('ru-RU')} ₸</span>
+        </div>
+      )}
+
       {/* Status filters (non-admin) */}
       {!showAdminMobile && (
         <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
@@ -222,7 +251,13 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
           </div>
         )}
         {!loading && filteredByStage.map((chat) => (
-          <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)} />
+          <ChatItem
+            key={chat.id}
+            chat={chat}
+            isActive={chat.id === activeChatId}
+            onClick={() => onChatSelect(chat)}
+            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
+          />
         ))}
       </div>
 
