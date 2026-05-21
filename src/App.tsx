@@ -65,7 +65,7 @@ function AppContent() {
         const chat = activeChatRef.current;
         if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
-        
+        else if (view === 'manager-crm') { setMobileView('list'); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -175,7 +175,6 @@ function AppContent() {
       <div className="flex-1 overflow-hidden">
         <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} />
       </div>
-      {/* Нижний таб-бар только для менеджера на мобиле */}
       {isManager && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
           <button
@@ -264,5 +263,3 @@ function AppContent() {
 export default function App() {
   return <AppContent />;
 }
-
-
