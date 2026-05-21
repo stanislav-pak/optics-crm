@@ -139,12 +139,14 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setMediaModal({ url, type, name });
   };
 
-  const formatRecTime = (s: number)=> `${Math.floor(s/60)}:`;
+  // FIX 1: исправлен template literal
+  const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
@@ -169,7 +171,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         recorder.stream.getTracks().forEach(t => t.stop());
         if (blob.size < 1000) { resolve(); return; }
-        const path = ${chat.id}/voice_.;
+        // FIX 2: исправлен template literal
+        const path = `${chat.id}/voice_${Date.now()}.${ext}`;
         const { error } = await supabase.storage.from('chat-media').upload(path, blob, { contentType: mimeType });
         if (!error && employee) {
           const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
@@ -264,7 +267,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
           )}
-          {/* Кликабельная область — аватар + имя */}
           <button onClick={() => setShowInfo(true)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
               {client?.name ? client.name[0].toUpperCase() : '#'}
@@ -277,8 +279,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               </div>
             </div>
           </button>
-
-          
         </div>
 
         {/* Messages */}
@@ -310,9 +310,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                     </div>
                   ) : msg.message_type === 'audio' && msg.media_url ? (
+                    // FIX 3: исправлен className template literal
                     <div className="px-3 py-2 min-w-[200px]">
                       <audio controls src={msg.media_url} className="w-full h-8" style={{ colorScheme: 'dark' }} />
-                      <p className={	ext-[10px] mt-1 }>{formatTime(msg.created_at)}</p>
+                      <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                     </div>
                   ) : (
                     <div className="px-3 py-2">
@@ -403,7 +404,3 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     </div>
   );
 }
-
-
-
-
