@@ -659,7 +659,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
             {showAttachMenu && (
-              <div className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20">
+              <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20">
                 {/* Медиатека */}
                 <button onClick={() => { fileInputRef.current!.accept = 'image/*,video/*'; fileInputRef.current?.click(); setShowAttachMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left">
