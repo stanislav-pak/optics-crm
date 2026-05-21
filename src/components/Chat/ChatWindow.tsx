@@ -654,12 +654,12 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
           {/* + меню */}
           <div className="relative flex-shrink-0">
-            <button onClick={() => setShowAttachMenu(v => !v)} disabled={isArchived}
+            <button onClick={(e) => { e.stopPropagation(); setShowAttachMenu(v => !v); }} disabled={isArchived}
               className="w-10 h-10 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center transition-colors">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
             {showAttachMenu && (
-              <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20">
+              <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20" onClick={e => e.stopPropagation()}>
                 {/* Медиатека */}
                 <button onClick={() => { fileInputRef.current!.accept = 'image/*,video/*'; fileInputRef.current?.click(); setShowAttachMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left">
