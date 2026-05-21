@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from 'react';
+﻿import { VoiceMessage } from './VoiceMessage';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { CRMSidebar } from '../CRM/CRMSidebar';
@@ -310,11 +311,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                     </div>
                   ) : msg.message_type === 'audio' && msg.media_url ? (
-                    // FIX 3: исправлен className template literal
-                    <div className="px-3 py-2 min-w-[200px]">
-                      <audio controls src={msg.media_url} className="w-full h-8" style={{ colorScheme: 'dark' }} />
-                      <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
-                    </div>
+                    <VoiceMessage url={msg.media_url} isOutbound={isOutbound} time={formatTime(msg.created_at)} />
                   ) : (
                     <div className="px-3 py-2">
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
