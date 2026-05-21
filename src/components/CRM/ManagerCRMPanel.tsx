@@ -57,7 +57,7 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (dy < 80 && dx > 60) {
-        if (selectedChatRef.current) { setSelectedChat(null); } else { onBack(); }
+        if (selectedChatRef.current) { setSelectedChat(null); fetchData(); } else { onBack(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -274,3 +274,4 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
     </div>
   );
 }
+
