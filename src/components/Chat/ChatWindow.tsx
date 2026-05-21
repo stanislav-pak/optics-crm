@@ -88,7 +88,6 @@ function LocationMessage({ content, isOutbound, time, isRead }: {
   );
 }
 
-// Карточка контакта
 function ContactMessage({ content, isOutbound, time, isRead }: {
   content: string; isOutbound: boolean; time: string; isRead: boolean;
 }) {
@@ -98,7 +97,6 @@ function ContactMessage({ content, isOutbound, time, isRead }: {
   const waUrl = contact.phone ? `https://wa.me/${contact.phone.replace(/\D/g, '')}` : undefined;
   return (
     <div className="px-3 py-2 min-w-[200px]">
-      {/* Аватар + имя */}
       <div className="flex items-center gap-3 mb-2">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
           {contact.name ? contact.name[0].toUpperCase() : '?'}
@@ -108,18 +106,9 @@ function ContactMessage({ content, isOutbound, time, isRead }: {
           {contact.phone && <p className="text-xs text-[#8696a0]">{contact.phone}</p>}
         </div>
       </div>
-      {/* Кнопки действий */}
       <div className="flex gap-2 border-t border-white/10 pt-2">
-        {telUrl && (
-          <a href={telUrl} className="flex-1 text-center text-xs text-emerald-400 py-1 hover:text-emerald-300">
-            📞 Позвонить
-          </a>
-        )}
-        {waUrl && (
-          <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs text-emerald-400 py-1 hover:text-emerald-300">
-            💬 WhatsApp
-          </a>
-        )}
+        {telUrl && <a href={telUrl} className="flex-1 text-center text-xs text-emerald-400 py-1">📞 Позвонить</a>}
+        {waUrl && <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs text-emerald-400 py-1">💬 WhatsApp</a>}
       </div>
       <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
         <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{time}</span>
@@ -140,22 +129,19 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [mediaModal, setMediaModal] = useState<MediaModal | null>(null);
   const [showCRM, setShowCRM] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  // Location
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [geocoding, setGeocoding] = useState(false);
-  // Contact
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  // Delete
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  // Recording
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [micState, setMicState] = useState<'idle' | 'permission' | 'ready' | 'recording'>('idle');
@@ -165,7 +151,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartRef = useRef<number>(0);
   const isStartingRef = useRef(false);
-
   const mediaModalRef = useRef<MediaModal | null>(null);
   useEffect(() => { mediaModalRef.current = mediaModal; }, [mediaModal]);
   const onBackRef = useRef(onBack);
@@ -180,11 +165,13 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       if (mediaModalRef.current) { if (dx > 80 && dy < 100) setMediaModal(null); }
       else if (dx > 50 && dy < 100) { if (onBackRef.current) onBackRef.current(); }
     };
+    const closeMenu = (e: MouseEvent) => {
+      const menu = document.getElementById('attach-menu');
+      if (menu && !menu.contains(e.target as Node)) setShowAttachMenu(false);
+    };
     document.addEventListener('touchstart', onStart, { passive: true });
-    // Закрыть attach меню при тапе вне
-    const closeMenu = () => setShowAttachMenu(false);
-    document.addEventListener('click', closeMenu);
     document.addEventListener('touchend', onEnd, { passive: true });
+    document.addEventListener('click', closeMenu);
     return () => {
       document.removeEventListener('touchstart', onStart);
       document.removeEventListener('touchend', onEnd);
@@ -246,7 +233,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     if (data) setMessages(prev => [...prev, data]);
   };
 
-  // Отправить контакт
   const sendContact = async () => {
     if (!employee || (!contactName.trim() && !contactPhone.trim())) return;
     const content = JSON.stringify({ name: contactName.trim(), phone: contactPhone.trim() });
@@ -649,8 +635,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
         {/* Input */}
         <div className="px-2 py-2 bg-[#202c33] flex items-end gap-1.5 flex-shrink-0">
-          <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleFileChange} />
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" multiple className="hidden" onChange={handleFileChange} />
+          <input ref={cameraInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           <input ref={mediaInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
 
           {/* + меню */}
@@ -661,7 +647,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             </button>
             {showAttachMenu && (
               <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20" onClick={e => e.stopPropagation()}>
-                {/* Медиатека */}
                 <button onClick={() => { setShowAttachMenu(false); setTimeout(() => mediaInputRef.current?.click(), 100); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left">
                   <div className="w-9 h-9 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
@@ -669,15 +654,13 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   </div>
                   <span className="text-[#e9edef] text-sm">Медиатека</span>
                 </button>
-                {/* Выбрать файлы */}
-                <button onClick={() => { fileInputRef.current!.accept = '.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt'; fileInputRef.current?.click(); setShowAttachMenu(false); }}
+                <button onClick={() => { setShowAttachMenu(false); setTimeout(() => fileInputRef.current?.click(), 100); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left border-t border-white/5">
                   <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
                   <span className="text-[#e9edef] text-sm">Выбрать файлы</span>
                 </button>
-                {/* Местоположение */}
                 <button onClick={() => { setShowAttachMenu(false); setShowLocationModal(true); loadBranches(); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left border-t border-white/5">
                   <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
@@ -685,7 +668,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   </div>
                   <span className="text-[#e9edef] text-sm">Местоположение</span>
                 </button>
-                {/* Контакт */}
                 <button onClick={async () => {
                   setShowAttachMenu(false);
                   if ('contacts' in navigator) {
@@ -709,7 +691,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             )}
           </div>
 
-          {/* Textarea */}
           <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={handleKeyDown}
             placeholder={isArchived ? 'Чат в архиве' : 'Написать сообщение...'}
             disabled={isArchived} rows={1}
@@ -717,7 +698,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-full px-4 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ scrollbarWidth: 'none' }} />
 
-          {/* Камера (только когда нет текста и не запись) */}
           {!canSend && !isRecording && (
             <button onClick={() => cameraInputRef.current?.click()} disabled={isArchived}
               className="w-10 h-10 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
@@ -731,10 +711,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       </div>
 
       {showCRM && <CRMSidebar chat={chat} />}
-      {/* showInfo && (
+      {showInfo && (
         <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)}
           onArchive={() => { setShowInfo(false); onArchive?.(); }} />
-      ) */}
+      )}
     </div>
   );
 }
