@@ -139,7 +139,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setMediaModal({ url, type, name });
   };
 
-  const formatRecTime = (s: number) => ${Math.floor(s/60)}:;
+  const formatRecTime = (s: number)=> `${Math.floor(s/60)}:`;
 
   const startRecording = async () => {
     try {
