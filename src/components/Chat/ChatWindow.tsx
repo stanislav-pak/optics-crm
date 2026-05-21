@@ -155,7 +155,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.start();
+      recorder.start(100); // timeslice 100ms — гарантирует ondataavailable до onstop
       recordingStartRef.current = Date.now();
       setIsRecording(true);
       setRecordingTime(0);

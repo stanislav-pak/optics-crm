@@ -4,11 +4,11 @@ interface VoiceMessageProps {
   url: string;
   isOutbound: boolean;
   time: string;
-  storedDuration?: number; // секунды, из content записи
+  storedDuration?: number;
 }
 
 function formatDur(s: number) {
-  if (!s || isNaN(s) || !isFinite(s)) return '0:00';
+  if (!s || isNaN(s) || !isFinite(s) || s < 0) return '0:00';
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
@@ -26,10 +26,12 @@ export function VoiceMessage({ url, isOutbound, time, storedDuration = 0 }: Voic
     });
   }, [url]);
 
-  const progress = duration > 0 ? currentTime / duration : 0;
-  // Обратный отсчёт: показываем сколько осталось, до нажатия — полная длина
+  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
+
+  // Если duration неизвестна — показываем currentTime (прогресс воспроизведения)
+  // Если duration известна — показываем обратный отсчёт
   const displayTime = playing
-    ? Math.max(0, duration - currentTime)
+    ? (duration > 0 ? Math.max(0, duration - currentTime) : currentTime)
     : duration;
 
   const toggle = async () => {
@@ -39,9 +41,13 @@ export function VoiceMessage({ url, isOutbound, time, storedDuration = 0 }: Voic
       audio.pause();
       setPlaying(false);
     } else {
-      document.querySelectorAll('audio').forEach(a => { if (a !== audio) { a.pause(); } });
-      await audio.play();
-      setPlaying(true);
+      document.querySelectorAll('audio').forEach(a => { if (a !== audio) a.pause(); });
+      try {
+        await audio.play();
+        setPlaying(true);
+      } catch (e) {
+        console.error('Audio play error:', e);
+      }
     }
   };
 
@@ -58,34 +64,36 @@ export function VoiceMessage({ url, isOutbound, time, storedDuration = 0 }: Voic
     if (!audio) return;
 
     const onMeta = () => {
-      if (audio.duration === Infinity || isNaN(audio.duration)) {
-        // WebM не хранит duration — используем storedDuration
-        if (storedDuration > 0) setDuration(storedDuration);
-        // Либо трюк: seekTo конца чтобы браузер вычислил duration
-        audio.currentTime = 1e101;
-      } else {
+      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
+      } else if (storedDuration > 0) {
+        setDuration(storedDuration);
+        // Трюк для WebM: seek в конец чтобы браузер вычислил duration
+        audio.currentTime = 1e101;
       }
     };
 
     const onTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      // Когда seekTo 1e101 сработал — браузер вернёт реальный duration
-      if ((duration === 0 || duration === Infinity) && audio.duration !== Infinity && !isNaN(audio.duration)) {
+      // Когда seek сработал — получаем реальный duration
+      if ((!duration || !isFinite(duration)) && isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
         audio.currentTime = 0;
       }
     };
 
     const onEnd = () => { setPlaying(false); setCurrentTime(0); };
+    const onPause = () => setPlaying(false);
 
     audio.addEventListener('loadedmetadata', onMeta);
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('ended', onEnd);
+    audio.addEventListener('pause', onPause);
     return () => {
       audio.removeEventListener('loadedmetadata', onMeta);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('pause', onPause);
     };
   }, [storedDuration, duration]);
 
