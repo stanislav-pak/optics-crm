@@ -46,7 +46,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const recordingStartRef = useRef<number>(0);
   const isStartingRef = useRef(false);
 
@@ -149,10 +148,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     if (isStartingRef.current || isRecording) return;
     isStartingRef.current = true;
     try {
-      if (!streamRef.current || !streamRef.current.active) {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-      const stream = streamRef.current;
+      // Каждый раз новый стрим — браузер помнит разрешение и не спрашивает повторно
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
@@ -176,9 +173,13 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
     setRecordingTime(0);
     const recorder = mediaRecorderRef.current;
-    if (cancel) { recorder.stop(); return; }
+    mediaRecorderRef.current = null;
+    // Всегда останавливаем треки — выключаем микрофон
+    const stopTracks = () => recorder.stream.getTracks().forEach(t => t.stop());
+    if (cancel) { recorder.stop(); stopTracks(); return; }
     await new Promise<void>((resolve) => {
       recorder.onstop = async () => {
+        stopTracks();
         const mimeType = recorder.mimeType || 'audio/webm';
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
@@ -230,7 +231,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
   return (
     <div className="flex h-full overflow-hidden">
-
       <div className="flex flex-col flex-1 min-w-0">
 
         {/* Media Modal */}
