@@ -25,17 +25,17 @@ interface MediaModal {
 }
 
 function formatTime(dateStr: string): string {
-  // Supabase возвращает UTC без Z — добавляем чтобы браузер правильно конвертировал в локальное время
   const d = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
   return new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Галочки: серые двойные = доставлено, синие двойные = прочитано
+// Галочки через Unicode — надёжнее SVG
 function MsgStatus({ isRead }: { isRead: boolean }) {
   return (
-    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${isRead ? 'text-blue-400' : 'text-white/50'}`} viewBox="0 0 16 11" fill="currentColor">
-      <path d="M11.071.283L5.062 6.304 2.93 4.17 1.515 5.586l3.547 3.547.707.707.707-.707 6.716-6.716L11.071.283zM14.899.283l-6.01 6.02-.637-.637-1.414 1.414 2.05 2.05.708.708.707-.708 6.716-6.716L14.899.283z" />
-    </svg>
+    <span className={`text-[11px] leading-none ${isRead ? 'text-blue-400' : 'text-white/40'}`}
+      style={{ letterSpacing: '-2px' }}>
+      ✓✓
+    </span>
   );
 }
 
@@ -54,6 +54,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  // 'idle' | 'permission' | 'recording'
+  const [micState, setMicState] = useState<'idle' | 'permission' | 'recording'>('idle');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -87,9 +89,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       .eq('chat_id', chat.id).eq('direction', 'inbound').eq('is_read', false)
       .then(() => window.dispatchEvent(new Event('messages-read')));
     const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chat.id)
+      .from('messages').select('*').eq('chat_id', chat.id)
       .order('created_at', { ascending: true });
     setMessages(data ?? []);
     setLoading(false);
@@ -148,13 +148,26 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   };
 
   const removePending = (index: number) => setPendingFiles(prev => prev.filter((_, i) => i !== index));
-
-  const openMedia = (url: string, type: 'image' | 'video' | 'file', name?: string) => {
-    setMediaModal({ url, type, name });
-  };
-
+  const openMedia = (url: string, type: 'image' | 'video' | 'file', name?: string) => setMediaModal({ url, type, name });
   const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+  // Шаг 1: запрашиваем разрешение (без записи)
+  const requestMicPermission = async () => {
+    if (isStartingRef.current || isRecording) return;
+    setMicState('permission');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // сразу останавливаем — только проверка
+      setMicState('idle'); // готов к записи
+      // Автоматически начинаем запись после разрешения
+      await startRecording();
+    } catch {
+      setMicState('idle');
+      alert('Нет доступа к микрофону');
+    }
+  };
+
+  // Шаг 2: запись (разрешение уже есть)
   const startRecording = async () => {
     if (isStartingRef.current || isRecording) return;
     isStartingRef.current = true;
@@ -168,6 +181,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       recorder.start(100);
       recordingStartRef.current = Date.now();
       setIsRecording(true);
+      setMicState('recording');
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(Math.floor((Date.now() - recordingStartRef.current) / 1000));
@@ -180,6 +194,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     if (!mediaRecorderRef.current) return;
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setIsRecording(false);
+    setMicState('idle');
     const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
     setRecordingTime(0);
     const recorder = mediaRecorderRef.current;
@@ -199,9 +214,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
           const { data } = await supabase.from('messages').insert({
             chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
-            sender_id: employee.id,
-            content: `🎤 ${duration}`,
-            message_type: 'audio',
+            sender_id: employee.id, content: `🎤 ${duration}`, message_type: 'audio',
             media_url: urlData.publicUrl,
           }).select().single();
           if (data) setMessages(prev => [...prev, data]);
@@ -250,12 +263,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <button className="text-white text-2xl leading-none" onClick={() => setMediaModal(null)}>✕</button>
             </div>
             <div className="flex-1 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
-              {mediaModal.type === 'image' && (
-                <img src={mediaModal.url} alt="фото" className="max-w-full max-h-full object-contain rounded-lg" />
-              )}
-              {mediaModal.type === 'video' && (
-                <video src={mediaModal.url} controls autoPlay className="max-w-full max-h-full rounded-lg" />
-              )}
+              {mediaModal.type === 'image' && <img src={mediaModal.url} alt="фото" className="max-w-full max-h-full object-contain rounded-lg" />}
+              {mediaModal.type === 'video' && <video src={mediaModal.url} controls autoPlay className="max-w-full max-h-full rounded-lg" />}
               {mediaModal.type === 'file' && (
                 <div className="flex flex-col items-center w-full h-full">
                   {mediaModal.url.match(/\.pdf$/i) ? (
@@ -263,19 +272,15 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       className="flex flex-col items-center gap-3 text-emerald-400 hover:text-emerald-300 flex-1 justify-center flex">
                       <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       <span className="text-base font-medium">Открыть {mediaModal.name}</span>
-                      <span className="text-xs text-[#8696a0]">Откроется в браузере</span>
                     </a>
                   ) : (
                     <div className="text-center flex-1 flex flex-col items-center justify-center">
-                      <svg className="w-16 h-16 text-[#8696a0] mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       <p className="text-white mb-2">{mediaModal.name}</p>
                       <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
                     </div>
                   )}
                   <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer"
-                    className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
-                    ⬇ Скачать файл
-                  </a>
+                    className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 underline">⬇ Скачать файл</a>
                 </div>
               )}
             </div>
@@ -323,8 +328,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                     </div>
                   ) : msg.message_type === 'file' && msg.media_url ? (
                     <div className="px-3 py-2">
-                      <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)}
-                        className="flex items-center gap-2 text-emerald-400">
+                      <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)} className="flex items-center gap-2 text-emerald-400">
                         {isVideo ? (
                           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         ) : (
@@ -339,8 +343,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                     </div>
                   ) : msg.message_type === 'audio' && msg.media_url ? (
                     <VoiceMessage
-                      url={msg.media_url}
-                      isOutbound={isOutbound}
+                      url={msg.media_url} isOutbound={isOutbound}
                       time={formatTime(msg.created_at)}
                       storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
                       isRead={msg.is_read}
@@ -366,17 +369,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           <div className="px-4 py-2 bg-[#202c33] border-t border-white/5 flex gap-2 overflow-x-auto flex-shrink-0">
             {pendingFiles.map((pf, i) => (
               <div key={i} className="relative flex-shrink-0">
-                {pf.type === 'image' ? (
-                  <img src={pf.preview} className="w-16 h-16 object-cover rounded-lg" />
-                ) : pf.type === 'video' ? (
-                  <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
+                {pf.type === 'image' ? <img src={pf.preview} className="w-16 h-16 object-cover rounded-lg" />
+                  : <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
                     <svg className="w-8 h-8 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
-                )}
+                  </div>}
                 <button onClick={() => removePending(i)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">✕</button>
               </div>
             ))}
@@ -397,6 +393,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
             className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ scrollbarWidth: 'none' }} />
+
           {isRecording ? (
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={() => stopRecording(true)} className="text-[#8696a0] hover:text-red-400 text-xs px-2">✕</button>
@@ -406,6 +403,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
               </button>
             </div>
+          ) : micState === 'permission' ? (
+            // Ожидание разрешения
+            <div className="w-10 h-10 bg-emerald-500/50 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
           ) : canSend ? (
             <button onClick={sendMessage} disabled={isArchived}
               className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
@@ -413,7 +415,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             </button>
           ) : (
             <button disabled={isArchived}
-              onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
+              onPointerDown={(e) => { e.preventDefault(); requestMicPermission(); }}
               className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </button>
@@ -422,18 +424,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
       </div>
 
-      {/* CRM Sidebar */}
       {showCRM && <CRMSidebar chat={chat} />}
-
-      {/* Chat Info Panel */}
       {showInfo && (
-        <ChatInfoPanel
-          chat={chat}
-          onClose={() => setShowInfo(false)}
-          onArchive={() => { setShowInfo(false); onArchive?.(); }}
-        />
+        <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)}
+          onArchive={() => { setShowInfo(false); onArchive?.(); }} />
       )}
-
     </div>
   );
 }
