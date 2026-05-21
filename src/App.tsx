@@ -65,7 +65,7 @@ function AppContent() {
         const chat = activeChatRef.current;
         if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
-        else if (view === 'manager-crm') { setMobileView('list'); }
+        
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
