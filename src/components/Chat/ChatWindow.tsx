@@ -24,10 +24,11 @@ interface MediaModal {
   name?: string;
 }
 
-interface LocationData {
-  lat: number;
-  lng: number;
-  name?: string;
+interface BranchOption {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
 }
 
 function formatTime(dateStr: string): string {
@@ -44,56 +45,46 @@ function MsgStatus({ isRead }: { isRead: boolean }) {
   );
 }
 
-function parseLocation(content: string): LocationData | null {
-  try { return JSON.parse(content); } catch { return null; }
-}
-
-// Карточка местоположения
 function LocationMessage({ content, isOutbound, time, isRead }: {
   content: string; isOutbound: boolean; time: string; isRead: boolean;
 }) {
-  const loc = parseLocation(content);
-  if (!loc) return (
-    <div className="px-3 py-2">
-      <p className="text-sm">📍 Местоположение</p>
-      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{time}</span>
-        {isOutbound && <MsgStatus isRead={isRead} />}
-      </div>
-    </div>
-  );
+  let loc: { lat?: number; lng?: number; name?: string } = {};
+  try { loc = JSON.parse(content); } catch { loc = { name: content }; }
 
-  const mapsUrl = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-  const staticMap = `https://static-maps.yandex.ru/1.x/?ll=${loc.lng},${loc.lat}&z=15&size=250,120&l=map&pt=${loc.lng},${loc.lat},pm2rdm`;
+  const hasCoords = loc.lat && loc.lng && loc.lat !== 0 && loc.lng !== 0;
+  const mapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}`
+    : `https://www.google.com/maps/search/${encodeURIComponent(loc.name || '')}`;
+  const staticMap = hasCoords
+    ? `https://static-maps.yandex.ru/1.x/?ll=${loc.lng},${loc.lat}&z=15&size=250,120&l=map&pt=${loc.lng},${loc.lat},pm2rdm`
+    : null;
 
   return (
-    <div className="overflow-hidden rounded-lg" style={{ minWidth: 220 }}>
-      {/* Превью карты */}
-      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block relative">
-        <img
-          src={staticMap}
-          alt="карта"
-          className="w-full h-28 object-cover"
-          onError={(e) => {
-            // Fallback если яндекс карты не загрузились
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+    <div className="overflow-hidden rounded-lg" style={{ minWidth: 220, maxWidth: 280 }}>
+      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block relative bg-[#1a2530] h-28 flex items-center justify-center">
+        {staticMap ? (
+          <>
+            <img src={staticMap} alt="карта" className="w-full h-full object-cover absolute inset-0" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-[#8696a0]">
+            <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
             </svg>
+            <span className="text-xs">Нажмите для открытия</span>
           </div>
-        </div>
+        )}
       </a>
-      {/* Адрес + время */}
       <div className="px-3 py-2">
-        <p className="text-[13px] font-medium text-[#e9edef] truncate">
-          {loc.name || `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`}
-        </p>
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
-          className="text-[11px] text-emerald-400 hover:text-emerald-300">
+        <p className="text-[13px] font-medium text-[#e9edef] truncate">{loc.name || 'Местоположение'}</p>
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-emerald-400">
           Открыть в Google Maps →
         </a>
         <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
@@ -116,10 +107,14 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [mediaModal, setMediaModal] = useState<MediaModal | null>(null);
   const [showCRM, setShowCRM] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  // Location
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [locationInput, setLocationInput] = useState('');
-  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [gettingLocation, setGettingLocation] = useState(false);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [geocoding, setGeocoding] = useState(false);
+  // Delete
+  const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Recording
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -143,11 +138,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
-      if (mediaModalRef.current) {
-        if (dx > 80 && dy < 100) { setMediaModal(null); }
-      } else if (dx > 50 && dy < 100) {
-        if (onBackRef.current) { onBackRef.current(); }
-      }
+      if (mediaModalRef.current) { if (dx > 80 && dy < 100) setMediaModal(null); }
+      else if (dx > 50 && dy < 100) { if (onBackRef.current) onBackRef.current(); }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
@@ -158,11 +150,15 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     supabase.from('messages').update({ is_read: true })
       .eq('chat_id', chat.id).eq('direction', 'inbound').eq('is_read', false)
       .then(() => window.dispatchEvent(new Event('messages-read')));
-    const { data } = await supabase
-      .from('messages').select('*').eq('chat_id', chat.id)
-      .order('created_at', { ascending: true });
+    const { data } = await supabase.from('messages').select('*').eq('chat_id', chat.id).order('created_at', { ascending: true });
     setMessages(data ?? []);
     setLoading(false);
+  };
+
+  // Загрузить филиалы для модала местоположения
+  const loadBranches = async () => {
+    const { data } = await supabase.from('branches').select('id, name, city, address').order('name');
+    setBranches(data ?? []);
   };
 
   const sendMessage = async () => {
@@ -176,47 +172,52 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       sender_type: 'employee', sender_id: employee.id, content,
       message_type: 'text', is_read: false, created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, tempMsg]);
+    setMessages(prev => [...prev, tempMsg]);
     const { data } = await supabase.from('messages').insert({
       chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
       sender_id: employee.id, content, message_type: 'text',
     }).select().single();
-    if (data) setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? data : m));
+    if (data) setMessages(prev => prev.map(m => m.id === tempMsg.id ? data : m));
     setSending(false);
   };
 
-  // Получить текущее местоположение
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) { alert('Геолокация не поддерживается'); return; }
-    setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocationCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setGettingLocation(false);
-      },
-      () => { alert('Не удалось получить местоположение'); setGettingLocation(false); }
-    );
-  };
-
-  // Отправить местоположение
-  const sendLocation = async () => {
-    if (!employee || (!locationCoords && !locationInput.trim())) return;
-    let locData: LocationData;
-    if (locationCoords) {
-      locData = { ...locationCoords, name: locationInput.trim() || undefined };
-    } else {
-      // Только текст адреса без координат — пробуем геокодировать через nominatim
-      locData = { lat: 0, lng: 0, name: locationInput.trim() };
-    }
-    const content = JSON.stringify(locData);
+  // Геокодирование через Nominatim и отправка локации филиала
+  const sendBranchLocation = async (branch: BranchOption) => {
+    if (!employee) return;
+    setGeocoding(true);
+    const query = [branch.address, branch.city].filter(Boolean).join(', ');
+    let lat = 0, lng = 0;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+        headers: { 'Accept-Language': 'ru' }
+      });
+      const data = await res.json();
+      if (data.length > 0) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
+    } catch {}
+    setGeocoding(false);
     setShowLocationModal(false);
-    setLocationInput('');
-    setLocationCoords(null);
+    const name = `${branch.name}${branch.address ? ', ' + branch.address : ''}, ${branch.city}`;
+    const content = JSON.stringify({ lat, lng, name });
     const { data } = await supabase.from('messages').insert({
       chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
       sender_id: employee.id, content, message_type: 'location',
     }).select().single();
     if (data) setMessages(prev => [...prev, data]);
+  };
+
+  // Удаление сообщения
+  const deleteMessage = async (msg: Message) => {
+    setSelectedMsg(null);
+    await supabase.from('messages').delete().eq('id', msg.id);
+    setMessages(prev => prev.filter(m => m.id !== msg.id));
+  };
+
+  // Long press
+  const handleMsgPressStart = (msg: Message) => {
+    longPressTimer.current = setTimeout(() => setSelectedMsg(msg), 500);
+  };
+  const handleMsgPressEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   const sendPendingFiles = async () => {
@@ -235,7 +236,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         message_type: pending.type === 'image' ? 'image' : 'file',
         media_url: urlData.publicUrl,
       }).select().single();
-      if (data) setMessages((prev) => [...prev, data]);
+      if (data) setMessages(prev => [...prev, data]);
     }
     setPendingFiles([]);
     setUploading(false);
@@ -264,10 +265,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         stream.getTracks().forEach(t => t.stop());
         permissionGrantedRef.current = true;
         setMicState('ready');
-      } catch {
-        setMicState('idle');
-        alert('Нет доступа к микрофону');
-      }
+      } catch { setMicState('idle'); alert('Нет доступа к микрофону'); }
       return;
     }
     await startRecording();
@@ -340,8 +338,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     fetchMessages();
     const channel = supabase.channel(`chat-${chat.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chat.id}` }, (payload) => {
-        setMessages((prev) => {
-          if (prev.find((m) => m.id === (payload.new as Message).id)) return prev;
+        setMessages(prev => {
+          if (prev.find(m => m.id === (payload.new as Message).id)) return prev;
           return [...prev, payload.new as Message];
         });
       }).subscribe();
@@ -387,6 +385,64 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     );
   };
 
+  // Рендер сообщения с поддержкой long press
+  const renderMsg = (msg: Message) => {
+    const isOutbound = msg.direction === 'outbound';
+    const isVideo = msg.media_url?.match(/\.(mp4|mov|avi|webm)$/i);
+    return (
+      <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+        <div
+          className={`max-w-[70%] rounded-lg overflow-hidden text-sm select-none ${isOutbound ? 'bg-[#005c4b] text-[#e9edef]' : 'bg-[#202c33] text-[#e9edef]'}`}
+          onTouchStart={() => handleMsgPressStart(msg)}
+          onTouchEnd={handleMsgPressEnd}
+          onTouchMove={handleMsgPressEnd}
+          onMouseDown={() => handleMsgPressStart(msg)}
+          onMouseUp={handleMsgPressEnd}
+          onMouseLeave={handleMsgPressEnd}
+        >
+          {msg.message_type === 'image' && msg.media_url ? (
+            <div>
+              <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
+              <div className={`flex items-center gap-1 px-3 pb-2 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                <span className="text-[10px] text-emerald-300/70">{formatTime(msg.created_at)}</span>
+                {isOutbound && <MsgStatus isRead={msg.is_read} />}
+              </div>
+            </div>
+          ) : msg.message_type === 'file' && msg.media_url ? (
+            <div className="px-3 py-2">
+              <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)} className="flex items-center gap-2 text-emerald-400">
+                {isVideo
+                  ? <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  : <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                <span className="text-xs">{msg.content}</span>
+              </button>
+              <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                {isOutbound && <MsgStatus isRead={msg.is_read} />}
+              </div>
+            </div>
+          ) : msg.message_type === 'audio' && msg.media_url ? (
+            <VoiceMessage url={msg.media_url} isOutbound={isOutbound}
+              time={formatTime(msg.created_at)}
+              storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
+              isRead={msg.is_read} />
+          ) : msg.message_type === 'location' ? (
+            <LocationMessage content={msg.content} isOutbound={isOutbound}
+              time={formatTime(msg.created_at)} isRead={msg.is_read} />
+          ) : (
+            <div className="px-3 py-2">
+              <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+              <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                {isOutbound && <MsgStatus isRead={msg.is_read} />}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex flex-col flex-1 min-w-0">
@@ -403,63 +459,78 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               {mediaModal.type === 'video' && <video src={mediaModal.url} controls autoPlay className="max-w-full max-h-full rounded-lg" />}
               {mediaModal.type === 'file' && (
                 <div className="flex flex-col items-center w-full h-full">
-                  {mediaModal.url.match(/\.pdf$/i) ? (
-                    <a href={mediaModal.url} target="_blank" rel="noopener noreferrer"
-                      className="flex flex-col items-center gap-3 text-emerald-400 flex-1 justify-center flex">
-                      <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      <span className="text-base font-medium">Открыть {mediaModal.name}</span>
-                    </a>
-                  ) : (
-                    <div className="text-center flex-1 flex flex-col items-center justify-center">
-                      <p className="text-white mb-2">{mediaModal.name}</p>
-                      <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
-                    </div>
-                  )}
-                  <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer"
-                    className="mt-3 text-sm text-emerald-400 underline">⬇ Скачать файл</a>
+                  {mediaModal.url.match(/\.pdf$/i)
+                    ? <a href={mediaModal.url} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-3 text-emerald-400 flex-1 justify-center flex">
+                        <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <span>Открыть {mediaModal.name}</span>
+                      </a>
+                    : <div className="text-center flex-1 flex flex-col items-center justify-center">
+                        <p className="text-white mb-2">{mediaModal.name}</p>
+                        <p className="text-[#8696a0] text-sm">Предпросмотр недоступен</p>
+                      </div>}
+                  <a href={mediaModal.url} download target="_blank" rel="noopener noreferrer" className="mt-3 text-sm text-emerald-400 underline">⬇ Скачать</a>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Location Modal */}
+        {/* Delete Message Sheet */}
+        {selectedMsg && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setSelectedMsg(null)}>
+            <div className="w-full bg-[#202c33] rounded-t-2xl p-4" onClick={e => e.stopPropagation()}>
+              <p className="text-[#8696a0] text-xs text-center mb-3">
+                {selectedMsg.message_type === 'text'
+                  ? `"${selectedMsg.content.slice(0, 40)}${selectedMsg.content.length > 40 ? '...' : ''}"`
+                  : selectedMsg.message_type === 'audio' ? '🎤 Голосовое сообщение'
+                  : selectedMsg.message_type === 'image' ? '📷 Фото'
+                  : selectedMsg.message_type === 'location' ? '📍 Местоположение'
+                  : '📎 Файл'}
+              </p>
+              <button onClick={() => deleteMessage(selectedMsg)}
+                className="w-full py-3.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-medium mb-2 hover:bg-red-500/20 transition-colors">
+                🗑 Удалить сообщение
+              </button>
+              <button onClick={() => setSelectedMsg(null)}
+                className="w-full py-3.5 bg-white/5 text-[#8696a0] rounded-xl hover:bg-white/10 transition-colors">
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Location Modal — выбор филиала */}
         {showLocationModal && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowLocationModal(false)}>
-            <div className="w-full bg-[#202c33] rounded-t-2xl p-5" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[#e9edef] font-semibold">Отправить местоположение</h3>
+            <div className="w-full bg-[#202c33] rounded-t-2xl p-5 max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                <h3 className="text-[#e9edef] font-semibold">Выбрать филиал</h3>
                 <button onClick={() => setShowLocationModal(false)} className="text-[#8696a0] text-xl">✕</button>
               </div>
-
-              {/* Кнопка текущей геолокации */}
-              <button onClick={getCurrentLocation} disabled={gettingLocation}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl mb-3 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
-                {gettingLocation
-                  ? <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                  : <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                }
-                <span className="text-sm font-medium">
-                  {gettingLocation ? 'Определяем...' : locationCoords ? `${locationCoords.lat.toFixed(4)}, ${locationCoords.lng.toFixed(4)}` : 'Использовать моё местоположение'}
-                </span>
-                {locationCoords && <span className="ml-auto text-emerald-300 text-xs">✓</span>}
-              </button>
-
-              {/* Название / адрес */}
-              <input
-                type="text"
-                value={locationInput}
-                onChange={e => setLocationInput(e.target.value)}
-                placeholder="Название места (необязательно)"
-                className="w-full bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-emerald-500 mb-4"
-              />
-
-              <button
-                onClick={sendLocation}
-                disabled={!locationCoords && !locationInput.trim()}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors">
-                Отправить
-              </button>
+              {geocoding ? (
+                <div className="flex items-center justify-center py-8 gap-3">
+                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[#8696a0] text-sm">Определяем адрес...</span>
+                </div>
+              ) : (
+                <div className="overflow-y-auto flex-1 space-y-2">
+                  {branches.length === 0 && (
+                    <p className="text-[#8696a0] text-sm text-center py-4">Нет доступных филиалов</p>
+                  )}
+                  {branches.map(branch => (
+                    <button key={branch.id} onClick={() => sendBranchLocation(branch)}
+                      className="w-full flex items-start gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-left">
+                      <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                      </svg>
+                      <div className="min-w-0">
+                        <p className="text-[#e9edef] text-sm font-medium">{branch.name}</p>
+                        <p className="text-[#8696a0] text-xs truncate">{[branch.address, branch.city].filter(Boolean).join(', ')}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -489,54 +560,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: '#0b141a' }}>
           {loading && <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>}
           {!loading && messages.length === 0 && <div className="flex justify-center py-8"><p className="text-sm text-[#8696a0]">Нет сообщений</p></div>}
-          {messages.map((msg) => {
-            const isOutbound = msg.direction === 'outbound';
-            const isVideo = msg.media_url?.match(/\.(mp4|mov|avi|webm)$/i);
-            return (
-              <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] rounded-lg overflow-hidden text-sm ${isOutbound ? 'bg-[#005c4b] text-[#e9edef]' : 'bg-[#202c33] text-[#e9edef]'}`}>
-                  {msg.message_type === 'image' && msg.media_url ? (
-                    <div>
-                      <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
-                      <div className={`flex items-center gap-1 px-3 pb-2 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                        <span className="text-[10px] text-emerald-300/70">{formatTime(msg.created_at)}</span>
-                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
-                      </div>
-                    </div>
-                  ) : msg.message_type === 'file' && msg.media_url ? (
-                    <div className="px-3 py-2">
-                      <button onClick={() => openMedia(msg.media_url!, isVideo ? 'video' : 'file', msg.content)} className="flex items-center gap-2 text-emerald-400">
-                        {isVideo
-                          ? <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          : <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-                        <span className="text-xs">{msg.content}</span>
-                      </button>
-                      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
-                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
-                      </div>
-                    </div>
-                  ) : msg.message_type === 'audio' && msg.media_url ? (
-                    <VoiceMessage url={msg.media_url} isOutbound={isOutbound}
-                      time={formatTime(msg.created_at)}
-                      storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
-                      isRead={msg.is_read} />
-                  ) : msg.message_type === 'location' ? (
-                    <LocationMessage content={msg.content} isOutbound={isOutbound}
-                      time={formatTime(msg.created_at)} isRead={msg.is_read} />
-                  ) : (
-                    <div className="px-3 py-2">
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
-                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {messages.map(msg => renderMsg(msg))}
           <div ref={bottomRef} />
         </div>
 
@@ -563,15 +587,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           {/* Прикрепить файл */}
           <button onClick={() => fileInputRef.current?.click()} disabled={isArchived || uploading}
             className="w-10 h-10 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
-            {uploading ? <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> :
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>}
+            {uploading
+              ? <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              : <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>}
           </button>
 
-          {/* Местоположение */}
+          {/* Местоположение — та же высота w-10 h-10 */}
           {!isRecording && !canSend && (
-            <button onClick={() => setShowLocationModal(true)} disabled={isArchived}
-              className="w-8 h-8 text-[#8696a0] hover:text-emerald-400 disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <button onClick={() => { setShowLocationModal(true); loadBranches(); }} disabled={isArchived}
+              className="w-10 h-10 text-[#8696a0] hover:text-emerald-400 disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
               </svg>
             </button>
