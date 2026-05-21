@@ -29,11 +29,13 @@ function formatTime(dateStr: string): string {
   return new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Галочки через Unicode — надёжнее SVG
+// Галочки: серые = доставлено, синие = прочитано
 function MsgStatus({ isRead }: { isRead: boolean }) {
   return (
-    <span className={`text-[11px] leading-none ${isRead ? 'text-blue-400' : 'text-white/40'}`}
-      style={{ letterSpacing: '-2px' }}>
+    <span
+      className="text-[12px] font-bold leading-none flex-shrink-0"
+      style={{ letterSpacing: '-3px', color: isRead ? '#60a5fa' : '#a7c5bd' }}
+    >
       ✓✓
     </span>
   );
@@ -54,8 +56,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  // 'idle' | 'permission' | 'recording'
-  const [micState, setMicState] = useState<'idle' | 'permission' | 'recording'>('idle');
+  // idle | permission | ready | recording
+  const [micState, setMicState] = useState<'idle' | 'permission' | 'ready' | 'recording'>('idle');
+  const permissionGrantedRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -151,23 +154,28 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const openMedia = (url: string, type: 'image' | 'video' | 'file', name?: string) => setMediaModal({ url, type, name });
   const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-  // Шаг 1: запрашиваем разрешение (без записи)
-  const requestMicPermission = async () => {
-    if (isStartingRef.current || isRecording) return;
-    setMicState('permission');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop()); // сразу останавливаем — только проверка
-      setMicState('idle'); // готов к записи
-      // Автоматически начинаем запись после разрешения
-      await startRecording();
-    } catch {
-      setMicState('idle');
-      alert('Нет доступа к микрофону');
+  const handleMicTap = async () => {
+    if (isRecording || isStartingRef.current) return;
+
+    // Шаг 1: нет разрешения → только запрашиваем, не записываем
+    if (!permissionGrantedRef.current) {
+      setMicState('permission');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop()); // сразу выключаем — только проверка
+        permissionGrantedRef.current = true;
+        setMicState('ready'); // ждём второго нажатия
+      } catch {
+        setMicState('idle');
+        alert('Нет доступа к микрофону');
+      }
+      return; // НЕ начинаем запись
     }
+
+    // Шаг 2: разрешение есть → начинаем запись
+    await startRecording();
   };
 
-  // Шаг 2: запись (разрешение уже есть)
   const startRecording = async () => {
     if (isStartingRef.current || isRecording) return;
     isStartingRef.current = true;
@@ -194,7 +202,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     if (!mediaRecorderRef.current) return;
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setIsRecording(false);
-    setMicState('idle');
+    setMicState('ready'); // после записи — готов к следующей
     const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
     setRecordingTime(0);
     const recorder = mediaRecorderRef.current;
@@ -250,6 +258,51 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const client = chat.client;
   const isArchived = chat.status === 'archived';
   const canSend = (text.trim().length > 0 || pendingFiles.length > 0) && !sending && !uploading;
+
+  // Иконка кнопки микрофона зависит от состояния
+  const renderMicButton = () => {
+    if (isRecording) {
+      return (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={() => stopRecording(true)} className="text-[#8696a0] hover:text-red-400 text-xs px-2">✕</button>
+          <span className="text-red-400 text-sm font-mono animate-pulse">⏺ {formatRecTime(recordingTime)}</span>
+          <button onPointerUp={() => stopRecording()}
+            className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+        </div>
+      );
+    }
+    if (micState === 'permission') {
+      return (
+        <div className="w-10 h-10 bg-emerald-500/50 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+    if (canSend) {
+      return (
+        <button onClick={sendMessage} disabled={isArchived}
+          className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
+          <svg className="w-5 h-5 text-white rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+        </button>
+      );
+    }
+    // Кнопка микрофона: зелёная если ready, обычная если idle
+    return (
+      <button disabled={isArchived}
+        onPointerDown={(e) => { e.preventDefault(); handleMicTap(); }}
+        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+          micState === 'ready'
+            ? 'bg-emerald-400 ring-2 ring-emerald-300 hover:bg-emerald-500'
+            : 'bg-emerald-500 hover:bg-emerald-600'
+        } disabled:opacity-50`}>
+        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+      </button>
+    );
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -322,7 +375,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                     <div>
                       <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
                       <div className={`flex items-center gap-1 px-3 pb-2 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                        <span className="text-[10px] text-emerald-300/70">{formatTime(msg.created_at)}</span>
                         {isOutbound && <MsgStatus isRead={msg.is_read} />}
                       </div>
                     </div>
@@ -369,10 +422,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           <div className="px-4 py-2 bg-[#202c33] border-t border-white/5 flex gap-2 overflow-x-auto flex-shrink-0">
             {pendingFiles.map((pf, i) => (
               <div key={i} className="relative flex-shrink-0">
-                {pf.type === 'image' ? <img src={pf.preview} className="w-16 h-16 object-cover rounded-lg" />
+                {pf.type === 'image'
+                  ? <img src={pf.preview} className="w-16 h-16 object-cover rounded-lg" />
                   : <div className="w-16 h-16 bg-[#2a3942] rounded-lg flex items-center justify-center">
-                    <svg className="w-8 h-8 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>}
+                      <svg className="w-8 h-8 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>}
                 <button onClick={() => removePending(i)} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">✕</button>
               </div>
             ))}
@@ -393,33 +447,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
             className="flex-1 bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none resize-none max-h-32 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ scrollbarWidth: 'none' }} />
-
-          {isRecording ? (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => stopRecording(true)} className="text-[#8696a0] hover:text-red-400 text-xs px-2">✕</button>
-              <span className="text-red-400 text-sm font-mono animate-pulse">⏺ {formatRecTime(recordingTime)}</span>
-              <button onPointerUp={() => stopRecording()}
-                className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-              </button>
-            </div>
-          ) : micState === 'permission' ? (
-            // Ожидание разрешения
-            <div className="w-10 h-10 bg-emerald-500/50 rounded-full flex items-center justify-center flex-shrink-0">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : canSend ? (
-            <button onClick={sendMessage} disabled={isArchived}
-              className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg className="w-5 h-5 text-white rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-            </button>
-          ) : (
-            <button disabled={isArchived}
-              onPointerDown={(e) => { e.preventDefault(); requestMicPermission(); }}
-              className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-            </button>
-          )}
+          {renderMicButton()}
         </div>
 
       </div>
