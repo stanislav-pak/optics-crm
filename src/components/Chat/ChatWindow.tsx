@@ -165,17 +165,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       if (mediaModalRef.current) { if (dx > 80 && dy < 100) setMediaModal(null); }
       else if (dx > 50 && dy < 100) { if (onBackRef.current) onBackRef.current(); }
     };
-    const closeMenu = (e: MouseEvent) => {
-      const menu = document.getElementById('attach-menu');
-      if (menu && !menu.contains(e.target as Node)) setShowAttachMenu(false);
-    };
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
-    document.addEventListener('click', closeMenu);
     return () => {
       document.removeEventListener('touchstart', onStart);
       document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('click', closeMenu);
     };
   }, []);
 
@@ -395,9 +389,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
 
   const renderMicButton = () => {
     if (isRecording) return (
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button onClick={() => stopRecording(true)} className="text-[#8696a0] hover:text-red-400 text-xs px-2">✕</button>
-        <span className="text-red-400 text-sm font-mono animate-pulse">⏺ {formatRecTime(recordingTime)}</span>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button onClick={() => stopRecording(true)} className="w-8 h-8 text-red-400 flex items-center justify-center text-lg">✕</button>
+        <span className="text-red-400 text-xs font-mono animate-pulse whitespace-nowrap">⏺{formatRecTime(recordingTime)}</span>
         <button onPointerUp={() => stopRecording()} className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
         </button>
@@ -458,7 +452,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           ) : msg.message_type === 'audio' && msg.media_url ? (
             <VoiceMessage url={msg.media_url} isOutbound={isOutbound}
               time={formatTime(msg.created_at)}
-              storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
+              storedDuration={parseInt(msg.content.replace(/[^0-9]/g, '')) || 0}
               isRead={msg.is_read} />
           ) : msg.message_type === 'location' ? (
             <LocationMessage content={msg.content} isOutbound={isOutbound} time={formatTime(msg.created_at)} isRead={msg.is_read} />
@@ -636,7 +630,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         {/* Input */}
         <div className="px-2 py-2 bg-[#202c33] flex items-end gap-1.5 flex-shrink-0">
           <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" multiple className="hidden" onChange={handleFileChange} />
-          <input ref={cameraInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
           <input ref={mediaInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
 
           {/* + меню */}
@@ -646,7 +640,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
             {showAttachMenu && (
-              <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20" onClick={e => e.stopPropagation()}>
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowAttachMenu(false)} />
+                <div id="attach-menu" className="absolute bottom-12 left-0 bg-[#233138] rounded-2xl shadow-xl overflow-hidden w-56 z-20">
                 <button onClick={() => { setShowAttachMenu(false); setTimeout(() => mediaInputRef.current?.click(), 100); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left">
                   <div className="w-9 h-9 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
@@ -687,7 +683,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   </div>
                   <span className="text-[#e9edef] text-sm">Контакт</span>
                 </button>
-              </div>
+                </div>
+              </>
             )}
           </div>
 
