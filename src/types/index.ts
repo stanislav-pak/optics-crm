@@ -1,4 +1,4 @@
-// src/types/index.ts
+﻿// src/types/index.ts
 
 export type UserRole = 'manager' | 'branch_admin' | 'admin';
 
@@ -65,7 +65,7 @@ export interface Message {
   sender_type: 'client' | 'employee';
   sender_id?: string;
   content: string;
-  message_type: 'text' | 'image' | 'file' | 'template';
+  message_type: 'text' | 'image' | 'file' | 'template' | 'audio';
   media_url?: string;
   waba_message_id?: string;
   is_read: boolean;
@@ -216,3 +216,4 @@ export interface DealStats {
   closed: number;
   conversion_rate: number;
 }
+
