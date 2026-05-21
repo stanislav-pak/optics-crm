@@ -46,6 +46,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordingStartRef = useRef<number>(0);
+  const isStartingRef = useRef(false);
 
   const mediaModalRef = useRef<MediaModal | null>(null);
   useEffect(() => { mediaModalRef.current = mediaModal; }, [mediaModal]);
@@ -140,46 +143,55 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setMediaModal({ url, type, name });
   };
 
-  // FIX 1: исправлен template literal
   const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const startRecording = async () => {
+    if (isStartingRef.current || isRecording) return;
+    isStartingRef.current = true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!streamRef.current || !streamRef.current.active) {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+      const stream = streamRef.current;
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       recorder.start();
+      recordingStartRef.current = Date.now();
       setIsRecording(true);
       setRecordingTime(0);
-      recordingTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(Math.floor((Date.now() - recordingStartRef.current) / 1000));
+      }, 500);
     } catch { alert('Нет доступа к микрофону'); }
+    finally { isStartingRef.current = false; }
   };
 
   const stopRecording = async (cancel = false) => {
     if (!mediaRecorderRef.current) return;
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setIsRecording(false);
+    const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
     setRecordingTime(0);
     const recorder = mediaRecorderRef.current;
-    if (cancel) { recorder.stop(); recorder.stream.getTracks().forEach(t => t.stop()); return; }
+    if (cancel) { recorder.stop(); return; }
     await new Promise<void>((resolve) => {
       recorder.onstop = async () => {
         const mimeType = recorder.mimeType || 'audio/webm';
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        recorder.stream.getTracks().forEach(t => t.stop());
-        if (blob.size < 1000) { resolve(); return; }
-        // FIX 2: исправлен template literal
+        if (blob.size < 1000 || duration < 1) { resolve(); return; }
         const path = `${chat.id}/voice_${Date.now()}.${ext}`;
         const { error } = await supabase.storage.from('chat-media').upload(path, blob, { contentType: mimeType });
         if (!error && employee) {
           const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
           const { data } = await supabase.from('messages').insert({
             chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
-            sender_id: employee.id, content: '🎤 Голосовое', message_type: 'audio',
+            sender_id: employee.id,
+            content: `🎤 ${duration}`,
+            message_type: 'audio',
             media_url: urlData.publicUrl,
           }).select().single();
           if (data) setMessages(prev => [...prev, data]);
@@ -311,7 +323,12 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
                     </div>
                   ) : msg.message_type === 'audio' && msg.media_url ? (
-                    <VoiceMessage url={msg.media_url} isOutbound={isOutbound} time={formatTime(msg.created_at)} />
+                    <VoiceMessage
+                      url={msg.media_url}
+                      isOutbound={isOutbound}
+                      time={formatTime(msg.created_at)}
+                      storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
+                    />
                   ) : (
                     <div className="px-3 py-2">
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -365,7 +382,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={() => stopRecording(true)} className="text-[#8696a0] hover:text-red-400 text-xs px-2">✕</button>
               <span className="text-red-400 text-sm font-mono animate-pulse">⏺ {formatRecTime(recordingTime)}</span>
-              <button onMouseUp={() => stopRecording()} onTouchEnd={() => stopRecording()}
+              <button onPointerUp={() => stopRecording()}
                 className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
               </button>
@@ -377,7 +394,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
             </button>
           ) : (
             <button disabled={isArchived}
-              onMouseDown={startRecording} onTouchStart={startRecording}
+              onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
               className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </button>
