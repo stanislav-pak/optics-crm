@@ -44,6 +44,7 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // selectedChat ref для свайпа
   const selectedChatRef = useRef<Chat | null>(null);
@@ -57,7 +58,7 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (dy < 80 && dx > 60) {
-        if (selectedChatRef.current) { setSelectedChat(null); fetchData(); } else { onBack(); }
+        if (selectedChatRef.current) { setSelectedChat(null); setRefreshKey(k => k + 1); } else { onBack(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -86,7 +87,7 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
       setComments((cm.data ?? []) as Comment[]);
       setLoading(false);
     });
-  }, [employeeId]);
+  }, [employeeId, refreshKey]);
 
   // Найти чат по chat_id и открыть его CRM
   const openChatCRM = (chatId: string) => {
@@ -274,4 +275,5 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
     </div>
   );
 }
+
 
