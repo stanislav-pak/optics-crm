@@ -731,10 +731,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       </div>
 
       {showCRM && <CRMSidebar chat={chat} />}
-      {showInfo && (
+      {/* showInfo && (
         <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)}
           onArchive={() => { setShowInfo(false); onArchive?.(); }} />
-      )}
+      ) */}
     </div>
   );
 }
