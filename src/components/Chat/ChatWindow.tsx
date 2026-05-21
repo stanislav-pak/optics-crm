@@ -50,7 +50,6 @@ function LocationMessage({ content, isOutbound, time, isRead }: {
 }) {
   let loc: { lat?: number; lng?: number; name?: string } = {};
   try { loc = JSON.parse(content); } catch { loc = { name: content }; }
-
   const hasCoords = loc.lat && loc.lng && loc.lat !== 0 && loc.lng !== 0;
   const mapsUrl = hasCoords
     ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}`
@@ -58,7 +57,6 @@ function LocationMessage({ content, isOutbound, time, isRead }: {
   const staticMap = hasCoords
     ? `https://static-maps.yandex.ru/1.x/?ll=${loc.lng},${loc.lat}&z=15&size=250,120&l=map&pt=${loc.lng},${loc.lat},pm2rdm`
     : null;
-
   return (
     <div className="overflow-hidden rounded-lg" style={{ minWidth: 220, maxWidth: 280 }}>
       <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block relative bg-[#1a2530] h-28 flex items-center justify-center">
@@ -67,30 +65,65 @@ function LocationMessage({ content, isOutbound, time, isRead }: {
             <img src={staticMap} alt="карта" className="w-full h-full object-cover absolute inset-0" />
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
               </div>
             </div>
           </>
         ) : (
           <div className="flex flex-col items-center gap-2 text-[#8696a0]">
-            <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
+            <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
             <span className="text-xs">Нажмите для открытия</span>
           </div>
         )}
       </a>
       <div className="px-3 py-2">
         <p className="text-[13px] font-medium text-[#e9edef] truncate">{loc.name || 'Местоположение'}</p>
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-emerald-400">
-          Открыть в Google Maps →
-        </a>
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-emerald-400">Открыть в Google Maps →</a>
         <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
           <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{time}</span>
           {isOutbound && <MsgStatus isRead={isRead} />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Карточка контакта
+function ContactMessage({ content, isOutbound, time, isRead }: {
+  content: string; isOutbound: boolean; time: string; isRead: boolean;
+}) {
+  let contact: { name?: string; phone?: string } = {};
+  try { contact = JSON.parse(content); } catch { contact = { name: content }; }
+  const telUrl = contact.phone ? `tel:${contact.phone}` : undefined;
+  const waUrl = contact.phone ? `https://wa.me/${contact.phone.replace(/\D/g, '')}` : undefined;
+  return (
+    <div className="px-3 py-2 min-w-[200px]">
+      {/* Аватар + имя */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+          {contact.name ? contact.name[0].toUpperCase() : '?'}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#e9edef] truncate">{contact.name || 'Контакт'}</p>
+          {contact.phone && <p className="text-xs text-[#8696a0]">{contact.phone}</p>}
+        </div>
+      </div>
+      {/* Кнопки действий */}
+      <div className="flex gap-2 border-t border-white/10 pt-2">
+        {telUrl && (
+          <a href={telUrl} className="flex-1 text-center text-xs text-emerald-400 py-1 hover:text-emerald-300">
+            📞 Позвонить
+          </a>
+        )}
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs text-emerald-400 py-1 hover:text-emerald-300">
+            💬 WhatsApp
+          </a>
+        )}
+      </div>
+      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{time}</span>
+        {isOutbound && <MsgStatus isRead={isRead} />}
       </div>
     </div>
   );
@@ -111,6 +144,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [geocoding, setGeocoding] = useState(false);
+  // Contact
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   // Delete
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,7 +192,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setLoading(false);
   };
 
-  // Загрузить филиалы для модала местоположения
   const loadBranches = async () => {
     const { data } = await supabase.from('branches').select('id, name, city, address').order('name');
     setBranches(data ?? []);
@@ -181,38 +217,46 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setSending(false);
   };
 
-  // Геокодирование через Nominatim и отправка локации филиала
   const sendBranchLocation = async (branch: BranchOption) => {
     if (!employee) return;
     setGeocoding(true);
     const query = [branch.address, branch.city].filter(Boolean).join(', ');
     let lat = 0, lng = 0;
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
-        headers: { 'Accept-Language': 'ru' }
-      });
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, { headers: { 'Accept-Language': 'ru' } });
       const data = await res.json();
       if (data.length > 0) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
     } catch {}
     setGeocoding(false);
     setShowLocationModal(false);
     const name = `${branch.name}${branch.address ? ', ' + branch.address : ''}, ${branch.city}`;
-    const content = JSON.stringify({ lat, lng, name });
     const { data } = await supabase.from('messages').insert({
       chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
-      sender_id: employee.id, content, message_type: 'location',
+      sender_id: employee.id, content: JSON.stringify({ lat, lng, name }), message_type: 'location',
     }).select().single();
     if (data) setMessages(prev => [...prev, data]);
   };
 
-  // Удаление сообщения
+  // Отправить контакт
+  const sendContact = async () => {
+    if (!employee || (!contactName.trim() && !contactPhone.trim())) return;
+    const content = JSON.stringify({ name: contactName.trim(), phone: contactPhone.trim() });
+    setShowContactModal(false);
+    setContactName('');
+    setContactPhone('');
+    const { data } = await supabase.from('messages').insert({
+      chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
+      sender_id: employee.id, content, message_type: 'contact',
+    }).select().single();
+    if (data) setMessages(prev => [...prev, data]);
+  };
+
   const deleteMessage = async (msg: Message) => {
     setSelectedMsg(null);
     await supabase.from('messages').delete().eq('id', msg.id);
     setMessages(prev => prev.filter(m => m.id !== msg.id));
   };
 
-  // Long press
   const handleMsgPressStart = (msg: Message) => {
     longPressTimer.current = setTimeout(() => setSelectedMsg(msg), 500);
   };
@@ -385,7 +429,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     );
   };
 
-  // Рендер сообщения с поддержкой long press
   const renderMsg = (msg: Message) => {
     const isOutbound = msg.direction === 'outbound';
     const isVideo = msg.media_url?.match(/\.(mp4|mov|avi|webm)$/i);
@@ -393,12 +436,8 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
       <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
         <div
           className={`max-w-[70%] rounded-lg overflow-hidden text-sm select-none ${isOutbound ? 'bg-[#005c4b] text-[#e9edef]' : 'bg-[#202c33] text-[#e9edef]'}`}
-          onTouchStart={() => handleMsgPressStart(msg)}
-          onTouchEnd={handleMsgPressEnd}
-          onTouchMove={handleMsgPressEnd}
-          onMouseDown={() => handleMsgPressStart(msg)}
-          onMouseUp={handleMsgPressEnd}
-          onMouseLeave={handleMsgPressEnd}
+          onTouchStart={() => handleMsgPressStart(msg)} onTouchEnd={handleMsgPressEnd} onTouchMove={handleMsgPressEnd}
+          onMouseDown={() => handleMsgPressStart(msg)} onMouseUp={handleMsgPressEnd} onMouseLeave={handleMsgPressEnd}
         >
           {msg.message_type === 'image' && msg.media_url ? (
             <div>
@@ -427,8 +466,9 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
               isRead={msg.is_read} />
           ) : msg.message_type === 'location' ? (
-            <LocationMessage content={msg.content} isOutbound={isOutbound}
-              time={formatTime(msg.created_at)} isRead={msg.is_read} />
+            <LocationMessage content={msg.content} isOutbound={isOutbound} time={formatTime(msg.created_at)} isRead={msg.is_read} />
+          ) : msg.message_type === 'contact' ? (
+            <ContactMessage content={msg.content} isOutbound={isOutbound} time={formatTime(msg.created_at)} isRead={msg.is_read} />
           ) : (
             <div className="px-3 py-2">
               <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -475,16 +515,16 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           </div>
         )}
 
-        {/* Delete Message Sheet */}
+        {/* Delete Sheet */}
         {selectedMsg && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setSelectedMsg(null)}>
             <div className="w-full bg-[#202c33] rounded-t-2xl p-4" onClick={e => e.stopPropagation()}>
               <p className="text-[#8696a0] text-xs text-center mb-3">
-                {selectedMsg.message_type === 'text'
-                  ? `"${selectedMsg.content.slice(0, 40)}${selectedMsg.content.length > 40 ? '...' : ''}"`
-                  : selectedMsg.message_type === 'audio' ? '🎤 Голосовое сообщение'
+                {selectedMsg.message_type === 'text' ? `"${selectedMsg.content.slice(0, 40)}${selectedMsg.content.length > 40 ? '...' : ''}"`
+                  : selectedMsg.message_type === 'audio' ? '🎤 Голосовое'
                   : selectedMsg.message_type === 'image' ? '📷 Фото'
                   : selectedMsg.message_type === 'location' ? '📍 Местоположение'
+                  : selectedMsg.message_type === 'contact' ? '👤 Контакт'
                   : '📎 Файл'}
               </p>
               <button onClick={() => deleteMessage(selectedMsg)}
@@ -499,7 +539,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
           </div>
         )}
 
-        {/* Location Modal — выбор филиала */}
+        {/* Location Modal */}
         {showLocationModal && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowLocationModal(false)}>
             <div className="w-full bg-[#202c33] rounded-t-2xl p-5 max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -514,15 +554,11 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                 </div>
               ) : (
                 <div className="overflow-y-auto flex-1 space-y-2">
-                  {branches.length === 0 && (
-                    <p className="text-[#8696a0] text-sm text-center py-4">Нет доступных филиалов</p>
-                  )}
+                  {branches.length === 0 && <p className="text-[#8696a0] text-sm text-center py-4">Нет филиалов</p>}
                   {branches.map(branch => (
                     <button key={branch.id} onClick={() => sendBranchLocation(branch)}
                       className="w-full flex items-start gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-left">
-                      <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                      </svg>
+                      <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                       <div className="min-w-0">
                         <p className="text-[#e9edef] text-sm font-medium">{branch.name}</p>
                         <p className="text-[#8696a0] text-xs truncate">{[branch.address, branch.city].filter(Boolean).join(', ')}</p>
@@ -531,6 +567,28 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Contact Modal */}
+        {showContactModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end" onClick={() => setShowContactModal(false)}>
+            <div className="w-full bg-[#202c33] rounded-t-2xl p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[#e9edef] font-semibold">Отправить контакт</h3>
+                <button onClick={() => setShowContactModal(false)} className="text-[#8696a0] text-xl">✕</button>
+              </div>
+              <input type="text" value={contactName} onChange={e => setContactName(e.target.value)}
+                placeholder="Имя контакта"
+                className="w-full bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-emerald-500 mb-3" />
+              <input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                placeholder="Номер телефона (+7...)"
+                className="w-full bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-emerald-500 mb-4" />
+              <button onClick={sendContact} disabled={!contactName.trim() && !contactPhone.trim()}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors">
+                Отправить
+              </button>
             </div>
           </div>
         )}
@@ -592,14 +650,18 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
               : <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>}
           </button>
 
-          {/* Местоположение — та же высота w-10 h-10 */}
+          {/* Кнопки локация + контакт (только когда нет текста) */}
           {!isRecording && !canSend && (
-            <button onClick={() => { setShowLocationModal(true); loadBranches(); }} disabled={isArchived}
-              className="w-10 h-10 text-[#8696a0] hover:text-emerald-400 disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-              </svg>
-            </button>
+            <>
+              <button onClick={() => { setShowLocationModal(true); loadBranches(); }} disabled={isArchived}
+                className="w-10 h-10 text-[#8696a0] hover:text-emerald-400 disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              </button>
+              <button onClick={() => setShowContactModal(true)} disabled={isArchived}
+                className="w-10 h-10 text-[#8696a0] hover:text-blue-400 disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              </button>
+            </>
           )}
 
           <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={handleKeyDown}
