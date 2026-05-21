@@ -25,7 +25,18 @@ interface MediaModal {
 }
 
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  // Supabase возвращает UTC без Z — добавляем чтобы браузер правильно конвертировал в локальное время
+  const d = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z';
+  return new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Галочки: серые двойные = доставлено, синие двойные = прочитано
+function MsgStatus({ isRead }: { isRead: boolean }) {
+  return (
+    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${isRead ? 'text-blue-400' : 'text-white/50'}`} viewBox="0 0 16 11" fill="currentColor">
+      <path d="M11.071.283L5.062 6.304 2.93 4.17 1.515 5.586l3.547 3.547.707.707.707-.707 6.716-6.716L11.071.283zM14.899.283l-6.01 6.02-.637-.637-1.414 1.414 2.05 2.05.708.708.707-.708 6.716-6.716L14.899.283z" />
+    </svg>
+  );
 }
 
 export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
@@ -148,14 +159,13 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     if (isStartingRef.current || isRecording) return;
     isStartingRef.current = true;
     try {
-      // Каждый раз новый стрим — браузер помнит разрешение и не спрашивает повторно
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.start(100); // timeslice 100ms — гарантирует ondataavailable до onstop
+      recorder.start(100);
       recordingStartRef.current = Date.now();
       setIsRecording(true);
       setRecordingTime(0);
@@ -174,7 +184,6 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
     setRecordingTime(0);
     const recorder = mediaRecorderRef.current;
     mediaRecorderRef.current = null;
-    // Всегда останавливаем треки — выключаем микрофон
     const stopTracks = () => recorder.stream.getTracks().forEach(t => t.stop());
     if (cancel) { recorder.stop(); stopTracks(); return; }
     await new Promise<void>((resolve) => {
@@ -307,7 +316,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   {msg.message_type === 'image' && msg.media_url ? (
                     <div>
                       <img src={msg.media_url} alt="фото" className="max-w-full cursor-pointer" onClick={() => openMedia(msg.media_url!, 'image')} />
-                      <p className={`text-[10px] px-3 pb-2 mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
+                      <div className={`flex items-center gap-1 px-3 pb-2 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
+                      </div>
                     </div>
                   ) : msg.message_type === 'file' && msg.media_url ? (
                     <div className="px-3 py-2">
@@ -320,7 +332,10 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                         )}
                         <span className="text-xs">{msg.content}</span>
                       </button>
-                      <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
+                      </div>
                     </div>
                   ) : msg.message_type === 'audio' && msg.media_url ? (
                     <VoiceMessage
@@ -328,11 +343,15 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                       isOutbound={isOutbound}
                       time={formatTime(msg.created_at)}
                       storedDuration={parseInt(msg.content.replace('🎤 ', '')) || 0}
+                      isRead={msg.is_read}
                     />
                   ) : (
                     <div className="px-3 py-2">
                       <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                      <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-300/70 text-right' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
+                        {isOutbound && <MsgStatus isRead={msg.is_read} />}
+                      </div>
                     </div>
                   )}
                 </div>
