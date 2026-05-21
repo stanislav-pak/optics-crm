@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { CRMSidebar } from './CRMSidebar';
 import type { Chat } from '../../types';
@@ -57,10 +57,7 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (dy < 80 && dx > 60) {
-        if (selectedChatRef.current) {
-          setSelectedChat(null); // CRM клиента → список
-        }
-        // Если на главном CRM — App.tsx НЕ трогаем, onBack вызывается кнопкой
+        if (selectedChatRef.current) { setSelectedChat(null); } else { onBack(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
