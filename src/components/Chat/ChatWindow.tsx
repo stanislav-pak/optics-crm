@@ -628,7 +628,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
         )}
 
         {/* Input */}
-        <div className="px-2 pt-2 bg-[#202c33] flex items-end gap-1.5 flex-shrink-0" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+        <div className="px-2 pt-2 bg-[#202c33] flex items-end gap-1.5 flex-shrink-0" style={{ paddingBottom: '20px' }}
           <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" multiple className="hidden" onChange={handleFileChange} />
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
           <input ref={mediaInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
