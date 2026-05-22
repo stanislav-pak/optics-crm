@@ -305,13 +305,11 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
               </option>
               {filteredManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-            // СТАЛО:
             <div className="mb-4">
               <p className="text-xs text-[#8696a0] mb-1 px-1">Срок выполнения (необязательно)</p>
               <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
                 className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none border border-white/5" />
             </div>
-              className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none mb-4 border border-white/5" />
             <button onClick={createTask} disabled={!newTitle.trim() || creating}
               className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors">
               {creating ? 'Создание...' : 'Создать и отправить'}
