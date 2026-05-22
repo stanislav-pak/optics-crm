@@ -306,7 +306,7 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
               {filteredManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
             <div className="mb-4">
-              <p className="text-xs text-[#8696a0] mb-1 px-1">Срок выполнения (необязательно)</p>
+              <p className="text-xs text-[#8696a0] mb-1 px-1">Срок (необязательно)</p>
               <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
                 className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none border border-white/5" />
             </div>
