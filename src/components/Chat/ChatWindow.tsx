@@ -648,7 +648,7 @@ export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
                   <div className="w-9 h-9 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   </div>
-                  <span className="text-[#e9edef] text-sm">Медиатека</span>
+                  <span className="text-[#e9edef] text-sm">Фото и видео</span>
                 </button>
                 <button onClick={() => { setShowAttachMenu(false); setTimeout(() => fileInputRef.current?.click(), 100); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/5 transition-colors text-left border-t border-white/5">
