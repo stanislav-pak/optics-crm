@@ -10,6 +10,7 @@ import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { ManagerCRMPanel } from './components/CRM/ManagerCRMPanel';
+import { TasksPanel } from './components/Dashboard/TasksPanel';
 import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
@@ -40,8 +41,8 @@ function AppContent() {
   }, []);
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity'>('dashboard');
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm'>('list');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks'>('dashboard');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks'>('list');
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
@@ -65,7 +66,6 @@ function AppContent() {
         const chat = activeChatRef.current;
         if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
-        
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -149,6 +149,12 @@ function AppContent() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
               </button>
               <button
+                onClick={() => { setAdminView('tasks'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Задачи">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+              </button>
+              <button
                 onClick={() => { setAdminView('reports'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('reports') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Аналитика">
@@ -184,6 +190,12 @@ function AppContent() {
             <span className="text-[10px] font-medium">Чаты</span>
           </button>
           <button
+            onClick={() => setMobileView('tasks')}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'tasks' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+            <span className="text-[10px] font-medium">Задачи</span>
+          </button>
+          <button
             onClick={() => setMobileView('manager-crm')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'manager-crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -196,7 +208,12 @@ function AppContent() {
 
   const MainArea = (
     <div className="flex-1 flex overflow-hidden">
-      {isAdmin && adminView === 'reports' ? (
+      {isAdmin && adminView === 'tasks' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Задачи" />}
+          <TasksPanel />
+        </div>
+      ) : isAdmin && adminView === 'reports' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Аналитика" />}
           <ReportsPanel />
@@ -236,11 +253,11 @@ function AppContent() {
       <AuthContext.Provider value={{ employee, loading, refetch }}>
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
+          {mobileView === 'tasks' && (
+            <TasksPanel onBack={() => setMobileView('list')} />
+          )}
           {mobileView === 'manager-crm' && (
-            <ManagerCRMPanel
-              onBack={() => setMobileView('list')}
-              employeeId={employee.id}
-            />
+            <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />
           )}
           {(mobileView === 'chat' || mobileView === 'main') && MainArea}
         </div>
