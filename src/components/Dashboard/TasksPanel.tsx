@@ -18,7 +18,8 @@ interface TaskItem {
   chat?: { client?: { name?: string; phone?: string } };
 }
 
-interface Employee { id: string; name: string; }
+interface Employee { id: string; name: string; branch_id: string; }
+interface Branch { id: string; name: string; city: string; }
 
 interface TasksPanelProps {
   onBack?: () => void;
@@ -37,6 +38,9 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [newBranch, setNewBranch] = useState<string>('all'); // 'all' | branch_id
+  const [filteredManagers, setFilteredManagers] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   // Создание задачи
@@ -73,8 +77,9 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
   useEffect(() => {
     fetchTasks();
     if (isAdmin) {
-      supabase.from('employees').select('id, name').eq('role', 'manager').eq('is_active', true).order('name')
-        .then(({ data }) => setManagers(data ?? []));
+      supabase.from('branches').select('id, name, city').order('name').then(({ data }) => setBranches(data ?? []));
+      supabase.from('employees').select('id, name, branch_id').eq('role', 'manager').eq('is_active', true).order('name')
+        .then(({ data }) => { setManagers(data ?? []); setFilteredManagers(data ?? []); });
     }
   }, []);
 
@@ -87,29 +92,40 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
   }, []);
 
   const createTask = async () => {
-    if (!newTitle.trim() || !newManager || !employee) return;
+    if (!newTitle.trim() || !employee) return;
     setCreating(true);
-    // Найдём chat_id менеджера (последний активный чат)
-    const { data: chats } = await supabase.from('chats')
-      .select('id').eq('employee_id', newManager).eq('status', 'active').order('last_message_at', { ascending: false }).limit(1);
 
-    if (!chats?.length) {
-      alert('У менеджера нет активных чатов. Задачи назначаются через чат клиента.');
+    // Определяем список менеджеров для назначения
+    const targetManagers = newManager === 'all'
+      ? filteredManagers  // все из выбранного филиала (или все вообще)
+      : managers.filter(m => m.id === newManager);
+
+    if (!targetManagers.length) {
+      alert('Нет менеджеров для назначения');
       setCreating(false);
       return;
     }
 
-    await supabase.from('tasks').insert({
-      chat_id: chats[0].id,
-      employee_id: newManager,
-      assigned_by: employee.id,
-      title: newTitle.trim(),
-      due_date: newDueDate || null,
-      confirmation_status: 'pending',
-    });
+    // Создаём задачу каждому менеджеру
+    for (const mgr of targetManagers) {
+      const { data: chats } = await supabase.from('chats')
+        .select('id').eq('employee_id', mgr.id).eq('status', 'active')
+        .order('last_message_at', { ascending: false }).limit(1);
+      if (!chats?.length) continue;
+
+      await supabase.from('tasks').insert({
+        chat_id: chats[0].id,
+        employee_id: mgr.id,
+        assigned_by: employee.id,
+        title: newTitle.trim(),
+        due_date: newDueDate || null,
+        confirmation_status: 'pending',
+      });
+    }
 
     setNewTitle('');
     setNewManager('');
+    setNewBranch('all');
     setNewDueDate('');
     setShowCreate(false);
     setCreating(false);
@@ -169,11 +185,11 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
       </div>
 
       {/* Фильтры */}
-      <div className="px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0 border-b border-white/5">
+      <div className="px-4 py-2 grid grid-cols-4 gap-1.5 flex-shrink-0 border-b border-white/5">
         {(['all', 'pending', 'accepted', 'rejected'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full transition-colors ${filter === f ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'}`}>
-            {f === 'all' ? 'Все' : f === 'pending' ? 'Ожидают' : f === 'accepted' ? 'Приняты' : 'Отклонены'}
+            className={`text-[11px] py-1.5 rounded-full transition-colors text-center ${filter === f ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0]'}`}>
+            {f === 'all' ? 'Все' : f === 'pending' ? 'Ожидают' : f === 'accepted' ? 'Приняты' : 'Откл.'}
             {' '}<span className="opacity-70">({counts[f]})</span>
           </button>
         ))}
@@ -269,14 +285,29 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
             <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)}
               placeholder="Название задачи"
               className="w-full bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-emerald-500 mb-3" />
+            {/* Шаг 1: Выбор филиала */}
+            <select value={newBranch} onChange={e => {
+              const b = e.target.value;
+              setNewBranch(b);
+              setNewManager('all');
+              setFilteredManagers(b === 'all' ? managers : managers.filter(m => m.branch_id === b));
+            }}
+              className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none mb-3 border border-white/5">
+              <option value="all">Все филиалы</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
+            </select>
+
+            {/* Шаг 2: Выбор менеджера внутри филиала */}
             <select value={newManager} onChange={e => setNewManager(e.target.value)}
               className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none mb-3 border border-white/5">
-              <option value="">Выбрать менеджера *</option>
-              {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              <option value="all">
+                {newBranch === 'all' ? 'Всем менеджерам' : 'Всем менеджерам филиала'}
+              </option>
+              {filteredManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
             <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
               className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none mb-4 border border-white/5" />
-            <button onClick={createTask} disabled={!newTitle.trim() || !newManager || creating}
+            <button onClick={createTask} disabled={!newTitle.trim() || creating}
               className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors">
               {creating ? 'Создание...' : 'Создать и отправить'}
             </button>
