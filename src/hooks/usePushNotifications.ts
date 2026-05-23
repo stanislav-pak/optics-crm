@@ -16,19 +16,26 @@ function urlBase64ToUint8Array(base64String: string) {
 
 async function subscribeToPush(employeeId: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!VAPID_PUBLIC_KEY) return;
+
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return;
+
   const reg = await navigator.serviceWorker.ready;
-  let subscription = await reg.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-  }
+
+  // Всегда отписываемся от старой подписки и создаём новую
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) await existing.unsubscribe();
+
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+
   await supabase.from('push_subscriptions').upsert({
     employee_id: employeeId,
     subscription: subscription.toJSON(),
+    updated_at: new Date().toISOString(),
   }, { onConflict: 'employee_id' });
 }
 
