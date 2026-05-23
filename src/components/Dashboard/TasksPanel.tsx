@@ -135,6 +135,7 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
   const acceptTask = async (task: TaskItem) => {
     await supabase.from('tasks').update({ confirmation_status: 'accepted' }).eq('id', task.id);
     fetchTasks();
+    window.dispatchEvent(new Event('tasks-updated'));
   };
 
   const rejectTask = async () => {
@@ -143,6 +144,7 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
     setRejectingTask(null);
     setRejectReason('');
     fetchTasks();
+    window.dispatchEvent(new Event('tasks-updated'));
   };
 
   const completeTask = async (task: TaskItem) => {
@@ -305,10 +307,10 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
               </option>
               {filteredManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-            <div className="flex items-center gap-3 bg-[#2a3942] rounded-xl px-4 py-3 mb-4">
-              <span className="text-xs text-[#8696a0] flex-shrink-0">Срок:</span>
+            <div className="mb-4">
+              <p className="text-xs text-[#8696a0] mb-1 px-1">Срок (необязательно)</p>
               <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
-                className="flex-1 bg-transparent text-[#d1d7db] text-sm outline-none" />
+                className="w-full bg-[#2a3942] text-[#d1d7db] rounded-xl px-4 py-3 text-sm outline-none border border-white/5" />
             </div>
             <button onClick={createTask} disabled={!newTitle.trim() || creating}
               className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors">

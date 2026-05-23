@@ -15,6 +15,7 @@ import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import type { Chat } from './types';
+import { playNotificationSound } from './utils/sound';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -51,18 +52,27 @@ function AppContent() {
   // Счётчик ожидающих задач для менеджера
   useEffect(() => {
     if (!employee || employee.role !== 'manager') return;
+    let prevCount = 0;
     const fetchPending = async () => {
       const { count } = await supabase.from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('employee_id', employee.id)
         .eq('confirmation_status', 'pending');
-      setPendingTasksCount(count ?? 0);
+      const newCount = count ?? 0;
+      // Звук только когда новые задачи появились
+      if (newCount > prevCount) playNotificationSound();
+      prevCount = newCount;
+      setPendingTasksCount(newCount);
     };
     fetchPending();
     const channel = supabase.channel('pending-tasks-badge')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchPending)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    window.addEventListener('tasks-updated', fetchPending);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('tasks-updated', fetchPending);
+    };
   }, [employee?.id]);
 
   const swipeRef = useRef({ x: 0, y: 0 });
@@ -84,6 +94,7 @@ function AppContent() {
         const chat = activeChatRef.current;
         if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
         else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
+        else if (view === 'tasks' || view === 'manager-crm') { setMobileView('list'); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
