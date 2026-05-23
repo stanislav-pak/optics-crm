@@ -49,6 +49,18 @@ function AppContent() {
     supabase.from('branches').select('id, name, city').then(({ data }) => setSidebarBranches(data ?? []));
   }, []);
 
+  // Звук при входящем push-уведомлении (foreground: приложение открыто)
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'PUSH_RECEIVED') {
+        playNotificationSound();
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
+
   // Счётчик ожидающих задач для менеджера
   useEffect(() => {
     if (!employee || employee.role !== 'manager') return;

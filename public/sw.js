@@ -8,20 +8,33 @@ self.addEventListener('push', (event) => {
   } catch (_) {}
 
   event.waitUntil(
-    self.registration.getNotifications().then((notifications) => {
-      const count = notifications.length + 1;
-      // setAppBadge: supported on iOS 16.4+ PWA and modern Android
-      if ('setAppBadge' in self.navigator) self.navigator.setAppBadge(count);
-      return self.registration.showNotification(data.title, {
+    (async () => {
+      // 1. Бейдж — сначала, до показа уведомления (именно этот порядок работал)
+      try {
+        const notifications = await self.registration.getNotifications();
+        if ('setAppBadge' in self.navigator) {
+          await self.navigator.setAppBadge(notifications.length + 1);
+        }
+      } catch (_) {}
+
+      // 2. Показываем уведомление — iOS воспроизводит системный звук именно здесь
+      await self.registration.showNotification(data.title, {
         body: data.body,
         icon: '/apple-touch-icon-v2.png',
         badge: '/favicon-96x96.png',
-        vibrate: [200, 100, 200],
         tag: `msg-${Date.now()}`,
-        renotify: true,
         data,
       });
-    }),
+
+      // 3. Сообщаем открытым вкладкам сыграть звук (foreground-случай, fire-and-forget)
+      clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clientList) =>
+          clientList.forEach((client) =>
+            client.postMessage({ type: 'PUSH_RECEIVED', title: data.title, body: data.body }),
+          ),
+        );
+    })(),
   );
 });
 
