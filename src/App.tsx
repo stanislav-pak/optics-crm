@@ -77,8 +77,20 @@ function AppContent() {
       setPendingTasksCount(newCount);
     };
     fetchPending();
-    const channel = supabase.channel('pending-tasks-badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchPending)
+    const channel = supabase
+      .channel(`pending-tasks-badge-${employee.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'tasks',
+        filter: `employee_id=eq.${employee.id}`,
+      }, fetchPending)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tasks',
+        filter: `employee_id=eq.${employee.id}`,
+      }, fetchPending)
       .subscribe();
     window.addEventListener('tasks-updated', fetchPending);
     return () => {
