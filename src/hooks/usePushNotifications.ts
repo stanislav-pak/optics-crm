@@ -15,33 +15,39 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 async function subscribeToPush(employeeId: string): Promise<void> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if (!VAPID_PUBLIC_KEY) return;
+  if (!('serviceWorker' in navigator)) { alert('❌ No ServiceWorker'); return; }
+  if (!('PushManager' in window)) { alert('❌ No PushManager'); return; }
+  if (!VAPID_PUBLIC_KEY) { alert('❌ No VAPID key'); return; }
 
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return;
+  if (permission !== 'granted') { alert(`❌ Permission: ${permission}`); return; }
 
-  const reg = await navigator.serviceWorker.ready;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe();
 
-  // Всегда отписываемся от старой подписки и создаём новую
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) await existing.unsubscribe();
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
 
-  const subscription = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
+    const { error } = await supabase.from('push_subscriptions').upsert({
+      employee_id: employeeId,
+      subscription: subscription.toJSON(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'employee_id' });
 
-  await supabase.from('push_subscriptions').upsert({
-    employee_id: employeeId,
-    subscription: subscription.toJSON(),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'employee_id' });
+    if (error) { alert(`❌ DB error: ${error.message}`); return; }
+    alert('✅ Push подписка создана!');
+  } catch (e: any) {
+    alert(`❌ Error: ${e.message}`);
+  }
 }
 
 export function usePushNotifications(employeeId?: string) {
   useEffect(() => {
     if (!employeeId) return;
-    subscribeToPush(employeeId).catch(console.error);
+    subscribeToPush(employeeId);
   }, [employeeId]);
 }
