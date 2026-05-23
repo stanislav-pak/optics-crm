@@ -19,17 +19,22 @@ async function subscribeToPush(employeeId: string): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return;
   const reg = await navigator.serviceWorker.ready;
-  let subscription = await reg.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+
+  // Always unsubscribe old subscription — ensures new VAPID key takes effect
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
   }
-  await supabase.from('push_subscriptions').upsert({
-    employee_id: employeeId,
-    subscription: subscription.toJSON(),
-  }, { onConflict: 'employee_id' });
+
+  const subscription = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+
+  await supabase.from('push_subscriptions').upsert(
+    { employee_id: employeeId, subscription: subscription.toJSON() },
+    { onConflict: 'employee_id' },
+  );
 }
 
 export function usePushNotifications(employeeId?: string) {

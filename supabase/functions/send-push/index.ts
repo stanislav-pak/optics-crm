@@ -1,4 +1,4 @@
-﻿import webPush from 'npm:web-push@3.6.7';
+import webPush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { data: subs } = await supabase
       .from('push_subscriptions')
-      .select('subscription')
+      .select('id, subscription')
       .eq('employee_id', employee_id);
 
     if (!subs || subs.length === 0) {
@@ -36,11 +36,28 @@ Deno.serve(async (req) => {
       Deno.env.get('VAPID_PRIVATE_KEY')!,
     );
 
+    const staleIds: string[] = [];
     await Promise.all(
-      subs.map((s) =>
-        webPush.sendNotification(s.subscription, JSON.stringify({ title, body }))
-      )
+      subs.map(async (s) => {
+        try {
+          await webPush.sendNotification(
+            s.subscription,
+            JSON.stringify({ title, body }),
+          );
+        } catch (err: any) {
+          // 410 Gone or 404 = subscription expired/invalid, remove it
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            staleIds.push(s.id);
+          } else {
+            console.error('Push send error:', err.message);
+          }
+        }
+      }),
     );
+
+    if (staleIds.length > 0) {
+      await supabase.from('push_subscriptions').delete().in('id', staleIds);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
