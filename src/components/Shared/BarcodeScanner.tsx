@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Camera } from 'lucide-react';
-import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { NotFoundException } from '@zxing/library';
 
 interface Props {
   onDetected: (barcode: string) => void;
@@ -8,15 +9,67 @@ interface Props {
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
-  const [debugStatus, setDebugStatus] = useState('Инициализация...');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const [status, setStatus] = useState('Инициализация...');
+  const [error, setError] = useState<string | null>(null);
 
-  const { videoCallbackRef, error, stop } = useBarcodeScanner(
-    (barcode) => { onDetected(barcode); onClose(); },
-    (s) => setDebugStatus(s),
-  );
+  useEffect(() => {
+    let cancelled = false;
+
+    const start = async () => {
+      try {
+        setStatus('Запрос камеры...');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        setStatus('Камера получена');
+
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play();
+        if (cancelled) return;
+        setStatus('Сканирование...');
+
+        const reader = new BrowserMultiFormatReader();
+        readerRef.current = reader;
+
+        await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
+          if (cancelled) return;
+          if (result) {
+            setStatus('Найден: ' + result.getText());
+            onDetected(result.getText());
+          }
+          if (err && !(err instanceof NotFoundException)) {
+            // ignore scan errors
+          }
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setStatus('Ошибка: ' + String(e));
+          setError(String(e));
+        }
+      }
+    };
+
+    start();
+
+    return () => {
+      cancelled = true;
+      try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, []);
 
   const handleClose = () => {
-    stop();
+    try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
+    streamRef.current?.getTracks().forEach(t => t.stop());
     onClose();
   };
 
@@ -34,15 +87,17 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
       <div className="flex-1 relative flex items-center justify-center">
         <video
-          ref={videoCallbackRef}
+          ref={videoRef}
           autoPlay
           playsInline
           muted
           className="w-full h-full object-cover"
         />
+
         <div className="absolute top-4 left-4 right-4 bg-black/70 text-white text-xs px-3 py-2 rounded-lg text-center z-10">
-          {debugStatus}
+          {status}
         </div>
+
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-64 h-40">
             <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
@@ -52,6 +107,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 opacity-80 animate-pulse" />
           </div>
         </div>
+
         {error && (
           <div className="absolute bottom-8 left-4 right-4 bg-red-500/90 text-white text-sm px-4 py-3 rounded-xl text-center">
             {error}
