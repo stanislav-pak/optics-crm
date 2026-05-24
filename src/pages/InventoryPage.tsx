@@ -9,6 +9,7 @@ import type {
   StockMovement, PurchaseOrder, Sale, Revision
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
+import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -31,6 +32,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddPurchase, setShowAddPurchase] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -229,7 +231,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         {tab === 'purchases' && (
           <div className="space-y-4">
             <div className="flex justify-end">
-              <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+              <button onClick={() => setShowAddPurchase(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
                 <Plus size={16} />
                 Новый приход
               </button>
@@ -326,6 +328,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           branchId={branchId}
           employeeId={employeeId}
           onClose={() => setShowAddProduct(false)}
+          onSuccess={loadAll}
+        />
+      )}
+      {showAddPurchase && (
+        <AddPurchaseModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowAddPurchase(false)}
           onSuccess={loadAll}
         />
       )}
