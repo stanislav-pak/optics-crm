@@ -37,6 +37,26 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
     getProducts(branchId).then(setProducts);
   }, [branchId]);
 
+  // Свайп вправо — закрыть модал
+  useEffect(() => {
+    const startX = { x: 0, y: 0 };
+    const onStart = (e: TouchEvent) => {
+      startX.x = e.touches[0].clientX;
+      startX.y = e.touches[0].clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX.x;
+      const dy = Math.abs(e.changedTouches[0].clientY - startX.y);
+      if (dx > 60 && dy < 80) onClose();
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend', onEnd);
+    };
+  }, []);
+
   // Закрыть дропдаун при клике вне
   useEffect(() => {
     const handler = (e: MouseEvent) => {

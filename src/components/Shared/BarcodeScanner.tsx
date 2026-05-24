@@ -74,6 +74,25 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const startX = { x: 0, y: 0 };
+    const onStart = (e: TouchEvent) => {
+      startX.x = e.touches[0].clientX;
+      startX.y = e.touches[0].clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX.x;
+      const dy = Math.abs(e.changedTouches[0].clientY - startX.y);
+      if (dx > 60 && dy < 80) handleClose();
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend', onEnd);
+    };
+  }, []);
+
   const handleClose = () => {
     try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
     streamRef.current?.getTracks().forEach(t => t.stop());
