@@ -160,80 +160,65 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
             />
           </div>
 
-          {/* Таблица позиций */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full table-fixed text-sm">
-              <colgroup>
-                <col className="w-auto" />
-                <col className="w-24" />
-                <col className="w-20" />
-                <col className="w-20" />
-                <col className="w-8" />
-              </colgroup>
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500">
-                  <th className="text-left px-3 py-2">Товар</th>
-                  <th className="text-center px-1 py-2">Кол-во</th>
-                  <th className="text-center px-1 py-2">Цена ₸</th>
-                  <th className="text-right px-2 py-2">Сумма</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-400">
-                      Добавьте товары ниже
-                    </td>
-                  </tr>
-                ) : items.map((item, idx) => (
-                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-2">
-                      <p className="text-gray-900 leading-tight break-words">{item.product_name}</p>
-                    </td>
-                    <td className="px-1 py-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity === 0 ? '' : item.quantity}
-                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
-                        onBlur={e => { if (!e.target.value || parseInt(e.target.value) < 1) updateItem(idx, 'quantity', 1); }}
-                        placeholder="1"
-                        className="w-full text-center text-sm border border-gray-200 rounded px-1 py-1 min-w-0"
-                      />
-                    </td>
-                    <td className="px-1 py-2">
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.cost_price}
-                        onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
-                        className="w-full min-w-0 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="px-2 py-2 text-right font-medium text-gray-900 whitespace-nowrap">
-                      ₸{(item.quantity * item.cost_price).toLocaleString()}
-                    </td>
-                    <td className="py-2 text-center">
-                      <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-400">
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {items.length > 0 && (
-                <tfoot>
-                  <tr className="border-t border-gray-200 bg-gray-50">
-                    <td colSpan={3} className="px-3 py-2 text-sm font-medium text-gray-600">Итого:</td>
-                    <td className="px-2 py-2 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
-                      ₸{total.toLocaleString()}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
+          {/* Список позиций */}
+          <div className="space-y-2">
+            {items.map((item, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-xl p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-sm font-medium text-gray-900 flex-1">{item.product_name}</span>
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); removeItem(idx); }}
+                    className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Количество</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity === 0 ? '' : item.quantity}
+                      onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
+                      onBlur={e => { if (!e.target.value || parseInt(e.target.value) < 1) updateItem(idx, 'quantity', 1); }}
+                      placeholder="1"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.cost_price === 0 ? '' : item.cost_price}
+                      onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {items.length === 0 && (
+              <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl">
+                Добавьте товары через поиск ниже
+              </div>
+            )}
+
+            {items.length > 0 && (
+              <div className="flex items-center justify-between px-1 pt-1 border-t border-gray-100">
+                <span className="text-sm text-gray-500">Итого:</span>
+                <span className="text-base font-bold text-gray-900">₸{total.toLocaleString()}</span>
+              </div>
+            )}
           </div>
 
           {/* Поиск и добавление товара */}
