@@ -39,8 +39,9 @@ function AppContent() {
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks'>('dashboard');
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks'>('list');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory'>('dashboard');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory'>('list');
+  const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
@@ -99,11 +100,26 @@ function AppContent() {
     };
   }, [employee?.id]);
 
+  const navigateTo = (view: typeof mobileView) => {
+    setMobileHistory(prev => [...prev, mobileView]);
+    setMobileView(view);
+  };
+
   const swipeRef = useRef({ x: 0, y: 0 });
   const mobileViewRef = useRef(mobileView);
   useEffect(() => { mobileViewRef.current = mobileView; }, [mobileView]);
+  const mobileHistoryRef = useRef(mobileHistory);
+  useEffect(() => { mobileHistoryRef.current = mobileHistory; }, [mobileHistory]);
   const activeChatRef = useRef(activeChat);
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+
+  const navigateBackRef = useRef(() => {});
+  navigateBackRef.current = () => {
+    if (mobileHistoryRef.current.length === 0) return;
+    const prev = mobileHistoryRef.current[mobileHistoryRef.current.length - 1];
+    setMobileHistory(h => h.slice(0, -1));
+    setMobileView(prev);
+  };
 
   useEffect(() => {
     if (!isMobile) return;
@@ -114,11 +130,7 @@ function AppContent() {
       const dx = e.changedTouches[0].clientX - swipeRef.current.x;
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
-        const view = mobileViewRef.current;
-        const chat = activeChatRef.current;
-        if (view === 'chat' && chat) { setActiveChat(null); setMobileView('list'); }
-        else if (view === 'main') { setActiveChat(null); setMobileView('list'); setAdminView('dashboard'); }
-        else if (view === 'tasks' || view === 'manager-crm') { setMobileView('list'); }
+        navigateBackRef.current();
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -232,12 +244,12 @@ function AppContent() {
       </div>
       {isManager && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
-          <button onClick={() => setMobileView('list')}
+          <button onClick={() => { setMobileHistory([]); setMobileView('list'); }}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'list' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
             <span className="text-[10px] font-medium">Чаты</span>
           </button>
-          <button onClick={() => setMobileView('tasks')}
+          <button onClick={() => navigateTo('tasks')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'tasks' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <div className="relative">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -249,12 +261,12 @@ function AppContent() {
             </div>
             <span className="text-[10px] font-medium">Задачи</span>
           </button>
-          <button onClick={() => setMobileView('manager-crm')}
+          <button onClick={() => navigateTo('manager-crm')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'manager-crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             <span className="text-[10px] font-medium">CRM</span>
           </button>
-          <button onClick={() => setMobileView('inventory')}
+          <button onClick={() => navigateTo('inventory')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'inventory' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             <span className="text-[10px] font-medium">Склад</span>
