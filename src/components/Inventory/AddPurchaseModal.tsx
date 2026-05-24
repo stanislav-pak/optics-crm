@@ -140,16 +140,18 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Поставщик</label>
-              <select
-                value={supplierId}
-                onChange={e => setSupplierId(e.target.value)}
-                className="w-full min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">— без поставщика —</option>
-                {suppliers.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              <div className="overflow-hidden max-w-full">
+                <select
+                  value={supplierId}
+                  onChange={e => setSupplierId(e.target.value)}
+                  className="w-full min-w-0 truncate border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">— без поставщика —</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Дата прихода</label>
@@ -167,7 +169,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col className="w-auto" />
-                <col className="w-14" />
+                <col className="w-24" />
                 <col className="w-20" />
                 <col className="w-20" />
                 <col className="w-8" />
@@ -194,13 +196,25 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                       <p className="text-gray-900 leading-tight truncate">{item.product_name}</p>
                     </td>
                     <td className="px-1 py-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                        className="w-full min-w-0 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
+                      <div className="flex items-center border border-gray-200 rounded overflow-hidden">
+                        <button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', Math.max(1, item.quantity - 1)); }}
+                          className="px-1.5 py-1 bg-gray-50 text-gray-600 hover:bg-gray-100 text-sm font-bold flex-shrink-0"
+                        >−</button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+                          className="w-10 text-center text-sm border-0 focus:outline-none py-1 min-w-0"
+                        />
+                        <button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
+                          className="px-1.5 py-1 bg-gray-50 text-gray-600 hover:bg-gray-100 text-sm font-bold flex-shrink-0"
+                        >+</button>
+                      </div>
                     </td>
                     <td className="px-1 py-2">
                       <input
