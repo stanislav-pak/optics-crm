@@ -113,6 +113,8 @@ function AppContent() {
   useEffect(() => { mobileHistoryRef.current = mobileHistory; }, [mobileHistory]);
   const activeChatRef = useRef(activeChat);
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  const adminViewRef = useRef(adminView);
+  useEffect(() => { adminViewRef.current = adminView; }, [adminView]);
 
   const navigateBackRef = useRef(() => {});
   navigateBackRef.current = () => {
@@ -131,7 +133,12 @@ function AppContent() {
       const dx = e.changedTouches[0].clientX - swipeRef.current.x;
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
-        navigateBackRef.current();
+        const view = mobileViewRef.current;
+        if (view === 'main' && adminViewRef.current === 'inventory') {
+          setAdminView('dashboard');
+        } else {
+          navigateBackRef.current();
+        }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
