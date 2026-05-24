@@ -177,15 +177,30 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Количество</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity === 0 ? '' : item.quantity}
-                      onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
-                      onBlur={e => { if (!e.target.value || parseInt(e.target.value) < 1) updateItem(idx, 'quantity', 1); }}
-                      placeholder="1"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', Math.max(1, item.quantity - 1)); }}
+                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-r border-gray-200 flex-shrink-0"
+                      >−</button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={item.quantity === 0 ? '' : String(item.quantity)}
+                        onChange={e => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          updateItem(idx, 'quantity', val === '' ? 0 : parseInt(val));
+                        }}
+                        onBlur={() => { if (item.quantity < 1) updateItem(idx, 'quantity', 1); }}
+                        placeholder=""
+                        className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0"
+                      />
+                      <button
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
+                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-l border-gray-200 flex-shrink-0"
+                      >+</button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>

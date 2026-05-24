@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
-  const { videoRef, error, stop } = useBarcodeScanner((barcode) => {
+  const { videoCallbackRef, error, stop } = useBarcodeScanner((barcode) => {
     onDetected(barcode);
     onClose();
   });
@@ -31,7 +31,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
       <div className="flex-1 relative flex items-center justify-center">
         <video
-          ref={videoRef}
+          ref={videoCallbackRef}
           autoPlay
           playsInline
           muted
