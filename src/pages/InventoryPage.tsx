@@ -102,7 +102,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mt-4 overflow-x-auto">
+        <div className="flex gap-1 mt-4 overflow-x-auto scrollbar-hide pb-1">
           {tabs.map(t => (
             <button
               key={t.key}
