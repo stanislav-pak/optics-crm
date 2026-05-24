@@ -227,7 +227,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
               </div>
             </div>
 
-            {showSearch && search && (
+            {showSearch && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
                 {filteredProducts.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-400">Не найдено</div>
