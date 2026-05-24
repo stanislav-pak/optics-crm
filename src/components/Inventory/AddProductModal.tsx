@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Barcode, Camera } from 'lucide-react';
-import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
+import { X, QrCode } from 'lucide-react';
+import { createProduct, getCategories, getBrands } from '../../services/inventory';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
@@ -39,11 +39,6 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const selectedCategory = categories.find(c => c.id === form.category_id);
   const isLenses = selectedCategory?.slug?.includes('lens') || selectedCategory?.slug?.includes('contact');
   const isFrames = selectedCategory?.slug?.includes('frame') || selectedCategory?.slug?.includes('glass') || selectedCategory?.slug?.includes('sun');
-
-  const handleGenerateBarcode = () => {
-    const bc = generateBarcode(crypto.randomUUID());
-    setForm(f => ({ ...f, barcode: bc }));
-  };
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
@@ -174,7 +169,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
                   value={form.barcode}
                   onChange={e => set('barcode', e.target.value)}
                   placeholder="EAN-13"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   type="button"
@@ -182,15 +177,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
                   className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
                   title="Сканировать"
                 >
-                  <Camera size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateBarcode}
-                  className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
-                  title="Сгенерировать"
-                >
-                  <Barcode size={16} />
+                  <QrCode size={16} />
                 </button>
               </div>
             </div>

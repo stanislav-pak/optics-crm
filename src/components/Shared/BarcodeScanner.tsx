@@ -45,6 +45,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
             detectedRef.current = true;
             setStatus('Найден: ' + result.getText());
             onDetected(result.getText());
+            setTimeout(() => onClose(), 500);
           }
           if (err && !(err instanceof NotFoundException)) {
             // ignore scan errors

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2 } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions
 } from '../services/inventory';
+import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
   StockMovement, PurchaseOrder, Sale, Revision
@@ -74,6 +75,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     { key: 'sales', label: 'Продажи' },
     { key: 'revisions', label: 'Ревизии' },
   ];
+
+  async function deleteProduct(id: string) {
+    if (!confirm('Удалить товар?')) return;
+    const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id);
+    if (!error) loadAll();
+  }
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -212,6 +219,17 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                         <div className="w-6 flex justify-end flex-shrink-0">
                           {isLow && <AlertTriangle size={14} className="text-red-400" />}
                         </div>
+                        {role !== 'manager' && (
+                          <div className="flex-shrink-0">
+                            <button
+                              onClick={() => deleteProduct(p.id)}
+                              className="text-gray-300 hover:text-red-400 p-0.5"
+                              title="Удалить товар"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
