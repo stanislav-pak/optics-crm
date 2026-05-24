@@ -107,7 +107,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
                 tab === t.key
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
