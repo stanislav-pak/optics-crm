@@ -8,6 +8,7 @@ import type {
   Product, Stock, InventoryStats, StockAlert,
   StockMovement, PurchaseOrder, Sale, Revision
 } from '../types';
+import AddProductModal from '../components/Inventory/AddProductModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -29,6 +30,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showAddProduct, setShowAddProduct] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -167,7 +169,10 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 />
               </div>
               {role !== 'manager' && (
-                <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
                   <Plus size={16} />
                   Добавить
                 </button>
@@ -314,6 +319,15 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           </div>
         )}
       </div>
+
+      {showAddProduct && (
+        <AddProductModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowAddProduct(false)}
+          onSuccess={loadAll}
+        />
+      )}
     </div>
   );
 }
