@@ -21,22 +21,39 @@ export function useBarcodeScanner(onDetected: (barcode: string) => void) {
   };
 
   useEffect(() => {
-    if (!isActive || !videoRef.current) return;
-    const reader = new BrowserMultiFormatReader();
-    readerRef.current = reader;
-    reader.decodeFromVideoDevice(undefined, videoRef.current, (result, err) => {
-      if (result) {
-        onDetected(result.getText());
-        stop();
-      }
-      if (err && !(err instanceof NotFoundException)) {
-        console.error(err);
-      }
-    }).catch(() => {
-      setError('Нет доступа к камере');
-      setIsActive(false);
-    });
+    if (!isActive) return;
+
+    let cancelled = false;
+
+    const startScanner = async () => {
+      // Ждём пока videoRef смонтируется в DOM
+      await new Promise(r => setTimeout(r, 300));
+      if (cancelled || !videoRef.current) return;
+
+      const reader = new BrowserMultiFormatReader();
+      readerRef.current = reader;
+
+      reader.decodeFromVideoDevice(undefined, videoRef.current, (result, err) => {
+        if (cancelled) return;
+        if (result) {
+          onDetected(result.getText());
+          stop();
+        }
+        if (err && !(err instanceof NotFoundException)) {
+          console.error(err);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setError('Нет доступа к камере');
+          setIsActive(false);
+        }
+      });
+    };
+
+    startScanner();
+
     return () => {
+      cancelled = true;
       BrowserMultiFormatReader.releaseAllStreams();
     };
   }, [isActive]);

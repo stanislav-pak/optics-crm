@@ -64,13 +64,21 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
   };
 
   const addItem = (product: Product) => {
-    if (items.find(i => i.product_id === product.id)) return;
-    setItems(prev => [...prev, {
-      product_id: product.id,
-      product_name: product.name,
-      quantity: 1,
-      cost_price: product.cost_price ?? 0,
-    }]);
+    console.log('[addItem] called with:', product.name, product.id);
+    if (items.find(i => i.product_id === product.id)) {
+      console.log('[addItem] already in list, skip');
+      return;
+    }
+    setItems(prev => {
+      const next = [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        quantity: 1,
+        cost_price: product.cost_price ?? 0,
+      }];
+      console.log('[addItem] new items:', next.length);
+      return next;
+    });
     setSearch('');
     setShowSearch(false);
   };
@@ -156,70 +164,69 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
 
           {/* Таблица позиций */}
           <div className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* Заголовок */}
-            <div className="grid grid-cols-12 bg-gray-50 border-b border-gray-200 px-3 py-2 text-xs font-medium text-gray-500">
-              <span className="col-span-5">Товар</span>
-              <span className="col-span-2 text-center">Кол-во</span>
-              <span className="col-span-2 text-center">Цена прихода ₸</span>
-              <span className="col-span-2 text-right">Сумма</span>
-              <span className="col-span-1" />
-            </div>
-
-            {/* Строки */}
-            {items.length === 0 ? (
-              <div className="px-3 py-6 text-center text-sm text-gray-400">
-                Добавьте товары ниже
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 items-center px-3 py-2 hover:bg-gray-50">
-                    <div className="col-span-5">
-                      <p className="text-sm text-gray-900 leading-tight">{item.product_name}</p>
-                    </div>
-                    <div className="col-span-2 flex justify-center">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500">
+                  <th className="text-left px-3 py-2">Товар</th>
+                  <th className="text-center px-2 py-2" style={{ width: 60 }}>Кол-во</th>
+                  <th className="text-center px-2 py-2" style={{ width: 80 }}>Цена ₸</th>
+                  <th className="text-right px-2 py-2" style={{ width: 80 }}>Сумма</th>
+                  <th style={{ width: 30 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-400">
+                      Добавьте товары ниже
+                    </td>
+                  </tr>
+                ) : items.map((item, idx) => (
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <p className="text-gray-900 leading-tight">{item.product_name}</p>
+                    </td>
+                    <td className="px-2 py-2 text-center">
                       <input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                        className="w-16 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </div>
-                    <div className="col-span-2 flex justify-center">
+                    </td>
+                    <td className="px-2 py-2 text-center">
                       <input
                         type="number"
                         min="0"
                         value={item.cost_price}
                         onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
-                        className="w-24 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </div>
-                    <div className="col-span-2 text-right">
-                      <span className="text-sm font-medium text-gray-900">
-                        ₸{(item.quantity * item.cost_price).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-400 p-0.5">
+                    </td>
+                    <td className="px-2 py-2 text-right font-medium text-gray-900">
+                      ₸{(item.quantity * item.cost_price).toLocaleString()}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-400">
                         <Trash2 size={13} />
                       </button>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            )}
-
-            {/* Итого */}
-            {items.length > 0 && (
-              <div className="grid grid-cols-12 border-t border-gray-200 bg-gray-50 px-3 py-2">
-                <span className="col-span-9 text-sm font-medium text-gray-600">Итого:</span>
-                <span className="col-span-2 text-right text-sm font-bold text-gray-900">
-                  ₸{total.toLocaleString()}
-                </span>
-                <span className="col-span-1" />
-              </div>
-            )}
+              </tbody>
+              {items.length > 0 && (
+                <tfoot>
+                  <tr className="border-t border-gray-200 bg-gray-50">
+                    <td colSpan={3} className="px-3 py-2 text-sm font-medium text-gray-600">Итого:</td>
+                    <td className="px-2 py-2 text-right text-sm font-bold text-gray-900">
+                      ₸{total.toLocaleString()}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
 
           {/* Поиск и добавление товара */}

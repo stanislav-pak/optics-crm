@@ -181,13 +181,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="grid grid-cols-12 text-xs font-medium text-gray-500 px-4 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="col-span-4">Товар</span>
-                <span className="col-span-2">SKU</span>
-                <span className="col-span-2">Штрихкод</span>
-                <span className="col-span-2 text-right">Цена</span>
-                <span className="col-span-1 text-right">Остаток</span>
-                <span className="col-span-1" />
+              {/* Заголовок таблицы */}
+              <div className="flex items-center text-xs font-medium text-gray-500 px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <span className="flex-1 min-w-0">Товар</span>
+                <span className="hidden md:block w-24 text-center">SKU</span>
+                <span className="hidden md:block w-32 text-center">Штрихкод</span>
+                <span className="w-20 text-right">Цена</span>
+                <span className="w-16 text-right">Остаток</span>
+                <span className="w-6" />
               </div>
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Товары не найдены</div>
@@ -197,18 +198,18 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                     const stockItem = stock.find(s => s.product_id === p.id);
                     const isLow = stockItem && stockItem.quantity <= p.min_stock;
                     return (
-                      <div key={p.id} className="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
-                        <div className="col-span-4">
-                          <p className="text-sm font-medium text-gray-900">{p.name}</p>
-                          <p className="text-xs text-gray-400">{(p.brand as any)?.name} · {(p.category as any)?.name}</p>
+                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{(p.brand as any)?.name} · {(p.category as any)?.name}</p>
                         </div>
-                        <span className="col-span-2 text-xs text-gray-500 font-mono">{p.sku || '—'}</span>
-                        <span className="col-span-2 text-xs text-gray-400 font-mono">{p.barcode || '—'}</span>
-                        <span className="col-span-2 text-sm text-right text-gray-700">₸{p.price.toLocaleString()}</span>
-                        <span className={`col-span-1 text-sm text-right font-medium ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
+                        <span className="hidden md:block w-24 text-center text-xs text-gray-500 font-mono">{p.sku || '—'}</span>
+                        <span className="hidden md:block w-32 text-center text-xs text-gray-400 font-mono">{p.barcode || '—'}</span>
+                        <span className="w-20 text-sm text-right text-gray-700 flex-shrink-0">₸{p.price.toLocaleString()}</span>
+                        <span className={`w-16 text-sm text-right font-medium flex-shrink-0 ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
                           {stockItem?.quantity ?? 0} {p.unit}
                         </span>
-                        <div className="col-span-1 flex justify-end">
+                        <div className="w-6 flex justify-end flex-shrink-0">
                           {isLow && <AlertTriangle size={14} className="text-red-400" />}
                         </div>
                       </div>
