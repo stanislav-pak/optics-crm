@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/browser';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { NotFoundException } from '@zxing/library';
 
 export function useBarcodeScanner(onDetected: (barcode: string) => void) {
   const videoRef = useRef<HTMLVideoElement>(null);
