@@ -143,7 +143,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
               <select
                 value={supplierId}
                 onChange={e => setSupplierId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">— без поставщика —</option>
                 {suppliers.map(s => (
@@ -164,14 +164,21 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
 
           {/* Таблица позиций */}
           <div className="border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-auto" />
+                <col className="w-14" />
+                <col className="w-20" />
+                <col className="w-20" />
+                <col className="w-8" />
+              </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500">
                   <th className="text-left px-3 py-2">Товар</th>
-                  <th className="text-center px-2 py-2" style={{ width: 60 }}>Кол-во</th>
-                  <th className="text-center px-2 py-2" style={{ width: 80 }}>Цена ₸</th>
-                  <th className="text-right px-2 py-2" style={{ width: 80 }}>Сумма</th>
-                  <th style={{ width: 30 }} />
+                  <th className="text-center px-1 py-2">Кол-во</th>
+                  <th className="text-center px-1 py-2">Цена ₸</th>
+                  <th className="text-right px-2 py-2">Сумма</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -183,31 +190,31 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                   </tr>
                 ) : items.map((item, idx) => (
                   <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-2">
-                      <p className="text-gray-900 leading-tight">{item.product_name}</p>
+                    <td className="px-3 py-2 truncate max-w-0">
+                      <p className="text-gray-900 leading-tight truncate">{item.product_name}</p>
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-1 py-2">
                       <input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                        className="w-full text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full min-w-0 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-1 py-2">
                       <input
                         type="number"
                         min="0"
                         value={item.cost_price}
                         onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
-                        className="w-full text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full min-w-0 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="px-2 py-2 text-right font-medium text-gray-900">
+                    <td className="px-2 py-2 text-right font-medium text-gray-900 whitespace-nowrap">
                       ₸{(item.quantity * item.cost_price).toLocaleString()}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="py-2 text-center">
                       <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-400">
                         <Trash2 size={13} />
                       </button>
@@ -219,7 +226,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                 <tfoot>
                   <tr className="border-t border-gray-200 bg-gray-50">
                     <td colSpan={3} className="px-3 py-2 text-sm font-medium text-gray-600">Итого:</td>
-                    <td className="px-2 py-2 text-right text-sm font-bold text-gray-900">
+                    <td className="px-2 py-2 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
                       ₸{total.toLocaleString()}
                     </td>
                     <td />
