@@ -217,3 +217,212 @@ export interface DealStats {
   conversion_rate: number;
 }
 
+// ============================================
+// СКЛАД / INVENTORY
+// ============================================
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id?: string;
+  branch_id?: string;
+  created_at: string;
+  // Relations
+  parent?: ProductCategory;
+  children?: ProductCategory[];
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  category_id?: string;
+  brand_id?: string;
+  price: number;
+  cost_price: number;
+  min_stock: number;
+  unit: string;
+  attributes: ProductAttributes;
+  is_active: boolean;
+  branch_id?: string;
+  created_by?: string;
+  created_at: string;
+  // Relations
+  category?: ProductCategory;
+  brand?: Brand;
+  stock?: Stock[];
+}
+
+// Атрибуты для разных типов товаров
+export interface ProductAttributes {
+  // Линзы
+  sphere?: number;       // диоптрии
+  cylinder?: number;     // цилиндр
+  axis?: number;         // ось
+  diameter?: number;     // диаметр
+  base_curve?: number;   // базовая кривизна
+  // Оправы/очки
+  color?: string;
+  size?: string;
+  material?: string;
+  frame_type?: 'full' | 'half' | 'rimless';
+  gender?: 'male' | 'female' | 'unisex' | 'kids';
+  // Общее
+  [key: string]: string | number | undefined;
+}
+
+export interface Stock {
+  id: string;
+  product_id: string;
+  branch_id: string;
+  quantity: number;
+  updated_at: string;
+  // Relations
+  product?: Product;
+  branch?: Branch;
+}
+
+export type StockMovementType = 'in' | 'out' | 'transfer' | 'writeoff' | 'revision_adjust';
+
+export interface StockMovement {
+  id: string;
+  product_id: string;
+  branch_id: string;
+  type: StockMovementType;
+  quantity: number;
+  price?: number;
+  reference_id?: string;
+  reference_type?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  // Relations
+  product?: Product;
+  branch?: Branch;
+  employee?: Employee;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export type PurchaseOrderStatus = 'draft' | 'confirmed' | 'received' | 'cancelled';
+
+export interface PurchaseOrder {
+  id: string;
+  supplier_id?: string;
+  branch_id?: string;
+  status: PurchaseOrderStatus;
+  total: number;
+  notes?: string;
+  created_by?: string;
+  received_at?: string;
+  created_at: string;
+  // Relations
+  supplier?: Supplier;
+  branch?: Branch;
+  items?: PurchaseOrderItem[];
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  product_id: string;
+  quantity: number;
+  cost_price: number;
+  created_at: string;
+  // Relations
+  product?: Product;
+}
+
+export type PaymentMethod = 'cash' | 'kaspi_qr' | 'mixed';
+export type SaleStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+
+export interface Sale {
+  id: string;
+  branch_id?: string;
+  client_id?: string;
+  employee_id?: string;
+  payment_method?: PaymentMethod;
+  status: SaleStatus;
+  total: number;
+  paid_cash: number;
+  paid_kaspi: number;
+  fiscal_receipt_number?: string;
+  kaspi_payment_id?: string;
+  notes?: string;
+  created_at: string;
+  // Relations
+  branch?: Branch;
+  client?: Client;
+  employee?: Employee;
+  items?: SaleItem[];
+}
+
+export interface SaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  created_at: string;
+  // Relations
+  product?: Product;
+}
+
+export type RevisionStatus = 'draft' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface Revision {
+  id: string;
+  branch_id?: string;
+  status: RevisionStatus;
+  notes?: string;
+  created_by?: string;
+  completed_at?: string;
+  created_at: string;
+  // Relations
+  branch?: Branch;
+  items?: RevisionItem[];
+}
+
+export interface RevisionItem {
+  id: string;
+  revision_id: string;
+  product_id: string;
+  expected_qty: number;
+  actual_qty?: number;
+  difference?: number;
+  created_at: string;
+  // Relations
+  product?: Product;
+}
+
+// UI helpers
+export interface StockAlert {
+  product: Product;
+  current_qty: number;
+  min_stock: number;
+  branch: Branch;
+}
+
+export interface InventoryStats {
+  total_products: number;
+  total_skus: number;
+  low_stock_count: number;
+  total_value: number;
+  movements_today: number;
+}
+
