@@ -180,10 +180,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="grid grid-cols-12 text-xs font-medium text-gray-500 px-4 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="col-span-5">Товар</span>
+                <span className="col-span-4">Товар</span>
                 <span className="col-span-2">SKU</span>
+                <span className="col-span-2">Штрихкод</span>
                 <span className="col-span-2 text-right">Цена</span>
-                <span className="col-span-2 text-right">Остаток</span>
+                <span className="col-span-1 text-right">Остаток</span>
                 <span className="col-span-1" />
               </div>
               {filteredProducts.length === 0 ? (
@@ -195,13 +196,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                     const isLow = stockItem && stockItem.quantity <= p.min_stock;
                     return (
                       <div key={p.id} className="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
-                        <div className="col-span-5">
+                        <div className="col-span-4">
                           <p className="text-sm font-medium text-gray-900">{p.name}</p>
                           <p className="text-xs text-gray-400">{(p.brand as any)?.name} · {(p.category as any)?.name}</p>
                         </div>
                         <span className="col-span-2 text-xs text-gray-500 font-mono">{p.sku || '—'}</span>
+                        <span className="col-span-2 text-xs text-gray-400 font-mono">{p.barcode || '—'}</span>
                         <span className="col-span-2 text-sm text-right text-gray-700">₸{p.price.toLocaleString()}</span>
-                        <span className={`col-span-2 text-sm text-right font-medium ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
+                        <span className={`col-span-1 text-sm text-right font-medium ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
                           {stockItem?.quantity ?? 0} {p.unit}
                         </span>
                         <div className="col-span-1 flex justify-end">
