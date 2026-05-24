@@ -134,7 +134,7 @@ function AppContent() {
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
-        if (view === 'main' && adminViewRef.current === 'inventory') {
+        if (view === 'inventory' || (view === 'main' && adminViewRef.current === 'inventory')) {
           setMobileView('list');
         } else {
           navigateBackRef.current();
