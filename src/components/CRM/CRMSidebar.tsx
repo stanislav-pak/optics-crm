@@ -104,6 +104,9 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
       setLastStageInfo({ stage: newStage, employeeName: employee.name, changedAt: new Date().toISOString() });
       showToast(`Этап изменён: ${newLabel}`);
       await supabase.from('clients').update({ status: STATUS_MAP[newStage] ?? 'new' }).eq('id', chat.client_id);
+      if (newStage === 'closed') {
+        await supabase.from('chats').update({ status: 'archived' }).eq('id', chat.id);
+      }
       notifyUpdate();
     }
     setStageChanging(false);
