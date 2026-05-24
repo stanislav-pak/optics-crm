@@ -57,9 +57,22 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
   const handleBarcodeDetected = async (barcode: string) => {
     try {
       const product = await getProductByBarcode(barcode);
-      addItem(product);
+      setItems(prev => {
+        const existing = prev.findIndex(i => i.product_id === product.id);
+        if (existing >= 0) {
+          return prev.map((item, idx) =>
+            idx === existing ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        }
+        return [...prev, {
+          product_id: product.id,
+          product_name: product.name,
+          quantity: 1,
+          cost_price: product.cost_price ?? 0,
+        }];
+      });
     } catch {
-      // товар не найден — игнорируем
+      // товар не найден по штрихкоду
     }
   };
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Barcode } from 'lucide-react';
+import { X, Barcode, Camera } from 'lucide-react';
 import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
+import BarcodeScanner from '../Shared/BarcodeScanner';
 
 interface Props {
   branchId: string;
@@ -28,6 +29,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   });
 
   const [attributes, setAttributes] = useState<ProductAttributes>({});
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     getCategories().then(setCategories);
@@ -175,6 +177,15 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
                   className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
+                  type="button"
+                  onClick={() => setShowScanner(true)}
+                  className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                  title="Сканировать"
+                >
+                  <Camera size={16} />
+                </button>
+                <button
+                  type="button"
                   onClick={handleGenerateBarcode}
                   className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
                   title="Сгенерировать"
@@ -304,6 +315,13 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
             </div>
           )}
         </div>
+
+        {showScanner && (
+          <BarcodeScanner
+            onDetected={barcode => { set('barcode', barcode); setShowScanner(false); }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">

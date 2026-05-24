@@ -12,6 +12,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const detectedRef = useRef(false);
   const [status, setStatus] = useState('Инициализация...');
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +41,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
         await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
           if (cancelled) return;
-          if (result) {
+          if (result && !detectedRef.current) {
+            detectedRef.current = true;
             setStatus('Найден: ' + result.getText());
             onDetected(result.getText());
           }
