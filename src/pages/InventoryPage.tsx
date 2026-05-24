@@ -102,12 +102,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
+        <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
+              className={`px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
                 tab === t.key
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
