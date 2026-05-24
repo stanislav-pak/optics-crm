@@ -151,35 +151,35 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
             </div>
           </div>
 
-          {/* SKU и штрихкод */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">SKU</label>
+          {/* SKU */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">SKU</label>
+            <input
+              value={form.sku}
+              onChange={e => set('sku', e.target.value)}
+              placeholder="Артикул"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Штрихкод */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Штрихкод</label>
+            <div className="flex gap-2">
               <input
-                value={form.sku}
-                onChange={e => set('sku', e.target.value)}
-                placeholder="Артикул"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={form.barcode}
+                onChange={e => set('barcode', e.target.value)}
+                placeholder="EAN-13"
+                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Штрихкод</label>
-              <div className="flex gap-1">
-                <input
-                  value={form.barcode}
-                  onChange={e => set('barcode', e.target.value)}
-                  placeholder="EAN-13"
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowScanner(true)}
-                  className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
-                  title="Сканировать"
-                >
-                  <QrCode size={16} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="flex-shrink-0 px-3 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                title="Сканировать"
+              >
+                <QrCode size={16} />
+              </button>
             </div>
           </div>
 
