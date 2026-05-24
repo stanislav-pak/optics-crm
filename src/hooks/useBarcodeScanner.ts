@@ -15,12 +15,25 @@ export function useBarcodeScanner(onDetected: (barcode: string) => void) {
 
   const stop = () => {
     try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
+    // Останавливаем треки вручную для iOS Safari
+    try {
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      stream?.getTracks().forEach(t => t.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    } catch {}
     readerRef.current = null;
     setIsActive(false);
   };
 
   const initReader = async (video: HTMLVideoElement) => {
     try {
+      // Явный запрос камеры — обязателен для iOS Safari
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      video.srcObject = stream;
+      await video.play();
+
       const reader = new BrowserMultiFormatReader();
       readerRef.current = reader;
       await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
