@@ -11,6 +11,8 @@
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.105.4",
+        "@zxing/browser": "^0.2.0",
+        "@zxing/library": "^0.22.0",
         "lucide-react": "^1.16.0",
         "react": "^19.2.6",
         "react-dom": "^19.2.6",

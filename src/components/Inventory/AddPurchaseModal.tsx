@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Search, Plus } from 'lucide-react';
-import { createPurchaseOrder, getProducts } from '../../services/inventory';
+import { X, Trash2, Search, Plus, QrCode } from 'lucide-react';
+import { createPurchaseOrder, getProducts, getProductByBarcode } from '../../services/inventory';
 import type { Product, Supplier } from '../../types';
 import { supabase } from '../../services/supabase';
+import BarcodeScanner from '../Shared/BarcodeScanner';
 
 interface OrderItem {
   product_id: string;
@@ -28,6 +29,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
   const [items, setItems] = useState<OrderItem[]>([]);
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,6 +53,15 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
     p.barcode?.includes(search) ||
     p.sku?.toLowerCase().includes(search.toLowerCase())
   ).slice(0, 8);
+
+  const handleBarcodeDetected = async (barcode: string) => {
+    try {
+      const product = await getProductByBarcode(barcode);
+      addItem(product);
+    } catch {
+      // товар не найден — игнорируем
+    }
+  };
 
   const addItem = (product: Product) => {
     if (items.find(i => i.product_id === product.id)) return;
@@ -225,6 +236,14 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                   className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); setShowScanner(true); }}
+                className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
+                title="Сканировать штрихкод"
+              >
+                <QrCode size={18} />
+              </button>
             </div>
 
             {showSearch && (
@@ -234,7 +253,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                 ) : filteredProducts.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => addItem(p)}
+                    onMouseDown={e => { e.preventDefault(); addItem(p); }}
                     className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                   >
                     <div>
@@ -260,6 +279,13 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
             />
           </div>
         </div>
+
+        {showScanner && (
+          <BarcodeScanner
+            onDetected={handleBarcodeDetected}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
