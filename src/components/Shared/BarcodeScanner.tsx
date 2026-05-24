@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X, Camera } from 'lucide-react';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 
@@ -7,10 +8,12 @@ interface Props {
 }
 
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
-  const { videoCallbackRef, error, stop } = useBarcodeScanner((barcode) => {
-    onDetected(barcode);
-    onClose();
-  });
+  const [debugStatus, setDebugStatus] = useState('Инициализация...');
+
+  const { videoCallbackRef, error, stop } = useBarcodeScanner(
+    (barcode) => { onDetected(barcode); onClose(); },
+    (s) => setDebugStatus(s),
+  );
 
   const handleClose = () => {
     stop();
@@ -37,6 +40,9 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
           muted
           className="w-full h-full object-cover"
         />
+        <div className="absolute top-4 left-4 right-4 bg-black/70 text-white text-xs px-3 py-2 rounded-lg text-center z-10">
+          {debugStatus}
+        </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-64 h-40">
             <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
