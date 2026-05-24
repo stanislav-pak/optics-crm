@@ -137,31 +137,27 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
           {/* Шапка накладной */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Поставщик</label>
-              <div className="overflow-hidden max-w-full">
-                <select
-                  value={supplierId}
-                  onChange={e => setSupplierId(e.target.value)}
-                  className="w-full min-w-0 truncate border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">— без поставщика —</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Дата прихода</label>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Поставщик</label>
+            <select
+              value={supplierId}
+              onChange={e => setSupplierId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— без поставщика —</option>
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Дата прихода</label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           {/* Таблица позиций */}
@@ -192,29 +188,19 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
                   </tr>
                 ) : items.map((item, idx) => (
                   <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-2 truncate max-w-0">
-                      <p className="text-gray-900 leading-tight truncate">{item.product_name}</p>
+                    <td className="px-3 py-2">
+                      <p className="text-gray-900 leading-tight break-words">{item.product_name}</p>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="flex items-center border border-gray-200 rounded overflow-hidden">
-                        <button
-                          type="button"
-                          onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', Math.max(1, item.quantity - 1)); }}
-                          className="px-1.5 py-1 bg-gray-50 text-gray-600 hover:bg-gray-100 text-sm font-bold flex-shrink-0"
-                        >−</button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                          className="w-10 text-center text-sm border-0 focus:outline-none py-1 min-w-0"
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
-                          className="px-1.5 py-1 bg-gray-50 text-gray-600 hover:bg-gray-100 text-sm font-bold flex-shrink-0"
-                        >+</button>
-                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity === 0 ? '' : item.quantity}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
+                        onBlur={e => { if (!e.target.value || parseInt(e.target.value) < 1) updateItem(idx, 'quantity', 1); }}
+                        placeholder="1"
+                        className="w-full text-center text-sm border border-gray-200 rounded px-1 py-1 min-w-0"
+                      />
                     </td>
                     <td className="px-1 py-2">
                       <input
