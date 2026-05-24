@@ -27,17 +27,21 @@ export function useBarcodeScanner(onDetected: (barcode: string) => void) {
 
   const initReader = async (video: HTMLVideoElement) => {
     try {
-      // Явный запрос камеры — обязателен для iOS Safari
+      console.log('initReader called', video);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       });
+      console.log('stream получен', stream);
       video.srcObject = stream;
       await video.play();
+      console.log('video играет');
 
       const reader = new BrowserMultiFormatReader();
       readerRef.current = reader;
+      console.log('reader создан, запускаем decodeFromVideoDevice');
       await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
         if (result) {
+          console.log('штрихкод найден:', result.getText());
           onDetected(result.getText());
           stop();
         }
@@ -45,8 +49,9 @@ export function useBarcodeScanner(onDetected: (barcode: string) => void) {
           // ignore decode errors during scanning
         }
       });
-    } catch {
-      setError('Нет доступа к камере');
+    } catch (e) {
+      console.error('ошибка сканера:', e);
+      setError('Нет доступа к камере: ' + String(e));
       setIsActive(false);
     }
   };
