@@ -135,7 +135,7 @@ function AppContent() {
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
         if (view === 'main' && adminViewRef.current === 'inventory') {
-          setAdminView('dashboard');
+          setMobileView('list');
         } else {
           navigateBackRef.current();
         }
