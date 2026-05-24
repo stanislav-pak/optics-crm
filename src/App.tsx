@@ -205,7 +205,7 @@ function AppContent() {
             <p className="text-xs text-[#8696a0]">{ROLE_LABELS[employee.role] ?? employee.role}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto flex-nowrap">
           {isAdmin && (
             <>
               <button onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
