@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, TrendingDown, TrendingUp, ClipboardList, ShoppingCart, BarChart2, AlertTriangle, Plus, Search, QrCode } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions
@@ -64,13 +64,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     }
   }
 
-  const tabs: { key: Tab; label: string; icon: any }[] = [
-    { key: 'overview', label: 'Обзор', icon: BarChart2 },
-    { key: 'products', label: 'Товары', icon: Package },
-    { key: 'movements', label: 'Движения', icon: TrendingUp },
-    { key: 'purchases', label: 'Приходы', icon: TrendingDown },
-    { key: 'sales', label: 'Продажи', icon: ShoppingCart },
-    { key: 'revisions', label: 'Ревизии', icon: ClipboardList },
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'overview', label: 'Обзор' },
+    { key: 'products', label: 'Товары' },
+    { key: 'movements', label: 'Движения' },
+    { key: 'purchases', label: 'Приходы' },
+    { key: 'sales', label: 'Продажи' },
+    { key: 'revisions', label: 'Ревизии' },
   ];
 
   const filteredProducts = products.filter(p =>
@@ -107,13 +107,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 tab === t.key
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <t.icon size={16} />
               {t.label}
             </button>
           ))}
