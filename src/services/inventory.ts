@@ -89,6 +89,7 @@ export async function getCategories() {
     .select('*')
     .order('name');
 
+  console.log('categories:', data, 'error:', error);
   if (error) throw error;
   return data as ProductCategory[];
 }
@@ -99,6 +100,7 @@ export async function getBrands() {
     .select('*')
     .order('name');
 
+  console.log('brands:', data, 'error:', error);
   if (error) throw error;
   return data as Brand[];
 }
