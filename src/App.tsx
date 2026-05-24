@@ -14,6 +14,7 @@ import { TasksPanel } from './components/Dashboard/TasksPanel';
 import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import InventoryPage from './pages/InventoryPage';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 
@@ -227,6 +228,11 @@ function AppContent() {
                 title="Активность">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
+              <button onClick={() => { setAdminView('inventory'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                className={`px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Склад">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              </button>
               <button onClick={() => setShowImport(true)}
                 className="px-2 py-1 rounded-lg transition-colors text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -287,7 +293,18 @@ function AppContent() {
 
   const MainArea = (
     <div className="flex-1 flex overflow-hidden">
-      {isAdmin && adminView === 'tasks' ? (
+      {isAdmin && adminView === 'inventory' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Склад" />}
+          <div className="flex-1 overflow-y-auto">
+            <InventoryPage
+              branchId={employee.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+            />
+          </div>
+        </div>
+      ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Задачи" />}
           <TasksPanel />
