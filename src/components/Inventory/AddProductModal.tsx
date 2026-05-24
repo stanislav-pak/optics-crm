@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, QrCode } from 'lucide-react';
-import { createProduct, getCategories, getBrands } from '../../services/inventory';
+import { X, QrCode, Barcode } from 'lucide-react';
+import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
@@ -30,6 +30,10 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
 
   const [attributes, setAttributes] = useState<ProductAttributes>({});
   const [showScanner, setShowScanner] = useState(false);
+
+  const handleGenerateBarcode = () => {
+    setForm(f => ({ ...f, barcode: generateBarcode(crypto.randomUUID()) }));
+  };
 
   useEffect(() => {
     getCategories().then(setCategories);
@@ -165,7 +169,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
           {/* Штрихкод */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Штрихкод</label>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <input
                 value={form.barcode}
                 onChange={e => set('barcode', e.target.value)}
@@ -175,10 +179,18 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               <button
                 type="button"
                 onClick={() => setShowScanner(true)}
-                className="flex-shrink-0 px-3 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                className="flex-shrink-0 px-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg"
                 title="Сканировать"
               >
                 <QrCode size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateBarcode}
+                className="flex-shrink-0 px-2.5 border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                title="Сгенерировать EAN-13"
+              >
+                <Barcode size={16} />
               </button>
             </div>
           </div>

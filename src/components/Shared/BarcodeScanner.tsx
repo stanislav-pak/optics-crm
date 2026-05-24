@@ -51,10 +51,14 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
             // ignore scan errors
           }
         });
-      } catch (e) {
+      } catch (e: any) {
         if (!cancelled) {
-          setStatus('Ошибка: ' + String(e));
-          setError(String(e));
+          const isPermission = e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError';
+          const msg = isPermission
+            ? 'Разрешите доступ к камере в настройках браузера'
+            : 'Не удалось запустить камеру';
+          setStatus('Ошибка: ' + msg);
+          setError(msg);
         }
       }
     };
