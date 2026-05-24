@@ -100,7 +100,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+    <div data-modal="true" className="fixed inset-0 z-[60] bg-black flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 bg-black/80">
         <div className="flex items-center gap-2 text-white">
           <Camera size={18} />

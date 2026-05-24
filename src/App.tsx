@@ -130,6 +130,7 @@ function AppContent() {
       swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
     const onEnd = (e: TouchEvent) => {
+      if (document.querySelector('[data-modal="true"]')) return;
       const dx = e.changedTouches[0].clientX - swipeRef.current.x;
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
