@@ -179,7 +179,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               <button
                 type="button"
                 onClick={() => setShowScanner(true)}
-                className="flex-shrink-0 px-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg"
+                className="flex-shrink-0 px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                 title="Сканировать"
               >
                 <QrCode size={16} />
