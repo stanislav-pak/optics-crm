@@ -84,6 +84,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     { key: 'revisions', label: 'Ревизии' },
   ];
 
+  async function deleteRevision(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm('Удалить ревизию?')) return;
+    await supabase.from('revision_items').delete().eq('revision_id', id);
+    await supabase.from('revisions').delete().eq('id', id);
+    loadAll();
+  }
+
   async function deletePurchaseOrder(id: string) {
     if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
     await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
@@ -398,7 +406,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                         </div>
                         <StatusBadge status={r.status} />
                       </div>
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-2">
                         {isInProgress ? (
                           <button
                             onClick={e => { e.stopPropagation(); setContinueRevisionId(r.id); setShowRevision(true); }}
@@ -410,6 +418,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                             onClick={e => { e.stopPropagation(); setSelectedRevision(r); }}
                             className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200">
                             Просмотр
+                          </button>
+                        )}
+                        {role !== 'manager' && (
+                          <button
+                            onClick={e => deleteRevision(r.id, e)}
+                            className="p-1.5 text-gray-300 hover:text-red-400">
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
