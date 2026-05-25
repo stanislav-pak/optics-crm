@@ -151,9 +151,10 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
       console.log('Приход создан успешно');
       onSuccess();
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Ошибка создания прихода:', e);
-      alert('Ошибка: ' + String(e));
+      const msg = e?.message || e?.error_description || JSON.stringify(e);
+      alert('Ошибка: ' + msg);
     } finally {
       setLoading(false);
     }

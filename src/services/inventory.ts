@@ -192,13 +192,19 @@ export async function createPurchaseOrder(
     .select()
     .single();
 
-  if (poError) throw poError;
+  if (poError) {
+    console.error('Ошибка создания PO:', JSON.stringify(poError));
+    throw poError;
+  }
 
   const { error: itemsError } = await supabase
     .from('purchase_order_items')
     .insert(items.map(i => ({ ...i, purchase_order_id: po.id })));
 
-  if (itemsError) throw itemsError;
+  if (itemsError) {
+    console.error('Ошибка создания items:', JSON.stringify(itemsError));
+    throw itemsError;
+  }
 
   // Если статус received — сразу создаём движения прихода
   if (order.status === 'received') {
@@ -217,7 +223,10 @@ export async function createPurchaseOrder(
       .from('stock_movements')
       .insert(movements);
 
-    if (movError) throw movError;
+    if (movError) {
+      console.error('Ошибка создания movements:', JSON.stringify(movError));
+      throw movError;
+    }
   }
 
   return po as PurchaseOrder;
