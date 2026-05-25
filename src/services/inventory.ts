@@ -200,6 +200,26 @@ export async function createPurchaseOrder(
 
   if (itemsError) throw itemsError;
 
+  // Если статус received — сразу создаём движения прихода
+  if (order.status === 'received') {
+    const movements = items.map(i => ({
+      product_id: i.product_id,
+      branch_id: order.branch_id!,
+      type: 'in' as const,
+      quantity: i.quantity,
+      price: i.cost_price,
+      reference_id: po.id,
+      reference_type: 'purchase_order',
+      created_by: order.created_by,
+    }));
+
+    const { error: movError } = await supabase
+      .from('stock_movements')
+      .insert(movements);
+
+    if (movError) throw movError;
+  }
+
   return po as PurchaseOrder;
 }
 
