@@ -430,6 +430,7 @@ export async function completeRevision(revisionId: string, employeeId: string) {
       quantity: Math.abs(i.difference),
       reference_id: revisionId,
       reference_type: 'revision',
+      revision_id: revisionId,
       notes: i.difference > 0 ? 'Излишек по ревизии' : 'Недостача по ревизии',
       created_by: employeeId,
     }));

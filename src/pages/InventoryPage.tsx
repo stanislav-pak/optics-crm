@@ -96,6 +96,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   async function deleteRevision(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm('Удалить ревизию?')) return;
+    await supabase.from('stock_movements').delete().eq('revision_id', id);
     await supabase.from('revision_items').delete().eq('revision_id', id);
     await supabase.from('revisions').delete().eq('id', id);
     loadAll();
@@ -322,11 +323,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу — скроллируемые чипы */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-none">
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {typeOptions.map(o => (
                   <button key={o.value}
                     onClick={() => setMvTypeFilter(o.value)}
-                    className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvTypeFilter === o.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -337,11 +338,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               </div>
 
               {/* Фильтр по дате */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-none">
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {dateOptions.map(o => (
                   <button key={o.value}
                     onClick={() => setMvDateFilter(o.value)}
-                    className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvDateFilter === o.value
                         ? 'bg-gray-800 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
