@@ -35,6 +35,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Фильтры движений
+  const [mvTypeFilter, setMvTypeFilter] = useState<string>('all');
+  const [mvDateFilter, setMvDateFilter] = useState<string>('all');
+  const [mvDateFrom, setMvDateFrom] = useState('');
+  const [mvDateTo, setMvDateTo] = useState('');
+  const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
@@ -265,11 +272,125 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         )}
 
         {/* ДВИЖЕНИЯ */}
-        {tab === 'movements' && (
-          <div className="space-y-4">
-            <MovementsTable movements={movements} />
-          </div>
-        )}
+        {tab === 'movements' && (() => {
+          // Вычисляем даты для быстрых фильтров
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
+
+          const filteredMovements = movements.filter(m => {
+            // Фильтр по типу
+            if (mvTypeFilter !== 'all' && m.type !== mvTypeFilter) return false;
+
+            // Фильтр по дате
+            const mDate = m.created_at.split('T')[0];
+            if (mvDateFilter === 'today' && mDate !== todayStr) return false;
+            if (mvDateFilter === 'week' && new Date(mDate) < weekAgo) return false;
+            if (mvDateFilter === 'month' && new Date(mDate) < monthAgo) return false;
+            if (mvDateFilter === 'custom') {
+              if (mvDateFrom && mDate < mvDateFrom) return false;
+              if (mvDateTo && mDate > mvDateTo) return false;
+            }
+
+            // Фильтр по товару
+            if (mvProductSearch) {
+              const name = ((m.product as any)?.name ?? '').toLowerCase();
+              if (!name.includes(mvProductSearch.toLowerCase())) return false;
+            }
+
+            return true;
+          });
+
+          const typeOptions: { value: string; label: string }[] = [
+            { value: 'all', label: 'Все' },
+            { value: 'in', label: '📦 Приход' },
+            { value: 'out', label: '🛒 Продажа' },
+            { value: 'writeoff', label: '🗑 Списание' },
+            { value: 'transfer', label: '🔄 Перемещение' },
+            { value: 'revision_adjust', label: '📋 Ревизия' },
+          ];
+
+          const dateOptions: { value: string; label: string }[] = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
+          return (
+            <div className="space-y-3">
+              {/* Фильтр по типу — скроллируемые чипы */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6">
+                {typeOptions.map(o => (
+                  <button key={o.value}
+                    onClick={() => setMvTypeFilter(o.value)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      mvTypeFilter === o.value
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Фильтр по дате */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6">
+                {dateOptions.map(o => (
+                  <button key={o.value}
+                    onClick={() => setMvDateFilter(o.value)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      mvDateFilter === o.value
+                        ? 'bg-gray-800 text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Произвольный диапазон дат */}
+              {mvDateFilter === 'custom' && (
+                <div className="flex gap-2 items-center">
+                  <input type="date" value={mvDateFrom} onChange={e => setMvDateFrom(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                  <input type="date" value={mvDateTo} onChange={e => setMvDateTo(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+
+              {/* Поиск по товару */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={mvProductSearch}
+                  onChange={e => setMvProductSearch(e.target.value)}
+                  placeholder="Поиск по названию товара..."
+                  className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+              </div>
+
+              {/* Счётчик результатов */}
+              {(mvTypeFilter !== 'all' || mvDateFilter !== 'all' || mvProductSearch) && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-400">
+                    Найдено: {filteredMovements.length} из {movements.length}
+                  </p>
+                  <button
+                    onClick={() => { setMvTypeFilter('all'); setMvDateFilter('all'); setMvDateFrom(''); setMvDateTo(''); setMvProductSearch(''); }}
+                    className="text-xs text-blue-600 hover:underline">
+                    Сбросить фильтры
+                  </button>
+                </div>
+              )}
+
+              <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" />
+            </div>
+          );
+        })()}
 
         {/* ПРИХОДЫ */}
         {tab === 'purchases' && (
@@ -726,7 +847,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MovementsTable({ movements }: { movements: StockMovement[] }) {
+function MovementsTable({ movements, emptyText = 'Движений нет' }: { movements: StockMovement[]; emptyText?: string }) {
   const typeLabel: Record<string, { label: string; color: string }> = {
     in: { label: 'Приход', color: 'text-green-600' },
     out: { label: 'Расход', color: 'text-red-600' },
@@ -744,7 +865,7 @@ function MovementsTable({ movements }: { movements: StockMovement[] }) {
         <span className="col-span-3 text-right">Дата</span>
       </div>
       {movements.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-sm">Движений нет</div>
+        <div className="text-center py-12 text-gray-400 text-sm">{emptyText}</div>
       ) : (
         <div className="divide-y divide-gray-100">
           {movements.map(m => {
