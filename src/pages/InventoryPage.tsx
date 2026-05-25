@@ -12,6 +12,7 @@ import type {
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
+import RevisionModal from '../components/Inventory/RevisionModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -36,6 +37,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
+  const [showRevision, setShowRevision] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -365,7 +367,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         {tab === 'revisions' && (
           <div className="space-y-4">
             <div className="flex justify-end">
-              <button className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700">
+              <button onClick={() => setShowRevision(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700">
                 <QrCode size={16} />
                 Начать ревизию
               </button>
@@ -508,6 +510,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           branchId={branchId}
           employeeId={employeeId}
           onClose={() => setShowAddSale(false)}
+          onSuccess={loadAll}
+        />
+      )}
+      {showRevision && (
+        <RevisionModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowRevision(false)}
           onSuccess={loadAll}
         />
       )}
