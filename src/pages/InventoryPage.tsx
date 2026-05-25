@@ -76,6 +76,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     { key: 'revisions', label: 'Ревизии' },
   ];
 
+  async function deletePurchaseOrder(id: string) {
+    if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
+    await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
+    await supabase.from('purchase_orders').delete().eq('id', id);
+    loadAll();
+  }
+
   async function deleteProduct(id: string) {
     if (!confirm('Удалить товар?')) return;
     const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id);
@@ -259,15 +266,24 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               {purchases.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Приходов нет</div>
               ) : purchases.map(po => (
-                <div key={po.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
+                <div key={po.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{(po.supplier as any)?.name ?? 'Без поставщика'}</p>
                     <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')} · {po.items?.length ?? 0} позиций</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0">
                     <p className="text-sm font-medium text-gray-900">₸{po.total.toLocaleString()}</p>
                     <StatusBadge status={po.status} />
                   </div>
+                  {role !== 'manager' && (
+                    <button
+                      onClick={() => deletePurchaseOrder(po.id)}
+                      className="text-gray-300 hover:text-red-400 flex-shrink-0"
+                      title="Удалить приход"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

@@ -130,26 +130,30 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
     if (items.length === 0) return;
     setLoading(true);
     try {
+      const orderData = {
+        supplier_id: supplierId || undefined,
+        branch_id: branchId,
+        status: 'received' as const,
+        total,
+        notes: notes || undefined,
+        created_by: employeeId,
+        received_at: new Date(date).toISOString(),
+      };
+      console.log('Создаём приход:', { order: orderData, items });
       await createPurchaseOrder(
-        {
-          supplier_id: supplierId || undefined,
-          branch_id: branchId,
-          status: 'received',
-          total,
-          notes: notes || undefined,
-          created_by: employeeId,
-          received_at: new Date(date).toISOString(),
-        },
+        orderData,
         items.map(i => ({
           product_id: i.product_id,
           quantity: i.quantity,
           cost_price: i.cost_price,
         }))
       );
+      console.log('Приход создан успешно');
       onSuccess();
       onClose();
     } catch (e) {
-      console.error(e);
+      console.error('Ошибка создания прихода:', e);
+      alert('Ошибка: ' + String(e));
     } finally {
       setLoading(false);
     }
