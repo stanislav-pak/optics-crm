@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions
@@ -34,6 +34,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
+  const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -266,12 +267,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               {purchases.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Приходов нет</div>
               ) : purchases.map(po => (
-                <div key={po.id} className="flex items-center gap-3 px-4 py-3">
+                <div key={po.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100" onClick={() => setSelectedPurchase(po)}>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{(po.supplier as any)?.name ?? 'Без поставщика'}</p>
                     <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {po.items?.map(i => (i.product as any)?.name).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
+                      {po.items?.map(i => `${(i.product as any)?.name} (${i.quantity} шт)`).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -280,7 +281,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                   </div>
                   {role !== 'manager' && (
                     <button
-                      onClick={() => deletePurchaseOrder(po.id)}
+                      onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
                       className="text-gray-300 hover:text-red-400 flex-shrink-0"
                       title="Удалить приход"
                     >
@@ -376,6 +377,57 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           onClose={() => setShowAddPurchase(false)}
           onSuccess={loadAll}
         />
+      )}
+
+      {selectedPurchase && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">
+                {(selectedPurchase.supplier as any)?.name ?? 'Без поставщика'}
+              </h2>
+              <button onClick={() => setSelectedPurchase(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Дата</span>
+                <span>{new Date(selectedPurchase.created_at).toLocaleDateString('ru-RU')}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Статус</span>
+                <StatusBadge status={selectedPurchase.status} />
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Позиции:</p>
+                <div className="space-y-2">
+                  {selectedPurchase.items?.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50">
+                      <div>
+                        <p className="text-sm text-gray-900">{(item.product as any)?.name}</p>
+                        <p className="text-xs text-gray-400">Цена прихода: ₸{item.cost_price.toLocaleString()}</p>
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">{item.quantity} шт</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between text-base font-semibold text-gray-900 pt-2">
+                <span>Итого:</span>
+                <span>₸{selectedPurchase.total.toLocaleString()}</span>
+              </div>
+              {selectedPurchase.notes && (
+                <p className="text-sm text-gray-500 italic">{selectedPurchase.notes}</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setSelectedPurchase(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
