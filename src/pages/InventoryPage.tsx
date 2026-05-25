@@ -38,7 +38,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
+  const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   useEffect(() => {
@@ -372,28 +374,50 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 Начать ревизию
               </button>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {revisions.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 text-sm">Ревизий нет</div>
-              ) : revisions.map(r => {
-                const items = r.items ?? [];
-                const counted = items.filter(i => i.actual_qty != null).length;
-                const withDiff = items.filter(i => (i.difference ?? 0) !== 0).length;
-                return (
-                  <div key={r.id} className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Ревизия от {new Date(r.created_at).toLocaleDateString('ru-RU')}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Подсчитано: {counted}/{items.length} · Расхождений: {withDiff}
-                      </p>
+            {revisions.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">Ревизий нет</div>
+            ) : (
+              <div className="space-y-3">
+                {revisions.map(r => {
+                  const ritems = r.items ?? [];
+                  const counted = ritems.filter(i => i.actual_qty != null).length;
+                  const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0).length;
+                  const isInProgress = r.status === 'in_progress';
+                  return (
+                    <div key={r.id}
+                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                      onClick={() => { if (!isInProgress) setSelectedRevision(r); }}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            Ревизия от {new Date(r.created_at).toLocaleDateString('ru-RU')}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Подсчитано: {counted}/{ritems.length} · Расхождений: {withDiff}
+                          </p>
+                        </div>
+                        <StatusBadge status={r.status} />
+                      </div>
+                      <div className="flex justify-end">
+                        {isInProgress ? (
+                          <button
+                            onClick={e => { e.stopPropagation(); setContinueRevisionId(r.id); setShowRevision(true); }}
+                            className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700">
+                            Продолжить
+                          </button>
+                        ) : (
+                          <button
+                            onClick={e => { e.stopPropagation(); setSelectedRevision(r); }}
+                            className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200">
+                            Просмотр
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <StatusBadge status={r.status} />
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -505,6 +529,95 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         </div>
       )}
 
+      {selectedRevision && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">
+                Ревизия от {new Date(selectedRevision.created_at).toLocaleDateString('ru-RU')}
+              </h2>
+              <button onClick={() => setSelectedRevision(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Статус</span>
+                <StatusBadge status={selectedRevision.status} />
+              </div>
+              {selectedRevision.completed_at && (
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Завершена</span>
+                  <span>{new Date(selectedRevision.completed_at).toLocaleDateString('ru-RU')}</span>
+                </div>
+              )}
+
+              {/* Итог по расхождениям */}
+              {(() => {
+                const ritems = selectedRevision.items ?? [];
+                const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0);
+                const surplus = withDiff.filter(i => (i.difference ?? 0) > 0).length;
+                const shortage = withDiff.filter(i => (i.difference ?? 0) < 0).length;
+                return (
+                  <div className="flex gap-3">
+                    <div className="flex-1 bg-green-50 rounded-xl px-3 py-2 text-center">
+                      <p className="text-xs text-green-600 font-medium">Излишки</p>
+                      <p className="text-lg font-bold text-green-700">{surplus}</p>
+                    </div>
+                    <div className="flex-1 bg-red-50 rounded-xl px-3 py-2 text-center">
+                      <p className="text-xs text-red-600 font-medium">Недостачи</p>
+                      <p className="text-lg font-bold text-red-700">{shortage}</p>
+                    </div>
+                    <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-center">
+                      <p className="text-xs text-gray-500 font-medium">Всего</p>
+                      <p className="text-lg font-bold text-gray-700">{ritems.length}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Позиции */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Позиции:</p>
+                <div className="space-y-1.5">
+                  {selectedRevision.items?.map((item, idx) => {
+                    const diff = item.difference ?? 0;
+                    return (
+                      <div key={idx} className={`flex items-center justify-between py-2 px-3 rounded-lg border ${
+                        item.actual_qty === null ? 'border-gray-100 bg-gray-50' :
+                        diff === 0 ? 'border-green-100 bg-green-50' :
+                        diff > 0 ? 'border-blue-100 bg-blue-50' :
+                        'border-red-100 bg-red-50'
+                      }`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 truncate">{(item.product as any)?.name}</p>
+                          <p className="text-xs text-gray-400">
+                            Ожид: {item.expected_qty} · Факт: {item.actual_qty ?? '—'}
+                          </p>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
+                          item.actual_qty === null ? 'bg-gray-100 text-gray-500' :
+                          diff === 0 ? 'bg-green-100 text-green-600' :
+                          diff > 0 ? 'bg-blue-100 text-blue-600' :
+                          'bg-red-100 text-red-600'
+                        }`}>
+                          {item.actual_qty === null ? '—' : diff > 0 ? `+${diff}` : diff === 0 ? '✓' : diff}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setSelectedRevision(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddSale && (
         <AddSaleModal
           branchId={branchId}
@@ -517,8 +630,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         <RevisionModal
           branchId={branchId}
           employeeId={employeeId}
-          onClose={() => setShowRevision(false)}
-          onSuccess={loadAll}
+          existingRevisionId={continueRevisionId}
+          onClose={() => { setShowRevision(false); setContinueRevisionId(undefined); }}
+          onSuccess={() => { loadAll(); setContinueRevisionId(undefined); }}
         />
       )}
 

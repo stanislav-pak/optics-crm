@@ -8,11 +8,12 @@ import type { Revision, RevisionItem, Product } from '../../types';
 interface Props {
   branchId: string;
   employeeId: string;
+  existingRevisionId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function RevisionModal({ branchId, employeeId, onClose, onSuccess }: Props) {
+export default function RevisionModal({ branchId, employeeId, existingRevisionId, onClose, onSuccess }: Props) {
   const [revision, setRevision] = useState<Revision | null>(null);
   const [items, setItems] = useState<(RevisionItem & { product?: Product })[]>([]);
   const [showScanner, setShowScanner] = useState(false);
@@ -32,7 +33,7 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - start.x;
       const dy = Math.abs(e.changedTouches[0].clientY - start.y);
-      if (dx > 60 && dy < 80) onClose();
+      if (dx > 60 && dy < 80) handleCancel();
     };
     document.addEventListener('touchstart', onStart, { passive: true });
     document.addEventListener('touchend', onEnd, { passive: true });
@@ -42,7 +43,13 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
   const initRevision = async () => {
     setLoading(true);
     try {
-      const rev = await createRevision(branchId, employeeId);
+      let rev: Revision;
+      if (existingRevisionId) {
+        const { data } = await supabase.from('revisions').select('*').eq('id', existingRevisionId).single();
+        rev = data;
+      } else {
+        rev = await createRevision(branchId, employeeId);
+      }
       const { data } = await supabase
         .from('revision_items')
         .select('*, product:products(id, name, sku, barcode, unit)')
@@ -56,6 +63,15 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = async () => {
+    // При продолжении существующей ревизии — просто закрываем, не удаляем
+    if (!existingRevisionId && revision) {
+      await supabase.from('revision_items').delete().eq('revision_id', revision.id);
+      await supabase.from('revisions').delete().eq('id', revision.id);
+    }
+    onClose();
   };
 
   const updateQty = async (itemId: string, qty: number) => {
@@ -113,7 +129,7 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" data-modal="true">
         <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Создаём ревизию...</p>
+          <p className="text-sm text-gray-500">{existingRevisionId ? 'Загружаем ревизию...' : 'Создаём ревизию...'}</p>
         </div>
       </div>
     );
@@ -128,7 +144,7 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
             <h2 className="text-base font-semibold text-gray-900">Ревизия склада</h2>
             <p className="text-xs text-gray-400">{new Date().toLocaleDateString('ru-RU')}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         {/* Прогресс */}
@@ -229,9 +245,9 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
 
         {/* Footer */}
         <div className="px-4 py-4 border-t border-gray-100 flex-shrink-0 flex gap-3">
-          <button onClick={onClose}
+          <button onClick={handleCancel}
             className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-            Отмена
+            {existingRevisionId ? 'Закрыть' : 'Отмена'}
           </button>
           <button onClick={handleComplete} disabled={completing || counted === 0}
             className="flex-1 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
