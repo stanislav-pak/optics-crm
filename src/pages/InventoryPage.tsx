@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
+import AddSaleModal from '../components/Inventory/AddSaleModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -34,6 +35,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [loading, setLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
+  const [showAddSale, setShowAddSale] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
 
   useEffect(() => {
@@ -298,7 +300,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         {tab === 'sales' && (
           <div className="space-y-4">
             <div className="flex justify-end">
-              <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700">
+              <button onClick={() => setShowAddSale(true)} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700">
                 <Plus size={16} />
                 Новая продажа
               </button>
@@ -375,6 +377,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           branchId={branchId}
           employeeId={employeeId}
           onClose={() => setShowAddPurchase(false)}
+          onSuccess={loadAll}
+        />
+      )}
+      {showAddSale && (
+        <AddSaleModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowAddSale(false)}
           onSuccess={loadAll}
         />
       )}
