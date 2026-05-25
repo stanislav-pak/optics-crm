@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import type { Chat, Message, Employee } from '../../types';
+import type { Chat, Message, Employee, Branch } from '../../types';
 
 interface Props {
   chat: Chat;
@@ -35,6 +35,8 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
   const [savingName, setSavingName] = useState(false);
 
   // Переназначение менеджера
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [reassignBranch, setReassignBranch] = useState(chat.branch_id);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [reassignId, setReassignId] = useState(chat.employee_id);
   const [reassigning, setReassigning] = useState(false);
@@ -56,17 +58,33 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
       .then(({ data }) => { setMedia(data ?? []); setLoadingMedia(false); });
   }, [chat.id]);
 
-  // Загрузка сотрудников для переназначения
+  // Загрузка филиалов для переназначения
+  useEffect(() => {
+    if (!canReassign) return;
+    supabase
+      .from('branches')
+      .select('id, name')
+      .order('name')
+      .then(({ data }) => setBranches(data ?? []));
+  }, [canReassign]);
+
+  // Загрузка сотрудников выбранного филиала
   useEffect(() => {
     if (!canReassign) return;
     supabase
       .from('employees')
       .select('id, name, role')
-      .eq('branch_id', chat.branch_id)
+      .eq('branch_id', reassignBranch)
       .eq('is_active', true)
       .order('name')
-      .then(({ data }) => setEmployees(data ?? []));
-  }, [chat.branch_id, canReassign]);
+      .then(({ data }) => {
+        setEmployees(data ?? []);
+        // Если текущий менеджер не принадлежит новому филиалу — сбрасываем выбор
+        if (data && data.length > 0 && !data.find(e => e.id === reassignId)) {
+          setReassignId(data[0].id);
+        }
+      });
+  }, [reassignBranch, canReassign]);
 
   // Свайп вниз (bottom sheet на мобайле) / вправо — закрыть
   useEffect(() => {
@@ -108,9 +126,13 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
   };
 
   const saveReassign = async () => {
-    if (reassignId === chat.employee_id || reassigning) return;
+    const branchChanged  = reassignBranch !== chat.branch_id;
+    const employeeChanged = reassignId !== chat.employee_id;
+    if ((!branchChanged && !employeeChanged) || reassigning) return;
     setReassigning(true);
-    await supabase.from('chats').update({ employee_id: reassignId }).eq('id', chat.id);
+    await supabase.from('chats')
+      .update({ branch_id: reassignBranch, employee_id: reassignId })
+      .eq('id', chat.id);
     setReassigning(false);
   };
 
@@ -283,21 +305,49 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
             </button>
 
             {/* Переназначить менеджера (только admin / branch_admin) */}
-            {canReassign && employees.length > 0 && (
-              <div className="bg-white/5 rounded-xl px-4 py-3 space-y-2">
+            {canReassign && (
+              <div className="bg-white/5 rounded-xl px-4 py-3 space-y-3">
                 <p className="text-xs text-[#8696a0]">Переназначить менеджера</p>
-                <select
-                  value={reassignId}
-                  onChange={e => setReassignId(e.target.value)}
-                  className="w-full bg-[#2a3942] text-[#e9edef] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                  ))}
-                </select>
+
+                {/* Филиал */}
+                <div className="space-y-1">
+                  <p className="text-[11px] text-[#8696a0] font-medium">Филиал</p>
+                  <select
+                    value={reassignBranch}
+                    onChange={e => setReassignBranch(e.target.value)}
+                    className="w-full bg-[#2a3942] text-[#e9edef] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
+                  >
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Менеджер */}
+                <div className="space-y-1">
+                  <p className="text-[11px] text-[#8696a0] font-medium">Менеджер</p>
+                  {employees.length === 0 ? (
+                    <p className="text-xs text-[#8696a0] italic py-1">Нет сотрудников в этом филиале</p>
+                  ) : (
+                    <select
+                      value={reassignId}
+                      onChange={e => setReassignId(e.target.value)}
+                      className="w-full bg-[#2a3942] text-[#e9edef] text-sm rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
+                    >
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
                 <button
                   onClick={saveReassign}
-                  disabled={reassigning || reassignId === chat.employee_id}
+                  disabled={
+                    reassigning ||
+                    (reassignBranch === chat.branch_id && reassignId === chat.employee_id) ||
+                    employees.length === 0
+                  }
                   className="w-full py-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40 rounded-lg text-sm font-medium transition-colors"
                 >
                   {reassigning ? 'Сохраняем...' : 'Сохранить'}

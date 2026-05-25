@@ -322,11 +322,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу — скроллируемые чипы */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-none">
                 {typeOptions.map(o => (
                   <button key={o.value}
                     onClick={() => setMvTypeFilter(o.value)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvTypeFilter === o.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -337,11 +337,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               </div>
 
               {/* Фильтр по дате */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-none">
                 {dateOptions.map(o => (
                   <button key={o.value}
                     onClick={() => setMvDateFilter(o.value)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvDateFilter === o.value
                         ? 'bg-gray-800 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
