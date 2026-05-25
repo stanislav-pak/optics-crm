@@ -205,10 +205,10 @@ export default function RevisionModal({ branchId, employeeId, onClose, onSuccess
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={item.actual_qty === null ? '' : String(item.actual_qty)}
+                      value={item.actual_qty === null ? '' : item.actual_qty === 0 ? '0' : String(item.actual_qty)}
                       onChange={e => {
                         const val = e.target.value.replace(/[^0-9]/g, '');
-                        if (val !== '') updateQty(item.id, parseInt(val));
+                        updateQty(item.id, val === '' ? 0 : parseInt(val));
                       }}
                       placeholder="—"
                       className="flex-1 text-center text-sm py-1.5 border-0 focus:outline-none min-w-0"
