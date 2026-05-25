@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions
@@ -13,6 +13,7 @@ import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
+import SuppliersModal from '../components/Inventory/SuppliersModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -38,6 +39,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
+  const [showSuppliers, setShowSuppliers] = useState(false);
   const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
@@ -272,7 +274,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         {/* ПРИХОДЫ */}
         {tab === 'purchases' && (
           <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowSuppliers(true)}
+                className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50">
+                <Users size={16} />
+                Поставщики
+              </button>
               <button onClick={() => setShowAddPurchase(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
                 <Plus size={16} />
                 Новый приход
@@ -640,6 +647,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           onClose={() => setShowAddSale(false)}
           onSuccess={loadAll}
         />
+      )}
+      {showSuppliers && (
+        <SuppliersModal onClose={() => setShowSuppliers(false)} />
       )}
       {showRevision && (
         <RevisionModal
