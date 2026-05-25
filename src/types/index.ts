@@ -49,6 +49,7 @@ export interface Chat {
   waba_conversation_id?: string;
   status: 'active' | 'archived' | 'closed';
   last_message_at?: string;
+  archive_after?: string;   // ISO timestamp; set by trigger when deal moves to 'closed'
   is_pinned: boolean;
   created_at: string;
   updated_at: string;

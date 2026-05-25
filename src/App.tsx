@@ -15,6 +15,7 @@ import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import InventoryPage from './pages/InventoryPage';
+import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 
@@ -40,7 +41,7 @@ function AppContent() {
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings'>('dashboard');
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory'>('list');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -245,6 +246,17 @@ function AppContent() {
                 className="px-1.5 py-1 rounded-lg transition-colors text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               </button>
+              {employee.role === 'admin' && (
+                <button
+                  onClick={() => { setAdminView('settings'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                  className={`px-1.5 py-1 rounded-lg transition-colors ${isAdminBtnActive('settings') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  title="Настройки">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+              )}
             </>
           )}
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Выйти">
@@ -292,7 +304,12 @@ function AppContent() {
 
   const MainArea = (
     <div className="flex-1 flex overflow-hidden">
-      {isAdmin && adminView === 'inventory' ? (
+      {isAdmin && adminView === 'settings' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Настройки" />}
+          <AutoArchiveSettings />
+        </div>
+      ) : isAdmin && adminView === 'inventory' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Склад" />}
           <div className="flex-1 overflow-y-auto">
