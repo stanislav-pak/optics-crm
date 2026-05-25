@@ -99,7 +99,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     await supabase.from('stock_movements').delete().eq('revision_id', id);
     await supabase.from('revision_items').delete().eq('revision_id', id);
     await supabase.from('revisions').delete().eq('id', id);
-    loadAll();
+    await loadAll(); // перезагружаем товары, остатки и движения
   }
 
   async function deletePurchaseOrder(id: string) {
@@ -323,30 +323,42 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу — скроллируемые чипы */}
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div
+                className="flex gap-2 pb-1 -mx-4 px-4"
+                style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              >
                 {typeOptions.map(o => (
-                  <button key={o.value}
+                  <button
+                    key={o.value}
                     onClick={() => setMvTypeFilter(o.value)}
-                    className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvTypeFilter === o.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}>
+                    }`}
+                  >
                     {o.label}
                   </button>
                 ))}
               </div>
 
               {/* Фильтр по дате */}
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div
+                className="flex gap-2 pb-1 -mx-4 px-4"
+                style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+              >
                 {dateOptions.map(o => (
-                  <button key={o.value}
+                  <button
+                    key={o.value}
                     onClick={() => setMvDateFilter(o.value)}
-                    className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       mvDateFilter === o.value
                         ? 'bg-gray-800 text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}>
+                    }`}
+                  >
                     {o.label}
                   </button>
                 ))}
@@ -779,7 +791,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           employeeId={employeeId}
           existingRevisionId={continueRevisionId}
           onClose={() => { setShowRevision(false); setContinueRevisionId(undefined); }}
-          onSuccess={() => { loadAll(); setContinueRevisionId(undefined); }}
+          onSuccess={async () => { await loadAll(); setContinueRevisionId(undefined); }}
         />
       )}
 
