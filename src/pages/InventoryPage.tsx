@@ -324,8 +324,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             <div className="space-y-3">
               {/* Фильтр по типу — скроллируемые чипы */}
               <div
-                className="flex gap-2 pb-1 -mx-4 px-4"
-                style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+                style={{
+                  display: 'flex', gap: '8px', paddingBottom: '4px',
+                  overflowX: 'auto', overflowY: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none', msOverflowStyle: 'none',
+                } as React.CSSProperties}
               >
                 {typeOptions.map(o => (
                   <button
@@ -345,8 +349,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
               {/* Фильтр по дате */}
               <div
-                className="flex gap-2 pb-1 -mx-4 px-4"
-                style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+                style={{
+                  display: 'flex', gap: '8px', paddingBottom: '4px',
+                  overflowX: 'auto', overflowY: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none', msOverflowStyle: 'none',
+                } as React.CSSProperties}
               >
                 {dateOptions.map(o => (
                   <button
