@@ -37,6 +37,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -305,27 +306,58 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 Новая продажа
               </button>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {sales.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 text-sm">Продаж нет</div>
-              ) : sales.map(s => (
-                <div key={s.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{(s.client as any)?.name ?? (s.client as any)?.phone ?? 'Без клиента'}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name} · {
-                        s.payment_method === 'cash' ? '💵 Наличные' :
-                        s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'
-                      }
-                    </p>
+            {sales.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">Продаж нет</div>
+            ) : (
+              <div className="space-y-3">
+                {sales.map(s => (
+                  <div key={s.id}
+                    className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                    onClick={() => setSelectedSale(s)}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
+                        <StatusBadge status={s.status} />
+                      </div>
+                    </div>
+
+                    {/* Товары */}
+                    <div className="space-y-1">
+                      {s.items?.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs text-gray-500">
+                          <span>{(item.product as any)?.name} × {item.quantity}</span>
+                          <span>₸{(item.quantity * item.price).toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {(s.items?.length ?? 0) > 3 && (
+                        <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
+                      )}
+                    </div>
+
+                    {/* Оплата */}
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <span className="text-xs text-gray-500">
+                        {s.payment_method === 'cash' ? '💵 Наличные' :
+                         s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                      </span>
+                      {s.paid_cash > 0 && s.paid_kaspi > 0 && (
+                        <span className="text-xs text-gray-400">
+                          {s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">₸{s.total.toLocaleString()}</p>
-                    <StatusBadge status={s.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -380,6 +412,97 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           onSuccess={loadAll}
         />
       )}
+      {selectedSale && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">
+                {(selectedSale.client as any)?.name || (selectedSale.client as any)?.phone || 'Без клиента'}
+              </h2>
+              <button onClick={() => setSelectedSale(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Дата</span>
+                <span>{new Date(selectedSale.created_at).toLocaleDateString('ru-RU')}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Сотрудник</span>
+                <span>{(selectedSale.employee as any)?.name ?? '—'}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Статус</span>
+                <StatusBadge status={selectedSale.status} />
+              </div>
+
+              {/* Позиции */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Позиции:</p>
+                <div className="space-y-2">
+                  {selectedSale.items?.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50">
+                      <div>
+                        <p className="text-sm text-gray-900">{(item.product as any)?.name}</p>
+                        <p className="text-xs text-gray-400">{item.quantity} шт × ₸{item.price.toLocaleString()}</p>
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">
+                        ₸{(item.quantity * item.price).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Итог */}
+              <div className="flex justify-between text-base font-semibold text-gray-900 pt-2">
+                <span>Итого:</span>
+                <span>₸{selectedSale.total.toLocaleString()}</span>
+              </div>
+
+              {/* Оплата */}
+              <div className="border-t border-gray-100 pt-3 space-y-2">
+                <p className="text-xs font-semibold text-gray-500">Оплата:</p>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>
+                    {selectedSale.payment_method === 'cash' ? '💵 Наличные' :
+                     selectedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                  </span>
+                </div>
+                {selectedSale.paid_cash > 0 && (
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Наличными:</span>
+                    <span>₸{selectedSale.paid_cash.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedSale.paid_kaspi > 0 && (
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Kaspi QR:</span>
+                    <span>₸{selectedSale.paid_kaspi.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedSale.paid_cash > 0 && (selectedSale.paid_cash + selectedSale.paid_kaspi) > selectedSale.total && (
+                  <div className="flex justify-between text-sm font-medium text-green-600">
+                    <span>Сдача:</span>
+                    <span>₸{(selectedSale.paid_cash + selectedSale.paid_kaspi - selectedSale.total).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedSale.notes && (
+                <p className="text-sm text-gray-500 italic border-t border-gray-100 pt-3">{selectedSale.notes}</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setSelectedSale(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddSale && (
         <AddSaleModal
           branchId={branchId}
