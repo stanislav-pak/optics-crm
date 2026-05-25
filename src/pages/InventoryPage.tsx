@@ -269,7 +269,10 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 <div key={po.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{(po.supplier as any)?.name ?? 'Без поставщика'}</p>
-                    <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')} · {po.items?.length ?? 0} позиций</p>
+                    <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {po.items?.map(i => (i.product as any)?.name).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-medium text-gray-900">₸{po.total.toLocaleString()}</p>
