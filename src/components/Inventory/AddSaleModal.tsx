@@ -3,6 +3,7 @@ import { X, Search, QrCode, Trash2 } from 'lucide-react';
 import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
+import KaspiQRModal from './KaspiQRModal';
 import type { Product, Client } from '../../types';
 
 interface SaleItem {
@@ -32,6 +33,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showKaspiQR, setShowKaspiQR] = useState(false);
+  const [tempSaleId, setTempSaleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [change, setChange] = useState(0);
 
@@ -121,13 +124,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
       const kaspiAmount = paymentMethod === 'kaspi_qr' ? total :
         paymentMethod === 'cash' ? 0 : parseFloat(paidKaspi || '0');
 
-      await createSale(
+      const needsKaspi = paymentMethod === 'kaspi_qr' || paymentMethod === 'mixed';
+      const initialStatus = needsKaspi ? 'pending' : 'paid';
+
+      const sale = await createSale(
         {
           branch_id: branchId,
           client_id: clientId || undefined,
           employee_id: employeeId,
           payment_method: paymentMethod,
-          status: 'paid',
+          status: initialStatus,
           total,
           paid_cash: cashAmount,
           paid_kaspi: kaspiAmount,
@@ -139,6 +145,14 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           price: i.price,
         }))
       );
+
+      if (needsKaspi) {
+        setTempSaleId(sale.id);
+        setShowKaspiQR(true);
+        setLoading(false);
+        return;
+      }
+
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -146,6 +160,22 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleKaspiConfirm = async () => {
+    if (!tempSaleId) return;
+    await supabase.from('sales').update({ status: 'paid' }).eq('id', tempSaleId);
+    setShowKaspiQR(false);
+    onSuccess();
+    onClose();
+  };
+
+  const handleKaspiCancel = async () => {
+    if (tempSaleId) {
+      await supabase.from('sale_items').delete().eq('sale_id', tempSaleId);
+      await supabase.from('sales').delete().eq('id', tempSaleId);
+    }
+    setShowKaspiQR(false);
   };
 
   return (
@@ -336,6 +366,15 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
 
       {showScanner && (
         <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
+      )}
+
+      {showKaspiQR && tempSaleId && (
+        <KaspiQRModal
+          amount={total}
+          saleId={tempSaleId}
+          onConfirm={handleKaspiConfirm}
+          onCancel={handleKaspiCancel}
+        />
       )}
     </>
   );
