@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
-  getStockMovements, getPurchaseOrders, getSales, getRevisions
+  getStockMovements, getPurchaseOrders, getSales, getRevisions,
+  deleteRevision,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import type {
@@ -93,13 +94,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     { key: 'revisions', label: 'Ревизии' },
   ];
 
-  async function deleteRevision(id: string, e: React.MouseEvent) {
+  async function handleDeleteRevision(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm('Удалить ревизию?')) return;
-    await supabase.from('stock_movements').delete().eq('revision_id', id);
-    await supabase.from('revision_items').delete().eq('revision_id', id);
-    await supabase.from('revisions').delete().eq('id', id);
-    await loadAll(); // перезагружаем товары, остатки и движения
+    await deleteRevision(id);
+    await loadAll();
   }
 
   async function deletePurchaseOrder(id: string) {
@@ -571,7 +570,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                         )}
                         {role !== 'manager' && (
                           <button
-                            onClick={e => deleteRevision(r.id, e)}
+                            onClick={e => handleDeleteRevision(r.id, e)}
                             className="p-1.5 text-gray-300 hover:text-red-400">
                             <Trash2 size={15} />
                           </button>
