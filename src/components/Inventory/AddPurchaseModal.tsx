@@ -12,14 +12,20 @@ interface OrderItem {
   cost_price: number;
 }
 
+interface InitialData {
+  supplier_id?: string;
+  items?: Array<{ product_id: string; quantity: number; cost_price: number }>;
+}
+
 interface Props {
   branchId: string;
   employeeId: string;
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: InitialData;
 }
 
-export default function AddPurchaseModal({ branchId, employeeId, onClose, onSuccess }: Props) {
+export default function AddPurchaseModal({ branchId, employeeId, onClose, onSuccess, initialData }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,6 +42,20 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
     supabase.from('suppliers').select('*').order('name').then(({ data }) => setSuppliers(data ?? []));
     getProducts(branchId).then(setProducts);
   }, [branchId]);
+
+  // Предзаполнение из initialData после загрузки продуктов
+  useEffect(() => {
+    if (!initialData || products.length === 0) return;
+    if (initialData.supplier_id) setSupplierId(initialData.supplier_id);
+    if (initialData.items && initialData.items.length > 0) {
+      const mapped: OrderItem[] = initialData.items.flatMap(i => {
+        const p = products.find(pr => pr.id === i.product_id);
+        if (!p) return [];
+        return [{ product_id: i.product_id, product_name: p.name, quantity: i.quantity, cost_price: i.cost_price }];
+      });
+      if (mapped.length > 0) setItems(mapped);
+    }
+  }, [products]);
 
   // Свайп вправо — закрыть модал
   useEffect(() => {

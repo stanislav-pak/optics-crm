@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Copy } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
@@ -50,6 +50,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showSuppliers, setShowSuppliers] = useState(false);
   const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -429,13 +430,33 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                     <StatusBadge status={po.status} />
                   </div>
                   {role !== 'manager' && (
-                    <button
-                      onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
-                      className="text-gray-300 hover:text-red-400 flex-shrink-0"
-                      title="Удалить приход"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setRepeatPurchaseData({
+                            supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
+                            items: po.items?.map(i => ({
+                              product_id: i.product_id,
+                              quantity: i.quantity,
+                              cost_price: i.cost_price,
+                            })) ?? [],
+                          });
+                          setShowAddPurchase(true);
+                        }}
+                        className="text-gray-300 hover:text-blue-400 p-0.5"
+                        title="Повторить приход"
+                      >
+                        <Copy size={15} />
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
+                        className="text-gray-300 hover:text-red-400 p-0.5"
+                        title="Удалить приход"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -583,8 +604,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         <AddPurchaseModal
           branchId={branchId}
           employeeId={employeeId}
-          onClose={() => setShowAddPurchase(false)}
-          onSuccess={loadAll}
+          onClose={() => { setShowAddPurchase(false); setRepeatPurchaseData(undefined); }}
+          onSuccess={() => { loadAll(); setRepeatPurchaseData(undefined); }}
+          initialData={repeatPurchaseData}
         />
       )}
       {selectedSale && (
