@@ -8,13 +8,14 @@ import {
 import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, Revision
+  StockMovement, PurchaseOrder, Sale, Revision, Branch
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 import ProductDetailModal from '../components/Inventory/ProductDetailModal';
 import EditProductModal from '../components/Inventory/EditProductModal';
 import TransferModal from '../components/Inventory/TransferModal';
+import BranchDetailModal from '../components/Inventory/BranchDetailModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
@@ -61,6 +62,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -433,13 +435,18 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                         .filter(s => s.branch_id === b.id)
                         .reduce((sum, s) => sum + s.quantity, 0);
                       return (
-                        <div key={b.id} className="flex items-center justify-between px-4 py-2.5">
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setSelectedBranch(b as Branch)}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer text-left"
+                        >
                           <span className="text-sm text-gray-700">
                             {b.is_warehouse && <span className="text-xs mr-1.5">🏭</span>}
                             {b.name}
                           </span>
                           <span className="text-sm font-semibold text-gray-900 tabular-nums">{total} шт</span>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -882,6 +889,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       {showSuppliers && (
         <SuppliersModal onClose={() => setShowSuppliers(false)} />
       )}
+      {selectedBranch && (
+        <BranchDetailModal
+          branch={selectedBranch}
+          onClose={() => setSelectedBranch(null)}
+        />
+      )}
+
       {showRevision && (
         <RevisionModal
           branchId={branchId}
