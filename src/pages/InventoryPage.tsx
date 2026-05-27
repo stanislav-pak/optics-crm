@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
+import ProductDetailModal from '../components/Inventory/ProductDetailModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
@@ -50,6 +51,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showSuppliers, setShowSuppliers] = useState(false);
   const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -246,7 +248,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                       p.barcode,
                     ].filter(Boolean).join(' · ');
                     return (
-                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3">
+                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer" onClick={() => setSelectedProduct(p)}>
                         <div className="flex-1 min-w-0">
                           {/* Строка 1: название · цены · остаток */}
                           <div className="flex items-baseline justify-between gap-2">
@@ -263,7 +265,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                         </div>
                         {role !== 'manager' && (
                           <button
-                            onClick={() => deleteProduct(p.id)}
+                            onClick={e => { e.stopPropagation(); deleteProduct(p.id); }}
                             className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
                             title="Удалить товар"
                           >
@@ -583,6 +585,20 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           </div>
         )}
       </div>
+
+      {selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          stock={stock.find(s => s.product_id === selectedProduct.id)?.quantity ?? 0}
+          branchId={branchId}
+          onClose={() => setSelectedProduct(null)}
+          onEdit={() => setSelectedProduct(null)}
+          onDelete={async () => {
+            await deleteProduct(selectedProduct.id);
+            setSelectedProduct(null);
+          }}
+        />
+      )}
 
       {showAddProduct && (
         <AddProductModal
