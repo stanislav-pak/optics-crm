@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Copy } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
@@ -417,7 +417,21 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               {purchases.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Приходов нет</div>
               ) : purchases.map(po => (
-                <div key={po.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100" onClick={() => setSelectedPurchase(po)}>
+                <div
+                  key={po.id}
+                  className={`flex items-center gap-3 px-4 py-3 active:bg-gray-100 ${role !== 'manager' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                  onClick={role !== 'manager' ? () => {
+                    setRepeatPurchaseData({
+                      supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
+                      items: po.items?.map(i => ({
+                        product_id: i.product_id,
+                        quantity: i.quantity,
+                        cost_price: i.cost_price,
+                      })) ?? [],
+                    });
+                    setShowAddPurchase(true);
+                  } : undefined}
+                >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{(po.supplier as any)?.name ?? 'Без поставщика'}</p>
                     <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')}</p>
@@ -430,33 +444,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                     <StatusBadge status={po.status} />
                   </div>
                   {role !== 'manager' && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          setRepeatPurchaseData({
-                            supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
-                            items: po.items?.map(i => ({
-                              product_id: i.product_id,
-                              quantity: i.quantity,
-                              cost_price: i.cost_price,
-                            })) ?? [],
-                          });
-                          setShowAddPurchase(true);
-                        }}
-                        className="text-gray-300 hover:text-blue-400 p-0.5"
-                        title="Повторить приход"
-                      >
-                        <Copy size={15} />
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
-                        className="text-gray-300 hover:text-red-400 p-0.5"
-                        title="Удалить приход"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
+                      className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
+                      title="Удалить приход"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   )}
                 </div>
               ))}
