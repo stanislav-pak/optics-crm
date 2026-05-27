@@ -14,6 +14,7 @@ import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 import ProductDetailModal from '../components/Inventory/ProductDetailModal';
 import EditProductModal from '../components/Inventory/EditProductModal';
+import TransferModal from '../components/Inventory/TransferModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
@@ -46,6 +47,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [mvDateTo, setMvDateTo] = useState('');
   const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -224,13 +226,26 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 />
               </div>
               {role !== 'manager' && (
-                <button
-                  onClick={() => setShowAddProduct(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-                >
-                  <Plus size={16} />
-                  Добавить
-                </button>
+                <div className="flex gap-2">
+                  {role === 'admin' && (
+                    <button
+                      onClick={() => setShowTransfer(true)}
+                      className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                      Перемещение
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowAddProduct(true)}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  >
+                    <Plus size={16} />
+                    Добавить
+                  </button>
+                </div>
               )}
             </div>
 
@@ -599,6 +614,15 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             await deleteProduct(selectedProduct.id);
             setSelectedProduct(null);
           }}
+        />
+      )}
+
+      {showTransfer && (
+        <TransferModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowTransfer(false)}
+          onSuccess={() => { loadAll(); setShowTransfer(false); }}
         />
       )}
 
