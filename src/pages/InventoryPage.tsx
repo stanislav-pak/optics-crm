@@ -316,13 +316,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             { value: 'all', label: 'Все' },
             { value: 'in', label: 'Приход' },
             { value: 'out', label: 'Продажа' },
-            { value: 'writeoff', label: 'Спис.' },
-            { value: 'transfer', label: 'Перенос' },
+            { value: 'writeoff', label: 'Списание' },
+            { value: 'transfer', label: 'Перемещение' },
             { value: 'revision_adjust', label: 'Ревизия' },
           ];
 
           const dateOptions: { value: string; label: string }[] = [
-            { value: 'all', label: 'Всегда' },
+            { value: 'all', label: 'Всё время' },
             { value: 'today', label: 'Сегодня' },
             { value: 'week', label: 'Неделя' },
             { value: 'month', label: 'Месяц' },
