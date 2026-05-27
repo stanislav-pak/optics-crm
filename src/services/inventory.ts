@@ -227,6 +227,47 @@ export async function createPurchaseOrder(
       console.error('Ошибка создания movements:', JSON.stringify(movError));
       throw movError;
     }
+
+    // Синхронизация с главным складом (если приход НЕ на склад)
+    const WAREHOUSE_ID = 'a215f402-07ee-4ba9-aba5-b2b4cd5497f2';
+    if (order.branch_id !== WAREHOUSE_ID) {
+      const { data: branch } = await supabase
+        .from('branches').select('name').eq('id', order.branch_id!).single();
+      const branchName = branch?.name ?? 'Филиал';
+
+      const warehouseMovements = items.map(i => ({
+        product_id: i.product_id,
+        branch_id: WAREHOUSE_ID,
+        type: 'in' as const,
+        quantity: i.quantity,
+        price: i.cost_price,
+        reference_id: po.id,
+        reference_type: 'purchase_order',
+        notes: `Синхронизация: ${branchName}`,
+        created_by: order.created_by,
+      }));
+
+      const { error: wMovError } = await supabase
+        .from('stock_movements').insert(warehouseMovements);
+
+      if (wMovError) {
+        console.error('Ошибка синхронизации склад movements:', JSON.stringify(wMovError));
+      } else {
+        // Upsert остатков на складе
+        for (const i of items) {
+          const { data: existing } = await supabase
+            .from('stock').select('quantity')
+            .eq('product_id', i.product_id)
+            .eq('branch_id', WAREHOUSE_ID)
+            .maybeSingle();
+          const currentQty = existing?.quantity ?? 0;
+          await supabase.from('stock').upsert(
+            { product_id: i.product_id, branch_id: WAREHOUSE_ID, quantity: currentQty + i.quantity },
+            { onConflict: 'product_id,branch_id' }
+          );
+        }
+      }
+    }
   }
 
   return po as PurchaseOrder;

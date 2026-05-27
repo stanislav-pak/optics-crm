@@ -59,6 +59,17 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
+  const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
+
+  // Загружаем филиалы один раз при монтировании
+  useEffect(() => {
+    supabase.from('branches').select('id, name, is_warehouse').order('name').then(({ data }) => {
+      if (!data) return;
+      const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
+      setBranches(sorted);
+    });
+  }, []);
 
   useEffect(() => {
     loadAll();
@@ -92,6 +103,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       setPurchases(po);
       setSales(sa);
       setRevisions(rv);
+      // Остатки всех филиалов для сводки перемещений
+      const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
+      setAllBranchesStock(abs ?? []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -227,26 +241,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 />
               </div>
               {role !== 'manager' && (
-                <div className="flex gap-2">
-                  {role === 'admin' && (
-                    <button
-                      onClick={() => setShowTransfer(true)}
-                      className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                      Перемещение
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowAddProduct(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-                  >
-                    <Plus size={16} />
-                    Добавить
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  Добавить
+                </button>
               )}
             </div>
 
@@ -408,6 +409,40 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                     className="text-xs text-blue-600 hover:underline">
                     Сбросить фильтры
                   </button>
+                </div>
+              )}
+
+              {/* Сводка остатков по филиалам при фильтре «Перемещение» */}
+              {mvTypeFilter === 'transfer' && (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-700">Остатки по филиалам</h3>
+                    {role === 'admin' && (
+                      <button
+                        onClick={() => setShowTransfer(true)}
+                        className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
+                      >
+                        <Plus size={13} />
+                        Перемещение
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {branches.map(b => {
+                      const total = allBranchesStock
+                        .filter(s => s.branch_id === b.id)
+                        .reduce((sum, s) => sum + s.quantity, 0);
+                      return (
+                        <div key={b.id} className="flex items-center justify-between px-4 py-2.5">
+                          <span className="text-sm text-gray-700">
+                            {b.is_warehouse && <span className="text-xs mr-1.5">🏭</span>}
+                            {b.name}
+                          </span>
+                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{total} шт</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -949,7 +984,10 @@ function MovementsTable({ movements, emptyText = 'Движений нет' }: { 
               <div key={m.id} className="grid grid-cols-12 items-center px-4 py-3">
                 <div className="col-span-4">
                   <p className="text-sm text-gray-900">{(m.product as any)?.name ?? '—'}</p>
-                  <p className="text-xs text-gray-400">{(m.employee as any)?.name ?? '—'}</p>
+                  {m.type === 'transfer' && m.notes
+                    ? <p className="text-xs text-gray-400">{m.notes}</p>
+                    : <p className="text-xs text-gray-400">{(m.employee as any)?.name ?? '—'}</p>
+                  }
                 </div>
                 <span className={`col-span-3 text-sm font-medium ${t.color}`}>{t.label}</span>
                 <span className="col-span-2 text-sm text-right text-gray-700">{m.quantity}</span>
