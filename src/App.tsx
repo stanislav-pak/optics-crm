@@ -46,14 +46,11 @@ function AppContent() {
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
-  const [warehouseBranchId, setWarehouseBranchId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    supabase.from('branches').select('id, name, city, is_warehouse').then(({ data }) => {
+    supabase.from('branches').select('id, name, city').then(({ data }) => {
       setSidebarBranches(data ?? []);
-      const warehouse = (data ?? []).find((b: any) => b.is_warehouse);
-      if (warehouse) setWarehouseBranchId(warehouse.id);
     });
   }, []);
 
@@ -319,7 +316,7 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Склад" />}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <InventoryPage
-              branchId={isAdmin && warehouseBranchId ? warehouseBranchId : employee.branch_id}
+              branchId={employee.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
             />
