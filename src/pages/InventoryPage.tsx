@@ -332,19 +332,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу */}
-              <div
-                className="flex flex-nowrap overflow-x-auto gap-1.5 pb-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-              >
+              <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: '6px', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
                 {typeOptions.map(o => (
                   <button
                     key={o.value}
                     onClick={() => setMvTypeFilter(o.value)}
-                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      mvTypeFilter === o.value
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 500, border: mvTypeFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvTypeFilter === o.value ? '#2563eb' : '#fff', color: mvTypeFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
                   >
                     {o.label}
                   </button>
@@ -352,19 +345,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               </div>
 
               {/* Фильтр по дате */}
-              <div
-                className="flex flex-nowrap overflow-x-auto gap-1.5 pb-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-              >
+              <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: '6px', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
                 {dateOptions.map(o => (
                   <button
                     key={o.value}
                     onClick={() => setMvDateFilter(o.value)}
-                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      mvDateFilter === o.value
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 500, border: mvDateFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvDateFilter === o.value ? '#1f2937' : '#fff', color: mvDateFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
                   >
                     {o.label}
                   </button>
