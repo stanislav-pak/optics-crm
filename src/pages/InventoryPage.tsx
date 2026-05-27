@@ -433,10 +433,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                   } : undefined}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{(po.supplier as any)?.name ?? 'Без поставщика'}</p>
-                    <p className="text-xs text-gray-400">{new Date(po.created_at).toLocaleDateString('ru-RU')}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-sm font-medium text-gray-900 truncate">
                       {po.items?.map(i => `${(i.product as any)?.name} (${i.quantity} шт)`).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {(po.supplier as any)?.name ?? 'Без поставщика'} · {new Date(po.created_at).toLocaleDateString('ru-RU')}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
