@@ -528,6 +528,126 @@ export async function deleteRevision(id: string) {
 }
 
 // ============================================
+// ПЕРЕМЕЩЕНИЯ (двухэтапные)
+// ============================================
+
+export async function createTransfer(
+  fromBranchId: string,
+  toBranchId: string,
+  productId: string,
+  quantity: number,
+  employeeId: string
+) {
+  // Получаем названия филиалов
+  const { data: branches } = await supabase
+    .from('branches')
+    .select('id, name')
+    .in('id', [fromBranchId, toBranchId]);
+
+  const toName = branches?.find(b => b.id === toBranchId)?.name ?? toBranchId;
+
+  // Актуальный остаток отправителя
+  const { data: fromStock } = await supabase
+    .from('stock')
+    .select('quantity')
+    .eq('product_id', productId)
+    .eq('branch_id', fromBranchId)
+    .single();
+
+  if (!fromStock || fromStock.quantity < quantity) throw new Error('Недостаточно товара');
+
+  // Списываем со склада отправителя
+  const { error: stockErr } = await supabase
+    .from('stock')
+    .update({ quantity: fromStock.quantity - quantity })
+    .eq('product_id', productId)
+    .eq('branch_id', fromBranchId);
+  if (stockErr) throw stockErr;
+
+  // Создаём движение со статусом in_transit
+  const { error } = await supabase.from('stock_movements').insert({
+    product_id: productId,
+    branch_id: fromBranchId,
+    to_branch_id: toBranchId,
+    type: 'transfer',
+    status: 'in_transit',
+    quantity,
+    reference_type: 'transfer',
+    created_by: employeeId,
+    notes: `Перемещение в ${toName}`,
+  });
+
+  if (error) throw error;
+}
+
+export async function confirmTransfer(
+  movementId: string,
+  confirmedQuantity: number,
+  employeeId: string
+) {
+  const { data: movement, error: fetchErr } = await supabase
+    .from('stock_movements')
+    .select('*')
+    .eq('id', movementId)
+    .single();
+
+  if (fetchErr || !movement) throw new Error('Перемещение не найдено');
+
+  const discrepancy = movement.quantity - confirmedQuantity;
+
+  // Зачисляем на склад получателя (upsert)
+  const { data: toStock } = await supabase
+    .from('stock')
+    .select('quantity')
+    .eq('product_id', movement.product_id)
+    .eq('branch_id', movement.to_branch_id)
+    .maybeSingle();
+
+  if (toStock) {
+    await supabase
+      .from('stock')
+      .update({ quantity: toStock.quantity + confirmedQuantity })
+      .eq('product_id', movement.product_id)
+      .eq('branch_id', movement.to_branch_id);
+  } else {
+    await supabase.from('stock').insert({
+      product_id: movement.product_id,
+      branch_id: movement.to_branch_id,
+      quantity: confirmedQuantity,
+    });
+  }
+
+  // Обновляем движение
+  const { error: updateErr } = await supabase.from('stock_movements').update({
+    status: 'completed',
+    confirmed_quantity: confirmedQuantity,
+    confirmed_by: employeeId,
+    confirmed_at: new Date().toISOString(),
+    discrepancy,
+    notes: (movement.notes ?? '') + (discrepancy > 0 ? ` (недостача: ${discrepancy} шт)` : ''),
+  }).eq('id', movementId);
+
+  if (updateErr) throw updateErr;
+}
+
+export async function getIncomingTransfers(branchId: string) {
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select(`
+      *,
+      product:products(id, name, sku),
+      from_branch:branches!branch_id(id, name)
+    `)
+    .eq('to_branch_id', branchId)
+    .eq('type', 'transfer')
+    .eq('status', 'in_transit')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+// ============================================
 // СТАТИСТИКА
 // ============================================
 

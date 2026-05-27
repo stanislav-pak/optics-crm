@@ -293,12 +293,14 @@ export interface Stock {
 }
 
 export type StockMovementType = 'in' | 'out' | 'transfer' | 'writeoff' | 'revision_adjust';
+export type StockMovementStatus = 'in_transit' | 'completed' | 'cancelled';
 
 export interface StockMovement {
   id: string;
   product_id: string;
   branch_id: string;
   type: StockMovementType;
+  status?: StockMovementStatus;
   quantity: number;
   price?: number;
   reference_id?: string;
@@ -306,9 +308,16 @@ export interface StockMovement {
   notes?: string;
   created_by?: string;
   created_at: string;
+  // Transfer fields
+  to_branch_id?: string;
+  confirmed_quantity?: number;
+  confirmed_by?: string;
+  confirmed_at?: string;
+  discrepancy?: number;
   // Relations
   product?: Product;
   branch?: Branch;
+  to_branch?: Branch;
   employee?: Employee;
 }
 

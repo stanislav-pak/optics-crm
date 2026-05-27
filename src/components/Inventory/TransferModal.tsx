@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, ArrowRight, QrCode } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { createTransfer } from '../../services/inventory';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
 interface Branch {
@@ -24,11 +25,12 @@ interface StockItem {
 interface Props {
   branchId: string;
   employeeId: string;
+  role?: 'manager' | 'branch_admin' | 'admin';
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function TransferModal({ branchId, employeeId, onClose, onSuccess }: Props) {
+export default function TransferModal({ branchId, employeeId, role = 'admin', onClose, onSuccess }: Props) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [fromBranchId, setFromBranchId] = useState('');
@@ -39,15 +41,23 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Загружаем филиалы — Склад первым
+
+  // Загружаем филиалы
   useEffect(() => {
     supabase.from('branches').select('id, name, is_warehouse').order('name')
       .then(({ data }) => {
         if (!data) return;
         const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
         setBranches(sorted);
-        const warehouse = sorted.find(b => b.is_warehouse);
-        if (warehouse) setFromBranchId(warehouse.id);
+
+        if (role === 'manager') {
+          // Менеджер может отправлять только со своего филиала
+          setFromBranchId(branchId);
+        } else {
+          // Admin/branch_admin — по умолчанию Склад
+          const warehouse = sorted.find(b => b.is_warehouse);
+          setFromBranchId(warehouse?.id ?? branchId);
+        }
       });
   }, []);
 
@@ -95,7 +105,6 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
       setSelectedStock(found);
       setQuantity(1);
       setProductSearch('');
-      setShowSearch(false);
     }
     setShowScanner(false);
   };
@@ -117,67 +126,14 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
     if (!canSubmit || !selectedStock) return;
     setError(null);
     setLoading(true);
-
     try {
-      const productId = selectedStock.product.id;
-
-      // Актуальные остатки
-      const [fromRes, toRes] = await Promise.all([
-        supabase.from('stock').select('quantity').eq('product_id', productId).eq('branch_id', fromBranchId).maybeSingle(),
-        supabase.from('stock').select('quantity').eq('product_id', productId).eq('branch_id', toBranchId).maybeSingle(),
-      ]);
-
-      const currentFrom = fromRes.data?.quantity ?? 0;
-      const currentTo = toRes.data?.quantity ?? 0;
-
-      if (quantity > currentFrom) {
-        setError(`Недостаточно товара: доступно ${currentFrom} ${unit}`);
-        setLoading(false);
-        return;
-      }
-
-      // Уменьшаем остаток на fromBranch
-      const { error: fromErr } = await supabase
-        .from('stock')
-        .update({ quantity: currentFrom - quantity })
-        .eq('product_id', productId)
-        .eq('branch_id', fromBranchId);
-      if (fromErr) throw fromErr;
-
-      // Upsert остаток на toBranch
-      const { error: toErr } = await supabase
-        .from('stock')
-        .upsert(
-          { product_id: productId, branch_id: toBranchId, quantity: currentTo + quantity },
-          { onConflict: 'product_id,branch_id' }
-        );
-      if (toErr) throw toErr;
-
-      // Два движения
-      const movements = [
-        {
-          product_id: productId,
-          branch_id: fromBranchId,
-          type: 'transfer' as const,
-          quantity,
-          reference_type: 'transfer',
-          notes: `Перемещение в ${toBranchName}`,
-          created_by: employeeId,
-        },
-        {
-          product_id: productId,
-          branch_id: toBranchId,
-          type: 'transfer' as const,
-          quantity,
-          reference_type: 'transfer',
-          notes: `Перемещение из ${fromBranchName}`,
-          created_by: employeeId,
-        },
-      ];
-
-      const { error: movErr } = await supabase.from('stock_movements').insert(movements);
-      if (movErr) throw movErr;
-
+      await createTransfer(
+        fromBranchId,
+        toBranchId,
+        selectedStock.product.id,
+        quantity,
+        employeeId
+      );
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -186,6 +142,11 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
       setLoading(false);
     }
   };
+
+  // Какие ветки показывать в "Откуда"
+  const fromBranches = role === 'manager'
+    ? branches.filter(b => b.id === branchId)
+    : branches;
 
   return (
     <div data-modal="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60">
@@ -209,9 +170,10 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
               <select
                 value={fromBranchId}
                 onChange={e => setFromBranchId(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                disabled={role === 'manager'}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-60 disabled:bg-gray-50"
               >
-                {branches.map(b => (
+                {fromBranches.map(b => (
                   <option key={b.id} value={b.id}>
                     {b.is_warehouse ? '🏭 ' : ''}{b.name}
                   </option>
@@ -231,9 +193,6 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
                 ))}
               </select>
             </div>
-            {fromBranchId === toBranchId && toBranchId && (
-              <p className="text-xs text-red-500 mt-1">Филиалы должны быть разными</p>
-            )}
           </div>
 
           {/* Товар */}
@@ -274,10 +233,7 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedStock(isSelected ? null : s);
-                        setQuantity(1);
-                      }}
+                      onClick={() => { setSelectedStock(isSelected ? null : s); setQuantity(1); }}
                       className={`w-full text-left px-4 py-2.5 transition-colors ${
                         isSelected
                           ? 'bg-blue-50 border-l-2 border-l-blue-500'
@@ -309,7 +265,7 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
             )}
           </div>
 
-          {/* Количество — появляется под списком при выборе товара */}
+          {/* Количество */}
           {selectedStock && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -346,7 +302,8 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
           {/* Итоговый баннер */}
           {selectedStock && toBranchId && fromBranchId !== toBranchId && quantity > 0 && quantity <= available && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-              Переместить <strong>{quantity} {unit}</strong> товара «{selectedStock.product.name}» из <strong>{fromBranchName}</strong> в <strong>{toBranchName}</strong>
+              Отправить <strong>{quantity} {unit}</strong> «{selectedStock.product.name}» из <strong>{fromBranchName}</strong> в <strong>{toBranchName}</strong>
+              <p className="text-xs mt-0.5 text-blue-500">Получатель подтвердит приёмку</p>
             </div>
           )}
         </div>
@@ -360,10 +317,7 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-          >
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
             Отмена
           </button>
           <button
@@ -371,7 +325,7 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
             disabled={loading || !canSubmit}
             className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Перемещаем...' : 'Переместить'}
+            {loading ? 'Отправляем...' : 'Отправить'}
           </button>
         </div>
       </div>

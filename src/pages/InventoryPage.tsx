@@ -3,7 +3,7 @@ import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-re
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
-  deleteRevision,
+  deleteRevision, getIncomingTransfers,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import type {
@@ -16,6 +16,7 @@ import ProductDetailModal from '../components/Inventory/ProductDetailModal';
 import EditProductModal from '../components/Inventory/EditProductModal';
 import TransferModal from '../components/Inventory/TransferModal';
 import BranchDetailModal from '../components/Inventory/BranchDetailModal';
+import IncomingTransfersModal from '../components/Inventory/IncomingTransfersModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
@@ -63,6 +64,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
+  const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -108,6 +111,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       // Остатки всех филиалов для сводки перемещений
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
+      // Входящие перемещения в статусе in_transit
+      getIncomingTransfers(branchId).then(setIncomingTransfers).catch(console.error);
     } catch (e) {
       console.error(e);
     } finally {
@@ -352,6 +357,24 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
           return (
             <div className="space-y-3">
+
+              {/* Баннер входящих перемещений */}
+              {incomingTransfers.length > 0 && (
+                <button
+                  onClick={() => setShowIncomingTransfers(true)}
+                  className="w-full flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+                >
+                  <span className="text-xl flex-shrink-0">📦</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-orange-700">
+                      {incomingTransfers.length} входящих перемещений ожидают подтверждения
+                    </p>
+                    <p className="text-xs text-orange-500 mt-0.5">Нажмите, чтобы подтвердить получение</p>
+                  </div>
+                  <span className="text-orange-400 flex-shrink-0">›</span>
+                </button>
+              )}
+
               {/* Фильтр по типу */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingBottom: '4px' }}>
                 {typeOptions.map(o => (
@@ -664,8 +687,18 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         <TransferModal
           branchId={branchId}
           employeeId={employeeId}
+          role={role}
           onClose={() => setShowTransfer(false)}
           onSuccess={() => { loadAll(); setShowTransfer(false); }}
+        />
+      )}
+
+      {showIncomingTransfers && (
+        <IncomingTransfersModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowIncomingTransfers(false)}
+          onUpdated={() => { loadAll(); }}
         />
       )}
 
