@@ -15,6 +15,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -36,8 +37,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   };
 
   useEffect(() => {
-    getCategories().then(setCategories);
-    getBrands().then(setBrands);
+    getCategories().then(setCategories).catch(e => console.error('getCategories failed:', e));
+    getBrands().then(setBrands).catch(e => console.error('getBrands failed:', e));
   }, []);
 
   useEffect(() => {
@@ -67,28 +68,43 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
 
   const handleSubmit = async () => {
-    if (!form.name || !form.price) return;
+    console.log('submit clicked', form);
+
+    if (!form.name.trim() || !form.price) {
+      console.log('validation failed', { name: form.name, price: form.price });
+      return;
+    }
+
+    setSubmitError(null);
     setLoading(true);
+
+    const payload = {
+      name: form.name.trim(),
+      sku: form.sku || undefined,
+      barcode: form.barcode || undefined,
+      category_id: form.category_id || undefined,
+      brand_id: form.brand_id || undefined,
+      price: parseFloat(form.price),
+      cost_price: parseFloat(form.cost_price || '0'),
+      min_stock: parseInt(form.min_stock || '0'),
+      unit: form.unit,
+      attributes,
+      is_active: true,
+      branch_id: branchId,
+      created_by: employeeId,
+    };
+
+    console.log('calling createProduct with', payload);
+
     try {
-      await createProduct({
-        name: form.name,
-        sku: form.sku || undefined,
-        barcode: form.barcode || undefined,
-        category_id: form.category_id || undefined,
-        brand_id: form.brand_id || undefined,
-        price: parseFloat(form.price),
-        cost_price: parseFloat(form.cost_price || '0'),
-        min_stock: parseInt(form.min_stock || '0'),
-        unit: form.unit,
-        attributes,
-        is_active: true,
-        branch_id: branchId,
-        created_by: employeeId,
-      });
+      const result = await createProduct(payload);
+      console.log('createProduct success', result);
       onSuccess();
       onClose();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      console.error('createProduct error:', e);
+      setSubmitError(msg);
     } finally {
       setLoading(false);
     }
@@ -342,6 +358,13 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
         )}
 
         {/* Footer */}
+        {submitError && (
+          <div className="px-5 pb-2">
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {submitError}
+            </p>
+          </div>
+        )}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
