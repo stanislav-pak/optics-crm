@@ -468,12 +468,22 @@ export async function getRevisions(branchId: string) {
 }
 
 export async function deleteRevision(id: string) {
-  // stock_movements с revision_id удалятся каскадно (ON DELETE CASCADE),
-  // но явно удаляем на случай строк без revision_id (созданных до миграции)
+  // Получаем branch_id до удаления — понадобится для пересчёта остатков
+  const { data: rev, error: revFetchError } = await supabase
+    .from('revisions')
+    .select('branch_id')
+    .eq('id', id)
+    .single();
+  if (revFetchError) throw revFetchError;
+
+  // Явно удаляем движения (CASCADE сработает сам, но страхуемся от строк без revision_id)
   await supabase.from('stock_movements').delete().eq('revision_id', id);
   await supabase.from('revision_items').delete().eq('revision_id', id);
   const { error } = await supabase.from('revisions').delete().eq('id', id);
   if (error) throw error;
+
+  // Пересчитываем остатки по всем движениям филиала
+  await supabase.rpc('recalculate_stock', { p_branch_id: rev.branch_id });
 }
 
 // ============================================
