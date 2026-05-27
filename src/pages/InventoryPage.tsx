@@ -13,6 +13,7 @@ import type {
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
 import ProductDetailModal from '../components/Inventory/ProductDetailModal';
+import EditProductModal from '../components/Inventory/EditProductModal';
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
@@ -52,6 +53,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -592,10 +594,21 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           stock={stock.find(s => s.product_id === selectedProduct.id)?.quantity ?? 0}
           branchId={branchId}
           onClose={() => setSelectedProduct(null)}
-          onEdit={() => setSelectedProduct(null)}
+          onEdit={() => { setEditingProduct(selectedProduct); setSelectedProduct(null); }}
           onDelete={async () => {
             await deleteProduct(selectedProduct.id);
             setSelectedProduct(null);
+          }}
+        />
+      )}
+
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSave={updated => {
+            setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setEditingProduct(null);
           }}
         />
       )}
