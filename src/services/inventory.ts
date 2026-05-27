@@ -174,7 +174,10 @@ export async function getStockMovements(branchId: string, productId?: string) {
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error('getStockMovements error:', error);
+    throw error;
+  }
   return data as StockMovement[];
 }
 
@@ -631,11 +634,12 @@ export async function confirmTransfer(
 }
 
 export async function getIncomingTransfers(branchId: string) {
+  // Используем явные FK-хинты, т.к. stock_movements имеет два FK на branches
   const { data, error } = await supabase
     .from('stock_movements')
     .select(`
-      *,
-      product:products(id, name, sku),
+      id, product_id, branch_id, to_branch_id, quantity, notes, created_at, status,
+      product:products!product_id(id, name, sku),
       from_branch:branches!branch_id(id, name)
     `)
     .eq('to_branch_id', branchId)
@@ -643,7 +647,10 @@ export async function getIncomingTransfers(branchId: string) {
     .eq('status', 'in_transit')
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error('getIncomingTransfers supabase error:', error);
+    throw error;
+  }
   return data ?? [];
 }
 

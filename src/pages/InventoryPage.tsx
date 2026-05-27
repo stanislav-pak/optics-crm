@@ -111,12 +111,19 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       // Остатки всех филиалов для сводки перемещений
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
-      // Входящие перемещения в статусе in_transit
-      getIncomingTransfers(branchId).then(setIncomingTransfers).catch(console.error);
     } catch (e) {
-      console.error(e);
+      console.error('loadAll error:', e);
     } finally {
       setLoading(false);
+    }
+
+    // Входящие перемещения — отдельно, не блокируют основную загрузку
+    try {
+      const incoming = await getIncomingTransfers(branchId);
+      setIncomingTransfers(incoming);
+    } catch (e) {
+      console.error('getIncomingTransfers error:', e);
+      setIncomingTransfers([]);
     }
   }
 
