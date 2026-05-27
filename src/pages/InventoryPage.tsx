@@ -57,6 +57,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     loadAll();
   }, [branchId]);
 
+  // Принудительный рефреш ревизий при переключении на вкладку
+  useEffect(() => {
+    if (tab === 'revisions') {
+      getRevisions(branchId).then(setRevisions).catch(e => console.error('getRevisions refresh:', e));
+    }
+  }, [tab]);
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -103,15 +110,18 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
   async function deletePurchaseOrder(id: string) {
     if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
-    await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
-    await supabase.from('purchase_orders').delete().eq('id', id);
-    loadAll();
+    const { error: itemsError } = await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
+    if (itemsError) { console.error('deletePurchaseOrder items error:', itemsError); return; }
+    const { error: poError } = await supabase.from('purchase_orders').delete().eq('id', id);
+    if (poError) { console.error('deletePurchaseOrder error:', poError); return; }
+    await loadAll();
   }
 
   async function deleteProduct(id: string) {
     if (!confirm('Удалить товар?')) return;
     const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id);
-    if (!error) loadAll();
+    if (!error) await loadAll();
+    else console.error('deleteProduct error:', error);
   }
 
   const filteredProducts = products.filter(p =>
