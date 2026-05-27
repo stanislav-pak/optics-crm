@@ -11,8 +11,6 @@ import type {
 // ============================================
 
 export async function getProducts(branchId?: string) {
-  console.log('getProducts called with branchId:', branchId);
-
   let query = supabase
     .from('products')
     .select(`
@@ -24,16 +22,9 @@ export async function getProducts(branchId?: string) {
     .eq('is_active', true)
     .order('name');
 
-  if (branchId) {
-    console.log('filtering by branch_id:', branchId);
-    query = query.eq('branch_id', branchId);
-  } else {
-    console.log('no branch filter — fetching ALL products');
-  }
+  if (branchId) query = query.eq('branch_id', branchId);
 
   const { data, error } = await query;
-  console.log('getProducts result:', data?.length, 'error:', error);
-
   if (error) throw error;
   return data as Product[];
 }
@@ -98,7 +89,6 @@ export async function getCategories() {
     .select('*')
     .order('name');
 
-  console.log('categories:', data, 'error:', error);
   if (error) throw error;
   return data as ProductCategory[];
 }
@@ -109,7 +99,6 @@ export async function getBrands() {
     .select('*')
     .order('name');
 
-  console.log('brands:', data, 'error:', error);
   if (error) throw error;
   return data as Brand[];
 }

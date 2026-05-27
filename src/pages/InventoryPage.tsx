@@ -30,7 +30,6 @@ interface InventoryPageProps {
 }
 
 export default function InventoryPage({ branchId, employeeId, role }: InventoryPageProps) {
-  console.log('InventoryPage mounting', { branchId, employeeId, role });
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -91,49 +90,45 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   async function loadAll() {
     // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
     const scopeId = role === 'admin' ? undefined : branchId;
-    console.log('loadAll START', { branchId, role, scopeId });
     setLoading(true);
 
-    try { const s = await getInventoryStats(scopeId); setStats(s); console.log('getInventoryStats OK', s); }
-    catch (e) { console.error('getInventoryStats FAILED:', e); }
+    try { const s = await getInventoryStats(scopeId); setStats(s); }
+    catch (e) { console.error('getInventoryStats error:', e); }
 
-    try { const p = await getProducts(scopeId); setProducts(p); console.log('getProducts OK', p.length); }
-    catch (e) { console.error('getProducts FAILED:', e); }
+    try { const p = await getProducts(scopeId); setProducts(p); }
+    catch (e) { console.error('getProducts error:', e); }
 
-    try { const st = await getStock(scopeId); setStock(st); console.log('getStock OK', st.length); }
-    catch (e) { console.error('getStock FAILED:', e); }
+    try { const st = await getStock(scopeId); setStock(st); }
+    catch (e) { console.error('getStock error:', e); }
 
-    try { const al = await getLowStockAlerts(scopeId); setAlerts(al); console.log('getLowStockAlerts OK', al.length); }
-    catch (e) { console.error('getLowStockAlerts FAILED:', e); }
+    try { const al = await getLowStockAlerts(scopeId); setAlerts(al); }
+    catch (e) { console.error('getLowStockAlerts error:', e); }
 
-    try { const mv = await getStockMovements(scopeId); setMovements(mv); console.log('getStockMovements OK', mv.length); }
-    catch (e) { console.error('getStockMovements FAILED:', e); }
+    try { const mv = await getStockMovements(scopeId); setMovements(mv); }
+    catch (e) { console.error('getStockMovements error:', e); }
 
-    try { const po = await getPurchaseOrders(scopeId); setPurchases(po); console.log('getPurchaseOrders OK', po.length); }
-    catch (e) { console.error('getPurchaseOrders FAILED:', e); }
+    try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }
+    catch (e) { console.error('getPurchaseOrders error:', e); }
 
-    try { const sa = await getSales(scopeId); setSales(sa); console.log('getSales OK', sa.length); }
-    catch (e) { console.error('getSales FAILED:', e); }
+    try { const sa = await getSales(scopeId); setSales(sa); }
+    catch (e) { console.error('getSales error:', e); }
 
-    try { const rv = await getRevisions(scopeId); setRevisions(rv); console.log('getRevisions OK', rv.length); }
-    catch (e) { console.error('getRevisions FAILED:', e); }
+    try { const rv = await getRevisions(scopeId); setRevisions(rv); }
+    catch (e) { console.error('getRevisions error:', e); }
 
     try {
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
-      console.log('allBranchesStock OK', abs?.length);
-    } catch (e) { console.error('allBranchesStock FAILED:', e); }
+    } catch (e) { console.error('allBranchesStock error:', e); }
 
     setLoading(false);
-    console.log('loadAll DONE');
 
     // Входящие перемещения — всегда по конкретному branchId (не scopeId)
     try {
       const incoming = await getIncomingTransfers(branchId);
       setIncomingTransfers(incoming);
-      console.log('getIncomingTransfers OK', incoming.length);
     } catch (e) {
-      console.error('getIncomingTransfers FAILED:', e);
+      console.error('getIncomingTransfers error:', e);
       setIncomingTransfers([]);
     }
   }
@@ -178,26 +173,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
   if (loading) {
     return (
-      <div>
-        <div style={{position:'fixed',top:0,left:0,right:0,background:'red',color:'white',zIndex:9999,padding:'4px',fontSize:'12px'}}>
-          INVENTORY LOADING | role:{role} | branchId:{branchId}
-        </div>
-        <div className="flex items-center justify-center h-64" style={{paddingTop:'24px'}}>
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* DEBUG */}
-      <div style={{position:'fixed',top:0,left:0,right:0,background:'red',color:'white',zIndex:9999,padding:'4px',fontSize:'12px'}}>
-        INVENTORY LOADED | role:{role} | products:{products.length} | branchId:{branchId}
-      </div>
-      <div className="bg-yellow-100 p-2 text-xs m-2 rounded" style={{marginTop:'24px'}}>
-        role: {role} | branchId: {branchId} | scopeId: {role === 'admin' ? 'undefined' : branchId} | products: {products.length}
-      </div>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">

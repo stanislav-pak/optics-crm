@@ -68,14 +68,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
 
   const handleSubmit = async () => {
-    console.log('1. Submit clicked');
-    console.log('2. Form data:', form);
-    console.log('3. branchId prop value:', branchId, '| employeeId:', employeeId);
-
-    if (!form.name.trim() || !form.price) {
-      console.log('validation failed — name or price missing', { name: form.name, price: form.price });
-      return;
-    }
+    if (!form.name.trim() || !form.price) return;
 
     setSubmitError(null);
     setLoading(true);
@@ -96,18 +89,12 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
       created_by: employeeId,
     };
 
-    console.log('3. Calling createProduct with branch_id:', branchId);
-    console.log('   Full payload:', payload);
-
     try {
-      const result = await createProduct(payload);
-      console.log('4. createProduct result:', result);
+      await createProduct(payload);
       onSuccess();
       onClose();
     } catch (e: any) {
-      console.error('4. createProduct error:', e);
-      const msg = e?.message ?? String(e);
-      setSubmitError(msg);
+      setSubmitError(e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
