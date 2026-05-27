@@ -312,7 +312,7 @@ function AppContent() {
       ) : isAdmin && adminView === 'inventory' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Склад" />}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <InventoryPage
               branchId={employee.branch_id}
               employeeId={employee.id}

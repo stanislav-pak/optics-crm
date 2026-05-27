@@ -332,53 +332,57 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу — скроллируемые чипы */}
-              <div
-                style={{
-                  display: 'flex', gap: '8px', paddingBottom: '4px',
-                  overflowX: 'auto', overflowY: 'hidden',
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'none', msOverflowStyle: 'none',
-                } as React.CSSProperties}
-              >
-                {typeOptions.map(o => (
-                  <button
-                    key={o.value}
-                    onClick={() => setMvTypeFilter(o.value)}
-                    style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      mvTypeFilter === o.value
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
+              <div className="-mx-6 px-6">
+                <div
+                  style={{
+                    display: 'flex', gap: '8px', paddingBottom: '4px',
+                    overflowX: 'auto', overflowY: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'none', msOverflowStyle: 'none',
+                  } as React.CSSProperties}
+                >
+                  {typeOptions.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => setMvTypeFilter(o.value)}
+                      style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        mvTypeFilter === o.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Фильтр по дате */}
-              <div
-                style={{
-                  display: 'flex', gap: '8px', paddingBottom: '4px',
-                  overflowX: 'auto', overflowY: 'hidden',
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'none', msOverflowStyle: 'none',
-                } as React.CSSProperties}
-              >
-                {dateOptions.map(o => (
-                  <button
-                    key={o.value}
-                    onClick={() => setMvDateFilter(o.value)}
-                    style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      mvDateFilter === o.value
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
+              <div className="-mx-6 px-6">
+                <div
+                  style={{
+                    display: 'flex', gap: '8px', paddingBottom: '4px',
+                    overflowX: 'auto', overflowY: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'none', msOverflowStyle: 'none',
+                  } as React.CSSProperties}
+                >
+                  {dateOptions.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => setMvDateFilter(o.value)}
+                      style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        mvDateFilter === o.value
+                          ? 'bg-gray-800 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Произвольный диапазон дат */}
