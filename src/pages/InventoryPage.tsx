@@ -30,6 +30,7 @@ interface InventoryPageProps {
 }
 
 export default function InventoryPage({ branchId, employeeId, role }: InventoryPageProps) {
+  console.log('InventoryPage mounting', { branchId, employeeId, role });
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -112,7 +113,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
     } catch (e) {
-      console.error('loadAll error:', e);
+      console.error('loadAll FAILED:', e);
     } finally {
       setLoading(false);
     }

@@ -369,18 +369,21 @@ function AppContent() {
           {mobileView === 'list' && Sidebar}
           {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
           {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />}
-          {mobileView === 'inventory' && (
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <MobilePageHeader title="Склад" />
-              <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-                <InventoryPage
-                  branchId={employee.branch_id}
-                  employeeId={employee.id}
-                  role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                />
+          {mobileView === 'inventory' && (() => {
+            console.log('App rendering InventoryPage with', { branchId: employee?.branch_id, role: employee?.role });
+            return (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <MobilePageHeader title="Склад" />
+                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                  <InventoryPage
+                    branchId={employee.branch_id}
+                    employeeId={employee.id}
+                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {(mobileView === 'chat' || mobileView === 'main') && MainArea}
         </div>
         {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
