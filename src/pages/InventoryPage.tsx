@@ -89,41 +89,49 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   }, [tab]);
 
   async function loadAll() {
+    console.log('loadAll START', { branchId });
     setLoading(true);
+
+    try { const s = await getInventoryStats(branchId); setStats(s); console.log('getInventoryStats OK', s); }
+    catch (e) { console.error('getInventoryStats FAILED:', e); }
+
+    try { const p = await getProducts(branchId); setProducts(p); console.log('getProducts OK', p.length); }
+    catch (e) { console.error('getProducts FAILED:', e); }
+
+    try { const st = await getStock(branchId); setStock(st); console.log('getStock OK', st.length); }
+    catch (e) { console.error('getStock FAILED:', e); }
+
+    try { const al = await getLowStockAlerts(branchId); setAlerts(al); console.log('getLowStockAlerts OK', al.length); }
+    catch (e) { console.error('getLowStockAlerts FAILED:', e); }
+
+    try { const mv = await getStockMovements(branchId); setMovements(mv); console.log('getStockMovements OK', mv.length); }
+    catch (e) { console.error('getStockMovements FAILED:', e); }
+
+    try { const po = await getPurchaseOrders(branchId); setPurchases(po); console.log('getPurchaseOrders OK', po.length); }
+    catch (e) { console.error('getPurchaseOrders FAILED:', e); }
+
+    try { const sa = await getSales(branchId); setSales(sa); console.log('getSales OK', sa.length); }
+    catch (e) { console.error('getSales FAILED:', e); }
+
+    try { const rv = await getRevisions(branchId); setRevisions(rv); console.log('getRevisions OK', rv.length); }
+    catch (e) { console.error('getRevisions FAILED:', e); }
+
     try {
-      const [s, p, st, al, mv, po, sa, rv] = await Promise.all([
-        getInventoryStats(branchId),
-        getProducts(branchId),
-        getStock(branchId),
-        getLowStockAlerts(branchId),
-        getStockMovements(branchId),
-        getPurchaseOrders(branchId),
-        getSales(branchId),
-        getRevisions(branchId),
-      ]);
-      setStats(s);
-      setProducts(p);
-      setStock(st);
-      setAlerts(al);
-      setMovements(mv);
-      setPurchases(po);
-      setSales(sa);
-      setRevisions(rv);
-      // Остатки всех филиалов для сводки перемещений
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
-    } catch (e) {
-      console.error('loadAll FAILED:', e);
-    } finally {
-      setLoading(false);
-    }
+      console.log('allBranchesStock OK', abs?.length);
+    } catch (e) { console.error('allBranchesStock FAILED:', e); }
+
+    setLoading(false);
+    console.log('loadAll DONE');
 
     // Входящие перемещения — отдельно, не блокируют основную загрузку
     try {
       const incoming = await getIncomingTransfers(branchId);
       setIncomingTransfers(incoming);
+      console.log('getIncomingTransfers OK', incoming.length);
     } catch (e) {
-      console.error('getIncomingTransfers error:', e);
+      console.error('getIncomingTransfers FAILED:', e);
       setIncomingTransfers([]);
     }
   }

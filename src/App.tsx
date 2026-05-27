@@ -311,17 +311,22 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Настройки" />}
           <AutoArchiveSettings />
         </div>
-      ) : isAdmin && adminView === 'inventory' ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Склад" />}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <InventoryPage
-              branchId={employee.branch_id}
-              employeeId={employee.id}
-              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-            />
+      ) : isAdmin && adminView === 'inventory' ? (() => {
+        const inventoryBranchId = employee?.branch_id;
+        console.log('inventoryBranchId:', inventoryBranchId, 'employee:', employee);
+        return (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {isMobile && <MobilePageHeader title="Склад" />}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+              <InventoryPage
+                branchId={inventoryBranchId}
+                employeeId={employee.id}
+                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              />
+            </div>
           </div>
-        </div>
+        );
+      })()
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Задачи" />}
@@ -370,13 +375,14 @@ function AppContent() {
           {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
           {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />}
           {mobileView === 'inventory' && (() => {
-            console.log('App rendering InventoryPage with', { branchId: employee?.branch_id, role: employee?.role });
+            const inventoryBranchId = employee?.branch_id;
+            console.log('inventoryBranchId:', inventoryBranchId, 'employee:', employee);
             return (
               <div className="flex flex-col flex-1 overflow-hidden">
                 <MobilePageHeader title="Склад" />
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
                   <InventoryPage
-                    branchId={employee.branch_id}
+                    branchId={inventoryBranchId}
                     employeeId={employee.id}
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                   />
