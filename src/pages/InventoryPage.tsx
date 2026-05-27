@@ -231,47 +231,44 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Заголовок таблицы */}
-              <div className="flex items-center text-xs font-medium text-gray-500 px-4 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="flex-1 min-w-0">Товар</span>
-                <span className="hidden md:block w-24 text-center">SKU</span>
-                <span className="hidden md:block w-32 text-center">Штрихкод</span>
-                <span className="w-20 text-right">Цена</span>
-                <span className="w-16 text-right">Остаток</span>
-                <span className="w-6" />
-              </div>
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Товары не найдены</div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {filteredProducts.map(p => {
                     const stockItem = stock.find(s => s.product_id === p.id);
-                    const isLow = stockItem && stockItem.quantity <= p.min_stock;
+                    const qty = stockItem?.quantity ?? 0;
+                    const isLow = qty <= p.min_stock;
+                    const meta = [
+                      (p.category as any)?.name,
+                      (p.brand as any)?.name,
+                      p.sku,
+                      p.barcode,
+                    ].filter(Boolean).join(' · ');
                     return (
-                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-2">
+                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                          <p className="text-xs text-gray-400 truncate">{(p.brand as any)?.name} · {(p.category as any)?.name}</p>
-                        </div>
-                        <span className="hidden md:block w-24 text-center text-xs text-gray-500 font-mono">{p.sku || '—'}</span>
-                        <span className="hidden md:block w-32 text-center text-xs text-gray-400 font-mono">{p.barcode || '—'}</span>
-                        <span className="w-20 text-sm text-right text-gray-700 flex-shrink-0">₸{p.price.toLocaleString()}</span>
-                        <span className={`w-16 text-sm text-right font-medium flex-shrink-0 ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
-                          {stockItem?.quantity ?? 0} {p.unit}
-                        </span>
-                        <div className="w-6 flex justify-end flex-shrink-0">
-                          {isLow && <AlertTriangle size={14} className="text-red-400" />}
+                          {/* Строка 1: название · цены · остаток */}
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</p>
+                            <span className="text-sm text-gray-400 flex-shrink-0 tabular-nums">
+                              {p.cost_price > 0 ? `${p.cost_price.toLocaleString()}/` : ''}{p.price.toLocaleString()}
+                            </span>
+                            <span className={`text-sm font-medium flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
+                              {qty} {p.unit}
+                            </span>
+                          </div>
+                          {/* Строка 2: мета */}
+                          {meta && <p className="text-xs text-gray-400 truncate mt-0.5">{meta}</p>}
                         </div>
                         {role !== 'manager' && (
-                          <div className="flex-shrink-0">
-                            <button
-                              onClick={() => deleteProduct(p.id)}
-                              className="text-gray-300 hover:text-red-400 p-0.5"
-                              title="Удалить товар"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => deleteProduct(p.id)}
+                            className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
+                            title="Удалить товар"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
                     );
