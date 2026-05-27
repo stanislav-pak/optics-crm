@@ -313,7 +313,7 @@ function AppContent() {
         </div>
       ) : isAdmin && adminView === 'inventory' ? (() => {
         const inventoryBranchId = employee?.branch_id;
-        console.log('inventoryBranchId:', inventoryBranchId, 'employee:', employee);
+        console.log('[InventoryPage PLACE-1 MainArea]', { branchId: inventoryBranchId, employeeId: employee?.id, role: employee?.role, isMobile });
         return (
           <div className="flex-1 flex flex-col overflow-hidden">
             {isMobile && <MobilePageHeader title="Склад" />}
@@ -376,7 +376,7 @@ function AppContent() {
           {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />}
           {mobileView === 'inventory' && (() => {
             const inventoryBranchId = employee?.branch_id;
-            console.log('inventoryBranchId:', inventoryBranchId, 'employee:', employee);
+            console.log('[InventoryPage PLACE-2 mobileView=inventory]', { branchId: inventoryBranchId, employeeId: employee?.id, role: employee?.role });
             return (
               <div className="flex flex-col flex-1 overflow-hidden">
                 <MobilePageHeader title="Склад" />
