@@ -316,13 +316,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             { value: 'all', label: 'Все' },
             { value: 'in', label: 'Приход' },
             { value: 'out', label: 'Продажа' },
-            { value: 'writeoff', label: 'Списание' },
-            { value: 'transfer', label: 'Перем.' },
+            { value: 'writeoff', label: 'Спис.' },
+            { value: 'transfer', label: 'Перенос' },
             { value: 'revision_adjust', label: 'Ревизия' },
           ];
 
           const dateOptions: { value: string; label: string }[] = [
-            { value: 'all', label: 'Всё время' },
+            { value: 'all', label: 'Всегда' },
             { value: 'today', label: 'Сегодня' },
             { value: 'week', label: 'Неделя' },
             { value: 'month', label: 'Месяц' },
@@ -332,12 +332,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           return (
             <div className="space-y-3">
               {/* Фильтр по типу */}
-              <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: '6px', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingBottom: '4px' }}>
                 {typeOptions.map(o => (
                   <button
                     key={o.value}
                     onClick={() => setMvTypeFilter(o.value)}
-                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 500, border: mvTypeFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvTypeFilter === o.value ? '#2563eb' : '#fff', color: mvTypeFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 500, border: mvTypeFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvTypeFilter === o.value ? '#2563eb' : '#fff', color: mvTypeFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
                   >
                     {o.label}
                   </button>
@@ -345,12 +345,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
               </div>
 
               {/* Фильтр по дате */}
-              <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: '6px', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingBottom: '4px' }}>
                 {dateOptions.map(o => (
                   <button
                     key={o.value}
                     onClick={() => setMvDateFilter(o.value)}
-                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 500, border: mvDateFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvDateFilter === o.value ? '#1f2937' : '#fff', color: mvDateFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 500, border: mvDateFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: mvDateFilter === o.value ? '#1f2937' : '#fff', color: mvDateFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
                   >
                     {o.label}
                   </button>
