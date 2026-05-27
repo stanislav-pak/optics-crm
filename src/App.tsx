@@ -311,23 +311,17 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Настройки" />}
           <AutoArchiveSettings />
         </div>
-      ) : isAdmin && adminView === 'inventory' ? (() => {
-        const inventoryBranchId = employee?.branch_id;
-        console.log('PLACE1 rendering');
-        console.log('[InventoryPage PLACE-1 MainArea]', { branchId: inventoryBranchId, employeeId: employee?.id, role: employee?.role, isMobile });
-        return (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {isMobile && <MobilePageHeader title="Склад" />}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <InventoryPage
-                branchId={inventoryBranchId}
-                employeeId={employee.id}
-                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-              />
-            </div>
+      ) : isAdmin && adminView === 'inventory' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Склад" />}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <InventoryPage
+              branchId={employee?.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+            />
           </div>
-        );
-      })()
+        </div>
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Задачи" />}
