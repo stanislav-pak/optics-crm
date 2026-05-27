@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Trash2, Search, Plus, QrCode } from 'lucide-react';
 import { createPurchaseOrder, getProducts, getProductByBarcode } from '../../services/inventory';
-import type { Product, Supplier } from '../../types';
+import type { Product, Supplier, Branch } from '../../types';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
@@ -20,16 +20,19 @@ interface InitialData {
 interface Props {
   branchId: string;
   employeeId: string;
+  role?: 'manager' | 'branch_admin' | 'admin';
   onClose: () => void;
   onSuccess: () => void;
   initialData?: InitialData;
 }
 
-export default function AddPurchaseModal({ branchId, employeeId, onClose, onSuccess, initialData }: Props) {
+export default function AddPurchaseModal({ branchId, employeeId, role = 'manager', onClose, onSuccess, initialData }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [supplierId, setSupplierId] = useState('');
+  const [receivingBranchId, setReceivingBranchId] = useState(branchId);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -40,7 +43,18 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
 
   useEffect(() => {
     supabase.from('suppliers').select('*').order('name').then(({ data }) => setSuppliers(data ?? []));
-    getProducts(branchId).then(setProducts);
+    // Загружаем филиалы для селекта
+    supabase.from('branches').select('id, name, is_warehouse').order('name').then(({ data }) => {
+      if (!data) return;
+      const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
+      setBranches(sorted);
+      // Для admin/branch_admin — по умолчанию Склад
+      if (role !== 'manager') {
+        const warehouse = sorted.find(b => b.is_warehouse);
+        if (warehouse) setReceivingBranchId(warehouse.id);
+      }
+    });
+    getProducts(receivingBranchId).then(setProducts);
   }, [branchId]);
 
   // Предзаполнение из initialData после загрузки продуктов
@@ -152,7 +166,7 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
     try {
       const orderData = {
         supplier_id: supplierId || undefined,
-        branch_id: branchId,
+        branch_id: receivingBranchId,
         status: 'received' as const,
         total,
         notes: notes || undefined,
@@ -195,6 +209,21 @@ export default function AddPurchaseModal({ branchId, employeeId, onClose, onSucc
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
           {/* Шапка накладной */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Филиал получатель</label>
+            <select
+              value={receivingBranchId}
+              onChange={e => setReceivingBranchId(e.target.value)}
+              disabled={role === 'manager'}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:bg-gray-50"
+            >
+              {branches.map(b => (
+                <option key={b.id} value={b.id}>
+                  {b.is_warehouse ? '🏭 ' : ''}{b.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Поставщик</label>
             <select

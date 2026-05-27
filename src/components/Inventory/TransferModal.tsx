@@ -7,6 +7,7 @@ import type { Product } from '../../types';
 interface Branch {
   id: string;
   name: string;
+  is_warehouse?: boolean;
 }
 
 interface Props {
@@ -30,10 +31,16 @@ export default function TransferModal({ branchId, employeeId, onClose, onSuccess
   const [error, setError] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Загружаем филиалы
+  // Загружаем филиалы — Склад первым
   useEffect(() => {
-    supabase.from('branches').select('id, name').order('name')
-      .then(({ data }) => setBranches(data ?? []));
+    supabase.from('branches').select('id, name, is_warehouse').order('name')
+      .then(({ data }) => {
+        if (!data) return;
+        const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
+        setBranches(sorted);
+        const warehouse = sorted.find(b => b.is_warehouse);
+        if (warehouse) setFromBranchId(warehouse.id);
+      });
   }, []);
 
   // Загружаем товары при смене from_branch

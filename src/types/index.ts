@@ -9,6 +9,7 @@ export interface Branch {
   address?: string;
   phone?: string;
   waba_phone_id?: string;
+  is_warehouse?: boolean;
   created_at: string;
 }
 
