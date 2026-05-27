@@ -109,8 +109,8 @@ export async function getBrands() {
 // ОСТАТКИ
 // ============================================
 
-export async function getStock(branchId: string) {
-  const { data, error } = await supabase
+export async function getStock(branchId?: string) {
+  let query = supabase
     .from('stock')
     .select(`
       *,
@@ -120,23 +120,27 @@ export async function getStock(branchId: string) {
         brand:brands(name)
       )
     `)
-    .eq('branch_id', branchId)
     .order('updated_at', { ascending: false });
 
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data as Stock[];
 }
 
-export async function getLowStockAlerts(branchId: string) {
-  const { data, error } = await supabase
+export async function getLowStockAlerts(branchId?: string) {
+  let query = supabase
     .from('stock')
     .select(`
       *,
       product:products(id, name, sku, min_stock, unit),
       branch:branches(id, name)
-    `)
-    .eq('branch_id', branchId);
+    `);
 
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
   if (error) throw error;
 
   return (data as Stock[]).filter(
@@ -159,7 +163,7 @@ export async function addStockMovement(movement: Omit<StockMovement, 'id' | 'cre
   return data as StockMovement;
 }
 
-export async function getStockMovements(branchId: string, productId?: string) {
+export async function getStockMovements(branchId?: string, productId?: string) {
   let query = supabase
     .from('stock_movements')
     .select(`
@@ -167,10 +171,10 @@ export async function getStockMovements(branchId: string, productId?: string) {
       product:products(id, name, sku),
       employee:employees(id, name)
     `)
-    .eq('branch_id', branchId)
     .order('created_at', { ascending: false })
     .limit(100);
 
+  if (branchId) query = query.eq('branch_id', branchId);
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
@@ -320,17 +324,19 @@ export async function receivePurchaseOrder(orderId: string, employeeId: string) 
   if (updateError) throw updateError;
 }
 
-export async function getPurchaseOrders(branchId: string) {
-  const { data, error } = await supabase
+export async function getPurchaseOrders(branchId?: string) {
+  let query = supabase
     .from('purchase_orders')
     .select(`
       *,
       supplier:suppliers(id, name),
       items:purchase_order_items(*, product:products(id, name, sku))
     `)
-    .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
 
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data as PurchaseOrder[];
 }
@@ -378,8 +384,8 @@ export async function createSale(
   return newSale as Sale;
 }
 
-export async function getSales(branchId: string) {
-  const { data, error } = await supabase
+export async function getSales(branchId?: string) {
+  let query = supabase
     .from('sales')
     .select(`
       *,
@@ -387,9 +393,11 @@ export async function getSales(branchId: string) {
       employee:employees(id, name),
       items:sale_items(*, product:products(id, name, sku))
     `)
-    .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
 
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data as Sale[];
 }
@@ -496,17 +504,19 @@ export async function completeRevision(revisionId: string, employeeId: string) {
   if (updateError) throw updateError;
 }
 
-export async function getRevisions(branchId: string) {
-  const { data, error } = await supabase
+export async function getRevisions(branchId?: string) {
+  let query = supabase
     .from('revisions')
     .select(`
       *,
       items:revision_items(*, product:products(id, name, sku, barcode)),
       employee:employees(id, name)
     `)
-    .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
 
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data as Revision[];
 }
@@ -658,13 +668,22 @@ export async function getIncomingTransfers(branchId: string) {
 // СТАТИСТИКА
 // ============================================
 
-export async function getInventoryStats(branchId: string): Promise<InventoryStats> {
+export async function getInventoryStats(branchId?: string): Promise<InventoryStats> {
+  let productsQuery = supabase.from('products').select('id', { count: 'exact' }).eq('is_active', true);
+  let stockQuery = supabase.from('stock').select('quantity, product:products(price, min_stock)');
+  let movementsQuery = supabase.from('stock_movements').select('id', { count: 'exact' })
+    .gte('created_at', new Date().toISOString().split('T')[0]);
+
+  if (branchId) {
+    productsQuery = productsQuery.eq('branch_id', branchId);
+    stockQuery = stockQuery.eq('branch_id', branchId);
+    movementsQuery = movementsQuery.eq('branch_id', branchId);
+  }
+
   const [productsRes, stockRes, movementsRes] = await Promise.all([
-    supabase.from('products').select('id', { count: 'exact' }).eq('branch_id', branchId).eq('is_active', true),
-    supabase.from('stock').select('quantity, product:products(price, min_stock)').eq('branch_id', branchId),
-    supabase.from('stock_movements').select('id', { count: 'exact' })
-      .eq('branch_id', branchId)
-      .gte('created_at', new Date().toISOString().split('T')[0]),
+    productsQuery,
+    stockQuery,
+    movementsQuery,
   ]);
 
   const stock = stockRes.data ?? [];

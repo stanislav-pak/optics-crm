@@ -89,31 +89,33 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   }, [tab]);
 
   async function loadAll() {
-    console.log('loadAll START', { branchId });
+    // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
+    const scopeId = role === 'admin' ? undefined : branchId;
+    console.log('loadAll START', { branchId, role, scopeId });
     setLoading(true);
 
-    try { const s = await getInventoryStats(branchId); setStats(s); console.log('getInventoryStats OK', s); }
+    try { const s = await getInventoryStats(scopeId); setStats(s); console.log('getInventoryStats OK', s); }
     catch (e) { console.error('getInventoryStats FAILED:', e); }
 
-    try { const p = await getProducts(branchId); setProducts(p); console.log('getProducts OK', p.length); }
+    try { const p = await getProducts(scopeId); setProducts(p); console.log('getProducts OK', p.length); }
     catch (e) { console.error('getProducts FAILED:', e); }
 
-    try { const st = await getStock(branchId); setStock(st); console.log('getStock OK', st.length); }
+    try { const st = await getStock(scopeId); setStock(st); console.log('getStock OK', st.length); }
     catch (e) { console.error('getStock FAILED:', e); }
 
-    try { const al = await getLowStockAlerts(branchId); setAlerts(al); console.log('getLowStockAlerts OK', al.length); }
+    try { const al = await getLowStockAlerts(scopeId); setAlerts(al); console.log('getLowStockAlerts OK', al.length); }
     catch (e) { console.error('getLowStockAlerts FAILED:', e); }
 
-    try { const mv = await getStockMovements(branchId); setMovements(mv); console.log('getStockMovements OK', mv.length); }
+    try { const mv = await getStockMovements(scopeId); setMovements(mv); console.log('getStockMovements OK', mv.length); }
     catch (e) { console.error('getStockMovements FAILED:', e); }
 
-    try { const po = await getPurchaseOrders(branchId); setPurchases(po); console.log('getPurchaseOrders OK', po.length); }
+    try { const po = await getPurchaseOrders(scopeId); setPurchases(po); console.log('getPurchaseOrders OK', po.length); }
     catch (e) { console.error('getPurchaseOrders FAILED:', e); }
 
-    try { const sa = await getSales(branchId); setSales(sa); console.log('getSales OK', sa.length); }
+    try { const sa = await getSales(scopeId); setSales(sa); console.log('getSales OK', sa.length); }
     catch (e) { console.error('getSales FAILED:', e); }
 
-    try { const rv = await getRevisions(branchId); setRevisions(rv); console.log('getRevisions OK', rv.length); }
+    try { const rv = await getRevisions(scopeId); setRevisions(rv); console.log('getRevisions OK', rv.length); }
     catch (e) { console.error('getRevisions FAILED:', e); }
 
     try {
@@ -125,7 +127,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     setLoading(false);
     console.log('loadAll DONE');
 
-    // Входящие перемещения — отдельно, не блокируют основную загрузку
+    // Входящие перемещения — всегда по конкретному branchId (не scopeId)
     try {
       const incoming = await getIncomingTransfers(branchId);
       setIncomingTransfers(incoming);
