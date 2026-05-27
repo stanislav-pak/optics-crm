@@ -178,8 +178,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div>
+        <div style={{position:'fixed',top:0,left:0,right:0,background:'red',color:'white',zIndex:9999,padding:'4px',fontSize:'12px'}}>
+          INVENTORY LOADING | role:{role} | branchId:{branchId}
+        </div>
+        <div className="flex items-center justify-center h-64" style={{paddingTop:'24px'}}>
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
@@ -187,7 +192,10 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   return (
     <div className="min-h-screen bg-gray-50">
       {/* DEBUG */}
-      <div className="bg-yellow-100 p-2 text-xs m-2 rounded">
+      <div style={{position:'fixed',top:0,left:0,right:0,background:'red',color:'white',zIndex:9999,padding:'4px',fontSize:'12px'}}>
+        INVENTORY LOADED | role:{role} | products:{products.length} | branchId:{branchId}
+      </div>
+      <div className="bg-yellow-100 p-2 text-xs m-2 rounded" style={{marginTop:'24px'}}>
         role: {role} | branchId: {branchId} | scopeId: {role === 'admin' ? 'undefined' : branchId} | products: {products.length}
       </div>
       {/* Header */}
