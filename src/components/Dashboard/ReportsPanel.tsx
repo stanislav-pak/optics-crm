@@ -127,7 +127,7 @@ function ReportsPanelInner() {
             items:sale_items(quantity, price, product_id, product:products(cost_price, name)),
             branch:branches(id, name),
             employee:employees(id, name)`)
-          .in('status', ['paid', 'partially_refunded'])
+          .in('status', ['paid', 'partially_refunded', 'refunded'])
           .order('created_at', { ascending: true });
         if (res.error) {
           console.error('[ReportsPanel] sales error:', res.error);
