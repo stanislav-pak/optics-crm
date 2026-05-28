@@ -215,7 +215,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }
 
-  // Быстрая перезагрузка только списка продаж (без полного loadAll)
+  // Быстрые перезагрузки отдельных срезов данных
   async function loadSales() {
     const scopeId = role === 'admin' ? undefined : branchId;
     try {
@@ -226,18 +226,36 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       setSales(sa);
       setMovements(mv);
     }
-    catch (e) { console.error('getSales reload error:', e); }
+    catch (e) { console.error('loadSales error:', e); }
   }
 
-  async function handleReturnSuccess(newStatus: SaleStatus) {
-    const saleId = returnSale?.id;
-    if (!saleId) return;
+  async function loadStats() {
+    const scopeId = role === 'admin' ? undefined : branchId;
+    try { const s = await getInventoryStats(scopeId); setStats(s); }
+    catch (e) { console.error('loadStats error:', e); }
+  }
 
-    setSales(prev => prev.map(s => (s.id === saleId ? { ...s, status: newStatus } : s)));
-    setSelectedSale(prev => (prev?.id === saleId && prev ? { ...prev, status: newStatus } : prev));
+  async function loadStock() {
+    const scopeId = role === 'admin' ? undefined : branchId;
+    try {
+      const [st, al] = await Promise.all([
+        getStock(scopeId),
+        getLowStockAlerts(scopeId),
+      ]);
+      setStock(st);
+      setAlerts(al);
+    }
+    catch (e) { console.error('loadStock error:', e); }
+  }
+
+  async function handleReturnSuccess() {
     setReturnSale(null);
-
-    await loadSales();
+    setSalesRefreshKey(k => k + 1);
+    await Promise.all([
+      loadSales(),    // продажи + движения
+      loadStats(),    // статистика и счётчики
+      loadStock(),    // остатки + алерты низкого остатка
+    ]);
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -1463,8 +1481,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ReturnModal
           sale={returnSale}
           employeeId={employeeId}
-          onClose={() => { setReturnSale(null); loadSales(); }}
-          onSuccess={() => { setSalesRefreshKey(k => k + 1); setReturnSale(null); loadSales(); }}
+          onClose={() => setReturnSale(null)}
+          onSuccess={handleReturnSuccess}
         />
       )}
 
