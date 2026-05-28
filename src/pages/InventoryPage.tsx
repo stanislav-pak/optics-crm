@@ -216,8 +216,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Быстрая перезагрузка только списка продаж (без полного loadAll)
   async function loadSales() {
+    console.log('loadSales called');
     const scopeId = role === 'admin' ? undefined : branchId;
-    try { const sa = await getSales(scopeId); setSales(sa); }
+    try {
+      const sa = await getSales(scopeId);
+      console.log('sales loaded:', sa.length);
+      setSales(sa);
+    }
     catch (e) { console.error('getSales reload error:', e); }
   }
 
@@ -1414,8 +1419,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ReturnModal
           sale={returnSale}
           employeeId={employeeId}
-          onClose={() => { setReturnSale(null); loadSales(); }}
-          onSuccess={() => { setReturnSale(null); loadSales(); }}
+          onClose={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); loadSales(); }}
+          onSuccess={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); loadSales(); }}
         />
       )}
 
