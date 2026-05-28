@@ -74,6 +74,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [salesRefreshKey, setSalesRefreshKey] = useState(0);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -218,8 +219,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   async function loadSales() {
     const scopeId = role === 'admin' ? undefined : branchId;
     try {
-      const sa = await getSales(scopeId);
+      const [sa, mv] = await Promise.all([
+        getSales(scopeId),
+        getStockMovements(role === 'admin' ? undefined : branchId),
+      ]);
       setSales(sa);
+      setMovements(mv);
     }
     catch (e) { console.error('getSales reload error:', e); }
   }
@@ -945,61 +950,91 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   {hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredSales.map(s => (
-                    <div key={s.id}
-                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
-                      onClick={() => setSelectedSale(s)}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
-                          <StatusBadge status={s.status} />
-                        </div>
-                      </div>
+                <div key={salesRefreshKey} className="space-y-3">
+                  {filteredSales.map(s => {
+                    const saleReturns = movements.filter(m => m.type === 'return' && m.reference_id === s.id);
+                    const returnedByProduct: Record<string, number> = {};
+                    saleReturns.forEach(r => {
+                      returnedByProduct[r.product_id] = (returnedByProduct[r.product_id] ?? 0) + r.quantity;
+                    });
+                    const totalReturnQty = saleReturns.reduce((sum, r) => sum + r.quantity, 0);
+                    const totalReturnAmount = saleReturns.reduce((sum, r) => {
+                      const saleItem = s.items?.find(i => i.product_id === r.product_id);
+                      return sum + r.quantity * (saleItem?.price ?? 0);
+                    }, 0);
+                    const hasReturns = saleReturns.length > 0;
 
-                      {/* Товары */}
-                      <div className="space-y-1">
-                        {s.items?.slice(0, 3).map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-gray-500">
-                            <span>{(item.product as any)?.name} × {item.quantity}</span>
-                            <span>₸{(item.quantity * item.price).toLocaleString()}</span>
+                    return (
+                      <div key={s.id}
+                        className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                        onClick={() => setSelectedSale(s)}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
+                            </p>
                           </div>
-                        ))}
-                        {(s.items?.length ?? 0) > 3 && (
-                          <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
-                        )}
-                      </div>
+                          <div className="text-right">
+                            <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
+                            <StatusBadge status={s.status} />
+                          </div>
+                        </div>
 
-                      {/* Оплата + кнопка Вернуть */}
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                        <span className="text-xs text-gray-500">
-                          {s.payment_method === 'cash' ? '💵 Наличные' :
-                           s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
-                          {s.paid_cash > 0 && s.paid_kaspi > 0 && (
-                            <span className="ml-1 text-gray-400">
-                              ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
-                            </span>
+                        {/* Товары + строки возвратов */}
+                        <div className="space-y-1">
+                          {s.items?.slice(0, 3).map((item, idx) => (
+                            <div key={idx}>
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>{(item.product as any)?.name} × {item.quantity}</span>
+                                <span>₸{(item.quantity * item.price).toLocaleString()}</span>
+                              </div>
+                              {(returnedByProduct[item.product_id] ?? 0) > 0 && (
+                                <div className="flex justify-between text-xs text-orange-500 pl-2 mt-0.5">
+                                  <span>↩ Возврат × {returnedByProduct[item.product_id]}</span>
+                                  <span>−₸{(returnedByProduct[item.product_id] * item.price).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {(s.items?.length ?? 0) > 3 && (
+                            <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
                           )}
-                        </span>
-                        {(s.status === 'paid' || s.status === 'partially_refunded') && (
-                          <button
-                            onClick={e => { e.stopPropagation(); setReturnSale(s); }}
-                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
-                          >
-                            ↩ Вернуть
-                          </button>
-                        )}
+                          {hasReturns && (
+                            <div className="flex justify-between text-xs font-medium pt-1 border-t border-orange-100 mt-1">
+                              <span className="text-orange-600">
+                                {s.status === 'refunded' ? '↩ Полный возврат' : `↩ Частичный возврат · ${totalReturnQty} шт`}
+                              </span>
+                              <span className="text-orange-600">−₸{totalReturnAmount.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Оплата + кнопка Вернуть */}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                          <span className="text-xs text-gray-500">
+                            {s.payment_method === 'cash' ? '💵 Наличные' :
+                             s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                            {s.paid_cash > 0 && s.paid_kaspi > 0 && (
+                              <span className="ml-1 text-gray-400">
+                                ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
+                              </span>
+                            )}
+                          </span>
+                          {(s.status === 'paid' || s.status === 'partially_refunded') && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setReturnSale(s); }}
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
+                            >
+                              ↩ Вернуть
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1428,8 +1463,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ReturnModal
           sale={returnSale}
           employeeId={employeeId}
-          onClose={() => setReturnSale(null)}
-          onSuccess={handleReturnSuccess}
+          onClose={() => { setReturnSale(null); loadSales(); }}
+          onSuccess={() => { setSalesRefreshKey(k => k + 1); setReturnSale(null); loadSales(); }}
         />
       )}
 
