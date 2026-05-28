@@ -68,7 +68,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
   const [showLowStock, setShowLowStock] = useState(false);
-  const [inTransitMovements, setInTransitMovements] = useState<{ branch_id: string; to_branch_id: string; quantity: number }[]>([]);
+  const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number }[]>([]);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     try {
       const { data: it } = await supabase
         .from('stock_movements')
-        .select('branch_id, to_branch_id, quantity')
+        .select('product_id, branch_id, to_branch_id, quantity')
         .eq('type', 'transfer')
         .eq('status', 'in_transit');
       setInTransitMovements(it ?? []);
@@ -301,6 +301,17 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                       p.sku,
                       p.barcode,
                     ].filter(Boolean).join(' · ');
+
+                    // In-transit для этого товара
+                    const isAdmin = role === 'admin';
+                    const productTransit = inTransitMovements.filter(m => m.product_id === p.id);
+                    const outgoing = productTransit
+                      .filter(m => isAdmin || m.branch_id === branchId)
+                      .reduce((sum, m) => sum + m.quantity, 0);
+                    const incoming = productTransit
+                      .filter(m => isAdmin || m.to_branch_id === branchId)
+                      .reduce((sum, m) => sum + m.quantity, 0);
+
                     return (
                       <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer" onClick={() => setSelectedProduct(p)}>
                         <div className="flex-1 min-w-0">
@@ -314,6 +325,17 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                               {qty} {p.unit}
                             </span>
                           </div>
+                          {/* Строка 1.5: in-transit */}
+                          {outgoing > 0 && (
+                            <p className="text-xs text-orange-500 tabular-nums mt-0.5 text-right">
+                              📤 В пути: {outgoing} {p.unit}
+                            </p>
+                          )}
+                          {incoming > 0 && (
+                            <p className="text-xs text-blue-500 tabular-nums mt-0.5 text-right">
+                              📥 Ожидается: {incoming} {p.unit}
+                            </p>
+                          )}
                           {/* Строка 2: мета */}
                           {meta && <p className="text-xs text-gray-400 truncate mt-0.5">{meta}</p>}
                         </div>
