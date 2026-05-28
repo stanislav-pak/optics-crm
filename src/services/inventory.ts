@@ -168,18 +168,24 @@ export async function addStockMovement(movement: Omit<StockMovement, 'id' | 'cre
 }
 
 export async function getStockMovements(branchId?: string, productId?: string) {
-  console.log('getStockMovements START branchId:', branchId);
+  try {
+    const { data, error } = await supabase
+      .from('stock_movements')
+      .select('id, type, quantity, branch_id, status, created_at, product:products(id, name, sku), employee:employees(id, name)')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-  const { data, error } = await supabase
-    .from('stock_movements')
-    .select('id, type, quantity, branch_id, to_branch_id, status, created_at, product:products(id, name, sku), employee:employees(id, name)')
-    .order('created_at', { ascending: false })
-    .limit(200);
+    if (error) {
+      alert('SUPABASE ERROR: ' + JSON.stringify(error));
+      throw error;
+    }
 
-  console.log('getStockMovements NO FILTER result:', data?.length, error);
-
-  if (error) throw error;
-  return data as StockMovement[];
+    alert('MOVEMENTS: ' + (data?.length || 0) + ' | types: ' + data?.map(m => m.type).join(','));
+    return (data || []) as StockMovement[];
+  } catch (e) {
+    alert('CATCH ERROR: ' + String(e));
+    throw e;
+  }
 }
 
 // ============================================
