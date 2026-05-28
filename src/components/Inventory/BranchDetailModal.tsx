@@ -38,7 +38,7 @@ export default function BranchDetailModal({ branch, onClose }: Props) {
       supabase
         .from('stock_movements')
         .select('*, product:products(id, name)')
-        .eq('branch_id', branch.id)
+        .or(`branch_id.eq.${branch.id},to_branch_id.eq.${branch.id}`)
         .eq('type', 'transfer')
         .order('created_at', { ascending: false })
         .limit(20),
