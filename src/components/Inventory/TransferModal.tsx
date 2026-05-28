@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Search, ArrowRight, QrCode } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { createTransfer } from '../../services/inventory';
@@ -41,6 +41,9 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // useRef вместо useState: синхронная защита от двойного клика
+  // (React батчит setState — второй клик до ре-рендера всё ещё видит loading=false)
+  const isSubmittingRef = useRef(false);
 
   // Загружаем филиалы
   useEffect(() => {
@@ -124,6 +127,9 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
 
   const handleSubmit = async () => {
     if (!canSubmit || !selectedStock) return;
+    // Синхронная защита: ref обновляется немедленно, до батчинга React
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setError(null);
     setLoading(true);
     try {
@@ -139,6 +145,7 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
