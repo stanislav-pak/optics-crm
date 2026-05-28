@@ -10,6 +10,12 @@ const CLIENT_STATUS_RU: Record<string, string> = {
   paid: 'Оплачено', closed: 'Закрыт',
 };
 
+// Метки этапов сделки из deal_stages.current_stage
+const STAGE_LABELS: Record<string, string> = {
+  new: 'Новый', negotiation: 'Переговоры', quote: 'Счёт',
+  payment: 'В ожидании оплаты', closed: 'Закрыт',
+};
+
 const STATUS_COLORS: Record<string, string> = {
   new: '#22c55e',
   in_progress: '#3b82f6',
@@ -83,8 +89,8 @@ function formatTime(dateStr?: string): string {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }
 
-function ChatItem({ chat, isActive, onClick, dealAmount }: {
-  chat: Chat; isActive: boolean; onClick: () => void; dealAmount?: number | null;
+function ChatItem({ chat, isActive, onClick, dealAmount, stageLabel }: {
+  chat: Chat; isActive: boolean; onClick: () => void; dealAmount?: number | null; stageLabel?: string;
 }) {
   const client = chat.client;
   const unread = chat.unread_count ?? 0;
@@ -111,7 +117,7 @@ function ChatItem({ chat, isActive, onClick, dealAmount }: {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-[#8696a0] truncate">
-            {client?.status ? STATUS_LABELS[client.status] : '—'}
+            {stageLabel ?? '—'}
           </span>
           <div className="flex items-center gap-2 ml-2 flex-shrink-0">
             {showAmount && (
@@ -363,7 +369,8 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         )}
         {!loading && filteredByStage.map((chat) => (
           <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
-            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null} />
+            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
+            stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
         ))}
       </div>
 
