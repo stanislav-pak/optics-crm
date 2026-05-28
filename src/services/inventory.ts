@@ -463,12 +463,12 @@ export async function createReturn(
         .update({ quantity: stockRow.quantity + item.quantity })
         .eq('product_id', item.product_id)
         .eq('branch_id', sale.branch_id);
-      if (stockUpdErr) throw stockUpdErr;
+      if (stockUpdErr) console.error('Failed to update stock:', stockUpdErr);
     } else {
       const { error: stockInsErr } = await supabase
         .from('stock')
         .insert({ product_id: item.product_id, branch_id: sale.branch_id, quantity: item.quantity });
-      if (stockInsErr) throw stockInsErr;
+      if (stockInsErr) console.error('Failed to insert stock:', stockInsErr);
     }
   }
 
@@ -489,7 +489,7 @@ export async function createReturn(
 
   if (movements.length > 0) {
     const { error: movErr } = await supabase.from('stock_movements').insert(movements);
-    if (movErr) throw movErr;
+    if (movErr) console.error('Failed to insert return movements:', movErr);
   }
 
   // 6. Обновляем статус продажи: полный или частичный возврат
@@ -499,15 +499,19 @@ export async function createReturn(
   });
 
   const saleItemsTyped = (sale.items as { product_id: string; quantity: number }[]) ?? [];
-  const isFullReturn = saleItemsTyped.every(
+  const isFullRefund = saleItemsTyped.every(
     si => (totalReturnedMap[si.product_id] ?? 0) >= si.quantity
   );
 
   const { error: statusErr } = await supabase
     .from('sales')
-    .update({ status: isFullReturn ? 'refunded' : 'partially_refunded' })
+    .update({ status: isFullRefund ? 'refunded' : 'partially_refunded' })
     .eq('id', saleId);
-  if (statusErr) throw statusErr;
+
+  if (statusErr) {
+    console.error('Failed to update sale status:', statusErr);
+    // не бросаем ошибку, продолжаем
+  }
 
   // 7. Пересчитываем остатки
   await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });
