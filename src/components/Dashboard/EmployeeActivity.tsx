@@ -1,6 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
-import { useSwipeBack } from '../../hooks/useSwipeBack';
 
 interface EmployeeActivity {
   id: string;
@@ -54,7 +53,6 @@ interface EmployeeActivityProps {
 }
 
 export function EmployeeActivity({ onBack }: EmployeeActivityProps) {
-  useSwipeBack(onBack ?? (() => {}));
   const [employees, setEmployees] = useState<EmployeeActivity[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -140,6 +140,10 @@ function AppContent() {
         const view = mobileViewRef.current;
         if (view === 'inventory' || view === 'shop' || (view === 'main' && adminViewRef.current === 'inventory')) {
           setMobileView('list');
+        } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings'].includes(adminViewRef.current)) {
+          setActiveChat(null);
+          setMobileView('list');
+          setAdminView('dashboard');
         } else {
           navigateBackRef.current();
         }
