@@ -55,6 +55,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showTransfer, setShowTransfer] = useState(false);
   const [showWriteoff, setShowWriteoff] = useState(false);
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
+  // Фильтры продаж
+  const [saleFilterBranch, setSaleFilterBranch] = useState('');
+  const [saleFilterEmployee, setSaleFilterEmployee] = useState('');
+  const [saleFilterDate, setSaleFilterDate] = useState('all');
+  const [saleFilterDateFrom, setSaleFilterDateFrom] = useState('');
+  const [saleFilterDateTo, setSaleFilterDateTo] = useState('');
+  const [saleProductSearch, setSaleProductSearch] = useState('');
+  const [saleEmployees, setSaleEmployees] = useState<{ id: string; name: string; branch_id: string }[]>([]);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -81,6 +89,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
       setBranches(sorted);
     });
+  }, []);
+
+  // Загружаем сотрудников для фильтра продаж
+  useEffect(() => {
+    supabase.from('employees').select('id, name, branch_id').order('name')
+      .then(({ data }) => setSaleEmployees(data ?? []));
   }, []);
 
   useEffect(() => {
@@ -616,68 +630,222 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         )}
 
         {/* ПРОДАЖИ */}
-        {tab === 'sales' && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => setShowAddSale(true)} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700">
-                <Plus size={16} />
-                Новая продажа
-              </button>
-            </div>
-            {sales.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">Продаж нет</div>
-            ) : (
-              <div className="space-y-3">
-                {sales.map(s => (
-                  <div key={s.id}
-                    className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
-                    onClick={() => setSelectedSale(s)}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
-                        <StatusBadge status={s.status} />
-                      </div>
-                    </div>
+        {tab === 'sales' && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
-                    {/* Товары */}
-                    <div className="space-y-1">
-                      {s.items?.slice(0, 3).map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-xs text-gray-500">
-                          <span>{(item.product as any)?.name} × {item.quantity}</span>
-                          <span>₸{(item.quantity * item.price).toLocaleString()}</span>
-                        </div>
-                      ))}
-                      {(s.items?.length ?? 0) > 3 && (
-                        <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
-                      )}
-                    </div>
+          const filteredEmployees = saleFilterBranch
+            ? saleEmployees.filter(e => e.branch_id === saleFilterBranch)
+            : saleEmployees;
 
-                    {/* Оплата */}
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                      <span className="text-xs text-gray-500">
-                        {s.payment_method === 'cash' ? '💵 Наличные' :
-                         s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
-                      </span>
-                      {s.paid_cash > 0 && s.paid_kaspi > 0 && (
-                        <span className="text-xs text-gray-400">
-                          {s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+          const filteredSales = sales.filter(s => {
+            if (saleFilterBranch && (s as any).branch_id !== saleFilterBranch) return false;
+            if (saleFilterEmployee && (s.employee as any)?.id !== saleFilterEmployee) return false;
+            const sDate = s.created_at.split('T')[0];
+            if (saleFilterDate === 'today' && sDate !== todayStr) return false;
+            if (saleFilterDate === 'week' && new Date(sDate) < weekAgo) return false;
+            if (saleFilterDate === 'month' && new Date(sDate) < monthAgo) return false;
+            if (saleFilterDate === 'custom') {
+              if (saleFilterDateFrom && sDate < saleFilterDateFrom) return false;
+              if (saleFilterDateTo && sDate > saleFilterDateTo) return false;
+            }
+            if (saleProductSearch) {
+              const found = s.items?.some(i =>
+                (i.product as any)?.name?.toLowerCase().includes(saleProductSearch.toLowerCase())
+              );
+              if (!found) return false;
+            }
+            return true;
+          });
+
+          const hasFilters = !!(saleFilterBranch || saleFilterEmployee || saleFilterDate !== 'all' || saleProductSearch);
+          const resetFilters = () => {
+            setSaleFilterBranch('');
+            setSaleFilterEmployee('');
+            setSaleFilterDate('all');
+            setSaleFilterDateFrom('');
+            setSaleFilterDateTo('');
+            setSaleProductSearch('');
+          };
+
+          const dateOptions = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
+          return (
+            <div className="space-y-4">
+
+              {/* Кнопка + итог */}
+              <div className="flex items-center justify-between gap-3">
+                {hasFilters ? (
+                  <p className="text-xs text-gray-400">
+                    Показано: <span className="font-medium text-gray-600">{filteredSales.length}</span> из {sales.length}
+                  </p>
+                ) : (
+                  <span />
+                )}
+                <button
+                  onClick={() => setShowAddSale(true)}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700 flex-shrink-0"
+                >
+                  <Plus size={16} />
+                  Новая продажа
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Фильтры */}
+              <div className="space-y-3">
+
+                {/* Филиал + Менеджер (только для admin) */}
+                {role === 'admin' && (
+                  <div className="flex gap-2">
+                    <select
+                      value={saleFilterBranch}
+                      onChange={e => { setSaleFilterBranch(e.target.value); setSaleFilterEmployee(''); }}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    >
+                      <option value="">Все филиалы</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.is_warehouse ? '🏭 ' : ''}{b.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={saleFilterEmployee}
+                      onChange={e => setSaleFilterEmployee(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    >
+                      <option value="">Все менеджеры</option>
+                      {filteredEmployees.map(e => (
+                        <option key={e.id} value={e.id}>{e.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Быстрые кнопки дат */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {dateOptions.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => setSaleFilterDate(o.value)}
+                      style={{
+                        flexShrink: 0, whiteSpace: 'nowrap',
+                        padding: '3px 8px', borderRadius: '999px',
+                        fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                        border: saleFilterDate === o.value ? 'none' : '1px solid #e5e7eb',
+                        backgroundColor: saleFilterDate === o.value ? '#16a34a' : '#fff',
+                        color: saleFilterDate === o.value ? '#fff' : '#4b5563',
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Произвольный период */}
+                {saleFilterDate === 'custom' && (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="date" value={saleFilterDateFrom}
+                      onChange={e => setSaleFilterDateFrom(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                    <input
+                      type="date" value={saleFilterDateTo}
+                      onChange={e => setSaleFilterDateTo(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                )}
+
+                {/* Поиск по товару */}
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={saleProductSearch}
+                    onChange={e => setSaleProductSearch(e.target.value)}
+                    placeholder="Поиск по названию товара..."
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  />
+                </div>
+
+                {/* Сброс */}
+                {hasFilters && (
+                  <div className="flex justify-end">
+                    <button onClick={resetFilters} className="text-xs text-green-600 hover:underline">
+                      Сбросить фильтры
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Список продаж */}
+              {filteredSales.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                  {hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredSales.map(s => (
+                    <div key={s.id}
+                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                      onClick={() => setSelectedSale(s)}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
+                          <StatusBadge status={s.status} />
+                        </div>
+                      </div>
+
+                      {/* Товары */}
+                      <div className="space-y-1">
+                        {s.items?.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-500">
+                            <span>{(item.product as any)?.name} × {item.quantity}</span>
+                            <span>₸{(item.quantity * item.price).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {(s.items?.length ?? 0) > 3 && (
+                          <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
+                        )}
+                      </div>
+
+                      {/* Оплата */}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-500">
+                          {s.payment_method === 'cash' ? '💵 Наличные' :
+                           s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                        </span>
+                        {s.paid_cash > 0 && s.paid_kaspi > 0 && (
+                          <span className="text-xs text-gray-400">
+                            {s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* РЕВИЗИИ */}
         {tab === 'revisions' && (
