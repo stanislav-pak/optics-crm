@@ -1163,7 +1163,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   {filteredRevisions.map(r => {
                     const ritems = r.items ?? [];
                     const counted = ritems.filter(i => i.actual_qty != null).length;
-                    const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0).length;
+                    const withDiff = ritems.filter(i => i.actual_qty != null).reduce((sum, i) => sum + Math.abs(i.difference ?? 0), 0);
                     const isInProgress = r.status === 'in_progress';
                     return (
                       <div key={r.id}
@@ -1423,7 +1423,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </div>
                     <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-center">
                       <p className="text-xs text-gray-500 font-medium">Всего</p>
-                      <p className="text-lg font-bold text-gray-700">{ritems.length}</p>
+                      <p className="text-lg font-bold text-gray-700">{ritems.filter(i => i.actual_qty != null).length}</p>
                     </div>
                   </div>
                 );
