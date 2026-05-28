@@ -234,8 +234,37 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             )}
           </div>
 
+          {/* Быстрые действия */}
+          <div className="flex items-center gap-2 mt-3">
+            {role !== 'manager' && (
+              <button
+                onClick={() => setShowAddPurchase(true)}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
+              >
+                <Plus size={13} />
+                Приход
+              </button>
+            )}
+            {role === 'admin' && (
+              <button
+                onClick={() => setShowTransfer(true)}
+                className="flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-700"
+              >
+                <Plus size={13} />
+                Перемещение
+              </button>
+            )}
+            <button
+              onClick={() => setShowWriteoff(true)}
+              className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
+            >
+              <Trash2 size={13} />
+              Списание
+            </button>
+          </div>
+
           {/* Tabs */}
-          <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
+          <div className="flex gap-0.5 mt-3 pb-1 overflow-x-auto -mx-6 px-6">
             {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
               <button
                 key={t.key}
@@ -434,17 +463,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
           return (
             <div className="space-y-3">
-
-              {/* Кнопка списания — всегда видима, для всех ролей */}
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowWriteoff(true)}
-                  className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
-                >
-                  <Plus size={13} />
-                  Новое списание
-                </button>
-              </div>
 
               {/* Баннер входящих перемещений */}
               {incomingTransfers.length > 0 && (
