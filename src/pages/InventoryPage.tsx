@@ -363,6 +363,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
           const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
+          console.log('all movements in state:', movements.length, movements.map(m => m.type));
+          console.log('mvTypeFilter:', mvTypeFilter);
+
           const filteredMovements = movements.filter(m => {
             // Фильтр по типу
             if (mvTypeFilter !== 'all' && m.type !== mvTypeFilter) return false;
@@ -385,6 +388,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
             return true;
           });
+
+          console.log('filteredMovements:', filteredMovements.length);
 
           const typeOptions: { value: string; label: string }[] = [
             { value: 'all', label: 'Все' },
