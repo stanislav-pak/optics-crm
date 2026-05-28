@@ -368,14 +368,14 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
             <p className="text-sm text-[#8696a0]">{search ? 'Ничего не найдено' : 'Нет чатов'}</p>
           </div>
         )}
-        {!loading && filteredByStage.map((chat) => {
-          console.log('chat.id:', chat.id, '| stage for chat:', stageMap[chat.id]);
-          return (
-            <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
+        {!loading && filteredByStage.map((chat) => (
+          <div key={chat.id}>
+            {console.log('DEBUG chat:', chat.id, 'stage:', stageMap?.[chat.id])}
+            <ChatItem chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
               dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
               stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       {/* Stage tabs */}
