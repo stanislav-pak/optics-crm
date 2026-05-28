@@ -31,9 +31,10 @@ interface InventoryPageProps {
   employeeId: string;
   role: 'manager' | 'branch_admin' | 'admin';
   defaultTab?: Tab;
+  storefront?: boolean;
 }
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -213,38 +214,40 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab }
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">Склад</h1>
-          {alerts.length > 0 && (
-            <button
-              onClick={() => setShowLowStock(true)}
-              className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-100 transition-colors"
-            >
-              <AlertTriangle size={16} />
-              <span>{alerts.length} товаров заканчивается</span>
-            </button>
-          )}
-        </div>
+      {!storefront && (
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold text-gray-900">Склад</h1>
+            {alerts.length > 0 && (
+              <button
+                onClick={() => setShowLowStock(true)}
+                className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-100 transition-colors"
+              >
+                <AlertTriangle size={16} />
+                <span>{alerts.length} товаров заканчивается</span>
+              </button>
+            )}
+          </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
-          {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
-                tab === t.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+          {/* Tabs */}
+          <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
+            {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
+                  tab === t.key
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-      </div>
+        </div>
+      )}
 
       <div className="p-6">
         {/* ОБЗОР */}
@@ -631,7 +634,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab }
         )}
 
         {/* ПРОДАЖИ */}
-        {tab === 'sales' && (() => {
+        {(tab === 'sales' || storefront) && (() => {
           const now = new Date();
           const todayStr = now.toISOString().split('T')[0];
           const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);

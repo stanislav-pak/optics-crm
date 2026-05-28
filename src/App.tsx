@@ -395,6 +395,7 @@ function AppContent() {
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                   defaultTab="sales"
+                  storefront={true}
                 />
               </div>
             </div>
