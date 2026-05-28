@@ -1049,7 +1049,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
           const statusOptions = [
             { value: 'all', label: 'Все статусы' },
-            { value: 'draft', label: 'Черновик' },
             { value: 'in_progress', label: 'Активна' },
             { value: 'completed', label: 'Завершена' },
           ];
