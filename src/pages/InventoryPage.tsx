@@ -72,10 +72,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
   // Pull-to-refresh
   const [pullY, setPullY] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
-  const pullStartY = useRef(0);
+  const pullStartY = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const PULL_THRESHOLD = 80;
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -199,27 +197,30 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    pullStartY.current = e.touches[0].clientY;
-    setIsPulling(false);
+    // Начинаем отслеживать pull только если контейнер в самом верху
+    const container = scrollRef.current;
+    if (container && container.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY;
+    } else {
+      pullStartY.current = null; // не начинаем pull если не вверху
+    }
     setPullY(0);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    const scrollTop = scrollRef.current?.scrollTop ?? 0;
-    if (scrollTop > 0) return; // не pull-to-refresh если не в самом верху
+    if (pullStartY.current === null) return;
     const dy = e.touches[0].clientY - pullStartY.current;
     if (dy > 0) {
-      setPullY(Math.min(dy, PULL_THRESHOLD + 20));
-      setIsPulling(dy >= PULL_THRESHOLD);
+      setPullY(Math.min(dy, 100)); // ограничиваем визуальное смещение
     }
   };
 
-  const handleTouchEnd = () => {
-    if (isPulling && !loading) {
-      loadAll();
-    }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - pullStartY.current;
+    if (deltaY > 80 && !loading) loadAll(); // свайп вниз ≥80px = обновление
+    pullStartY.current = null;
     setPullY(0);
-    setIsPulling(false);
   };
 
   return (
@@ -231,19 +232,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       onTouchEnd={handleTouchEnd}
     >
       {/* Pull-to-refresh индикатор */}
-      {pullY > 10 && (
-        <div
-          className="flex items-center justify-center transition-all duration-150"
-          style={{ height: `${Math.min(pullY, PULL_THRESHOLD + 20)}px`, overflow: 'hidden' }}
+      {(pullY > 10 || loading) && (
+        <div className="flex items-center justify-center transition-all duration-150"
+          style={{ height: pullY > 10 ? `${pullY}px` : '32px', overflow: 'hidden' }}
         >
-          <div className={`w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full ${isPulling || loading ? 'animate-spin' : ''}`}
-            style={{ opacity: Math.min(pullY / PULL_THRESHOLD, 1) }}
+          <div
+            className={`w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full ${(pullY >= 80 || loading) ? 'animate-spin' : ''}`}
+            style={{ opacity: loading ? 1 : Math.min(pullY / 80, 1) }}
           />
-        </div>
-      )}
-      {loading && pullY === 0 && (
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {/* Header */}
