@@ -1244,15 +1244,24 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 ) : <span />}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <ExportBtn onClick={() => {
-                    const rows = filteredReturns.map(m => ({
-                      'Дата': new Date(m.created_at).toLocaleDateString('ru-RU'),
-                      'Товар': (m.product as any)?.name ?? '—',
-                      'Артикул': (m.product as any)?.sku ?? '—',
-                      'Количество': m.quantity,
-                      'Причина': m.notes ?? '—',
-                      'Сотрудник': (m.employee as any)?.name ?? '—',
-                      'Филиал': branches.find(b => b.id === (m as any).branch_id)?.name ?? '—',
-                    }));
+                    const grps: Map<string, typeof filteredReturns> = new Map();
+                    filteredReturns.forEach(m => {
+                      const k = m.reference_id ?? m.id;
+                      if (!grps.has(k)) grps.set(k, []);
+                      grps.get(k)!.push(m);
+                    });
+                    const rows = Array.from(grps.values()).map(mvs => {
+                      const first = mvs[0];
+                      const rs = first.reference_id ? sales.find(s => s.id === first.reference_id) : null;
+                      return {
+                        'Дата': new Date(first.created_at).toLocaleDateString('ru-RU'),
+                        'Клиент': rs ? ((rs.client as any)?.name || (rs.client as any)?.phone || '—') : '—',
+                        'Товары': mvs.map(m => `${(m.product as any)?.name} ×${m.quantity}`).join('; '),
+                        'Причина': first.notes ?? '—',
+                        'Сотрудник': (first.employee as any)?.name ?? '—',
+                        'Филиал': branches.find(b => b.id === (first as any).branch_id)?.name ?? '—',
+                      };
+                    });
                     xlsxExport(rows, `возвраты_${xlsxDate()}.xlsx`);
                   }} />
                   <button
@@ -1326,50 +1335,92 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </div>
               )}
 
-              {/* Список возвратов */}
+              {/* Список возвратов — карточки */}
               {filteredReturns.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
                   {hasFilters ? 'Нет возвратов по выбранным фильтрам' : 'Возвратов нет'}
                 </div>
-              ) : (
-                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                  {filteredReturns.map(m => {
-                    const branchName = branches.find(b => b.id === (m as any).branch_id)?.name;
-                    const relatedSale = m.reference_id ? sales.find(s => s.id === m.reference_id) : null;
-                    return (
-                      <div
-                        key={m.id}
-                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100"
-                        onClick={() => setSelectedMovementId(m.id)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {(m.product as any)?.name ?? '—'}
-                          </p>
+              ) : (() => {
+                // Группируем по reference_id (sale_id): одна карточка = один возврат
+                const groups: Map<string, StockMovement[]> = new Map();
+                filteredReturns.forEach(m => {
+                  const key = m.reference_id ?? m.id;
+                  if (!groups.has(key)) groups.set(key, []);
+                  groups.get(key)!.push(m);
+                });
+
+                return (
+                  <div className="space-y-3">
+                    {Array.from(groups.entries()).map(([groupKey, mvs]) => {
+                      const firstMv = mvs[0];
+                      const relatedSale = firstMv.reference_id
+                        ? sales.find(s => s.id === firstMv.reference_id)
+                        : null;
+                      const clientName = relatedSale
+                        ? ((relatedSale.client as any)?.name || (relatedSale.client as any)?.phone || 'Без клиента')
+                        : 'Без клиента';
+                      const employeeName = (firstMv.employee as any)?.name ?? '—';
+                      const date = new Date(firstMv.created_at).toLocaleDateString('ru-RU');
+
+                      const totalAmount = mvs.reduce((sum, m) => {
+                        const unitPrice = (m as any).price
+                          ?? relatedSale?.items?.find(i => i.product_id === m.product_id)?.price
+                          ?? 0;
+                        return sum + m.quantity * unitPrice;
+                      }, 0);
+
+                      return (
+                        <div key={groupKey}
+                          className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                          onClick={() => setSelectedMovementId(firstMv.id)}
+                        >
+                          {/* Заголовок */}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{clientName}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{date} · {employeeName}</p>
+                            </div>
+                            <div className="text-right">
+                              {totalAmount > 0 && (
+                                <p className="text-base font-bold text-gray-900">−₸{totalAmount.toLocaleString()}</p>
+                              )}
+                              <StatusBadge status="refunded" />
+                            </div>
+                          </div>
+
+                          {/* Товары */}
+                          <div className="space-y-1">
+                            {mvs.slice(0, 3).map((m, idx) => {
+                              const unitPrice = (m as any).price
+                                ?? relatedSale?.items?.find(i => i.product_id === m.product_id)?.price
+                                ?? 0;
+                              return (
+                                <div key={idx} className="flex justify-between text-xs text-gray-500">
+                                  <span>{(m.product as any)?.name ?? '—'} × {m.quantity}</span>
+                                  {unitPrice > 0 && <span>₸{(m.quantity * unitPrice).toLocaleString()}</span>}
+                                </div>
+                              );
+                            })}
+                            {mvs.length > 3 && (
+                              <p className="text-xs text-gray-400">+ ещё {mvs.length - 3} позиций</p>
+                            )}
+                          </div>
+
+                          {/* Метод оплаты из связанной продажи */}
                           {relatedSale && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">
-                              {(relatedSale.client as any)?.name || (relatedSale.client as any)?.phone || 'Без клиента'}
-                            </p>
+                            <div className="pt-2 border-t border-gray-50">
+                              <span className="text-xs text-gray-500">
+                                {relatedSale.payment_method === 'cash' ? '💵 Наличные' :
+                                 relatedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                              </span>
+                            </div>
                           )}
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">
-                            {m.notes ? m.notes : <span className="italic text-gray-300">Причина не указана</span>}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {(m.employee as any)?.name ?? '—'}
-                            {branchName ? ` · ${branchName}` : ''}
-                          </p>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-sm font-semibold text-blue-600">+{m.quantity} шт</span>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(m.created_at).toLocaleDateString('ru-RU')}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
