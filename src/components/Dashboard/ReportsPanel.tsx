@@ -336,12 +336,12 @@ function ReportsPanelInner() {
 
       {/* ── Фильтр периода ── */}
       <div className="space-y-2">
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1">
           {PERIODS.map(p => (
             <button
               key={p.key}
               onClick={() => setPeriod(p.key)}
-              className="text-[11px] px-3 py-1.5 rounded-full transition-colors font-medium"
+              className="flex-1 text-xs px-2 py-1 rounded-full transition-colors font-medium whitespace-nowrap"
               style={{
                 backgroundColor: period === p.key ? '#10b981' : 'rgba(255,255,255,0.05)',
                 color: period === p.key ? '#fff' : '#8696a0',
