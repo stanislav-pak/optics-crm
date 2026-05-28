@@ -46,9 +46,10 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  // stageMap: chat_id → последний этап из deal_stages
+  // stageMap: chat_id → последний этап из deal_stages (инициализирован как {})
   const [stageMap, setStageMap] = useState<Record<string, string>>({});
 
   // selectedChat ref для свайпа
@@ -76,6 +77,8 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
 
   useEffect(() => {
     if (!employeeId) return;
+    setLoadError(null);
+
     Promise.all([
       supabase.from('chats').select('*, client:clients(id, name, phone, status)')
         .eq('employee_id', employeeId).eq('status', 'active').order('last_message_at', { ascending: false }),
@@ -88,14 +91,33 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
       supabase.from('deal_stages').select('chat_id, current_stage, moved_to_stage_at')
         .order('moved_to_stage_at', { ascending: false }),
     ]).then(([c, t, r, cm, ds]) => {
-      setChats((c.data ?? []) as Chat[]);
-      setTasks((t.data ?? []) as Task[]);
-      setReminders((r.data ?? []) as Reminder[]);
-      setComments((cm.data ?? []) as Comment[]);
-      // Строим stageMap: берём только первую (последнюю по времени) запись на чат
-      const map: Record<string, string> = {};
-      (ds.data ?? []).forEach((s: any) => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
-      setStageMap(map);
+      try {
+        if (c.error)  console.error('[ManagerCRMPanel] chats error:',    c.error);
+        if (t.error)  console.error('[ManagerCRMPanel] tasks error:',    t.error);
+        if (r.error)  console.error('[ManagerCRMPanel] reminders error:', r.error);
+        if (cm.error) console.error('[ManagerCRMPanel] comments error:',  cm.error);
+        if (ds.error) console.error('[ManagerCRMPanel] deal_stages error:', ds.error);
+
+        setChats((c.data ?? []) as Chat[]);
+        setTasks((t.data ?? []) as Task[]);
+        setReminders((r.data ?? []) as Reminder[]);
+        setComments((cm.data ?? []) as Comment[]);
+
+        // Строим stageMap: DESC-порядок гарантирует первый = последний для каждого chat_id
+        const map: Record<string, string> = {};
+        (ds.data ?? []).forEach((s: any) => {
+          if (s?.chat_id && !map[s.chat_id]) map[s.chat_id] = s.current_stage ?? 'new';
+        });
+        setStageMap(map);
+      } catch (parseErr) {
+        console.error('[ManagerCRMPanel] state update error:', parseErr);
+        setLoadError('Ошибка при обработке данных');
+      } finally {
+        setLoading(false);
+      }
+    }).catch((fetchErr: unknown) => {
+      console.error('[ManagerCRMPanel] fetch error:', fetchErr);
+      setLoadError(fetchErr instanceof Error ? fetchErr.message : 'Ошибка загрузки данных');
       setLoading(false);
     });
   }, [employeeId, refreshKey]);
@@ -161,6 +183,20 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
         {loading ? (
           <div className="flex items-center justify-center h-32">
             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 px-6">
+            <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center">
+              <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-sm text-red-400 text-center">{loadError}</p>
+            <button
+              onClick={() => setRefreshKey(k => k + 1)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-white/5 text-[#8696a0] active:bg-white/10">
+              Повторить
+            </button>
           </div>
         ) : (
           <div className="p-4 space-y-4">
@@ -278,7 +314,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
                         <p className="text-xs text-[#8696a0]">{chat.client?.phone}</p>
                       </div>
                       {(() => {
-                        const stage = stageMap[chat.id] ?? 'new';
+                        const stage = (chat?.id ? stageMap[chat.id] : undefined) ?? 'new';
                         return (
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STAGE_COLORS[stage] ?? 'text-gray-400 bg-gray-500/20'}`}>
                             {STAGE_LABELS[stage] ?? stage}
