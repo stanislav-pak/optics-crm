@@ -214,6 +214,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }
 
+  // Быстрая перезагрузка только списка продаж (без полного loadAll)
+  async function loadSales() {
+    const scopeId = role === 'admin' ? undefined : branchId;
+    try { const sa = await getSales(scopeId); setSales(sa); }
+    catch (e) { console.error('getSales reload error:', e); }
+  }
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Обзор' },
     { key: 'products', label: 'Товары' },
@@ -1407,8 +1414,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ReturnModal
           sale={returnSale}
           employeeId={employeeId}
-          onClose={() => setReturnSale(null)}
-          onSuccess={() => loadAll()}
+          onClose={() => { setReturnSale(null); loadSales(); }}
+          onSuccess={() => { setReturnSale(null); loadSales(); }}
         />
       )}
 
