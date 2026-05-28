@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
@@ -69,11 +69,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number }[]>([]);
-
-  // Pull-to-refresh
-  const [pullY, setPullY] = useState(0);
-  const pullStartY = useRef<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -196,52 +191,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     );
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Начинаем отслеживать pull только если контейнер в самом верху
-    const container = scrollRef.current;
-    if (container && container.scrollTop === 0) {
-      pullStartY.current = e.touches[0].clientY;
-    } else {
-      pullStartY.current = null; // не начинаем pull если не вверху
-    }
-    setPullY(0);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (pullStartY.current === null) return;
-    const dy = e.touches[0].clientY - pullStartY.current;
-    if (dy > 0) {
-      setPullY(Math.min(dy, 100)); // ограничиваем визуальное смещение
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (pullStartY.current === null) return;
-    const deltaY = e.changedTouches[0].clientY - pullStartY.current;
-    if (deltaY > 80 && !loading) loadAll(); // свайп вниз ≥80px = обновление
-    pullStartY.current = null;
-    setPullY(0);
-  };
-
   return (
-    <div
-      ref={scrollRef}
-      className="min-h-screen bg-gray-50 overflow-y-auto"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Pull-to-refresh индикатор */}
-      {(pullY > 10 || loading) && (
-        <div className="flex items-center justify-center transition-all duration-150"
-          style={{ height: pullY > 10 ? `${pullY}px` : '32px', overflow: 'hidden' }}
-        >
-          <div
-            className={`w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full ${(pullY >= 80 || loading) ? 'animate-spin' : ''}`}
-            style={{ opacity: loading ? 1 : Math.min(pullY / 80, 1) }}
-          />
-        </div>
-      )}
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
