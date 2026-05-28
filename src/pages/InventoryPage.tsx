@@ -359,6 +359,31 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <ExportBtn onClick={() => {
+                // Карта: productId → последний поставщик из приходов
+                const supplierMap: Record<string, string> = {};
+                purchases.forEach(po => {
+                  const sName = (po.supplier as any)?.name;
+                  if (!sName) return;
+                  po.items?.forEach(i => { if (!supplierMap[i.product_id]) supplierMap[i.product_id] = sName; });
+                });
+                const rows = filteredProducts.map(p => {
+                  const qty = stock
+                    .filter(s => s.product_id === p.id)
+                    .reduce((sum, s) => sum + s.quantity, 0);
+                  return {
+                    'Название': p.name,
+                    'SKU / Артикул': p.sku ?? '—',
+                    'Штрихкод': p.barcode ?? '—',
+                    'Остаток (шт)': qty,
+                    'Цена закупочная': p.cost_price,
+                    'Цена продажная': p.price,
+                    'Разница цен': p.price - p.cost_price,
+                    'Поставщик': supplierMap[p.id] ?? '—',
+                  };
+                });
+                xlsxExport(rows, `товары_${xlsxDate()}.xlsx`);
+              }} />
               {role !== 'manager' && (
                 <button
                   onClick={() => setShowAddProduct(true)}
