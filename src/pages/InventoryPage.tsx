@@ -977,7 +977,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </div>
               ) : (
                 <div key={salesRefreshKey} className="space-y-3">
-                  {filteredSales.map(s => (
+                  {filteredSales.map(s => {
+                    const saleBranch = branches.find(b => b.id === s.branch_id);
+                    return (
                     <div key={s.id}
                       className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
                       onClick={() => setSelectedSale(s)}>
@@ -987,8 +989,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
                           </p>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
+                            {new Date(s.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {(s.employee as any)?.name}
                           </p>
+                          {saleBranch && (
+                            <p className="text-xs text-gray-400 mt-0.5">{saleBranch.name}</p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
@@ -1022,7 +1027,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         </span>
                       </div>
                     </div>
-                  ))}
+                  ); })}
                 </div>
               )}
             </div>
@@ -1361,7 +1366,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         ? ((relatedSale.client as any)?.name || (relatedSale.client as any)?.phone || 'Без клиента')
                         : 'Без клиента';
                       const employeeName = (firstMv.employee as any)?.name ?? '—';
-                      const date = new Date(firstMv.created_at).toLocaleDateString('ru-RU');
+                      const date = new Date(firstMv.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                      const retBranchName = branches.find(b => b.id === (firstMv as any).branch_id)?.name;
 
                       const totalAmount = mvs.reduce((sum, m) => {
                         const unitPrice = (m as any).price
@@ -1380,6 +1386,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             <div>
                               <p className="text-sm font-semibold text-gray-900">{clientName}</p>
                               <p className="text-xs text-gray-400 mt-0.5">{date} · {employeeName}</p>
+                              {retBranchName && <p className="text-xs text-gray-400 mt-0.5">{retBranchName}</p>}
                             </div>
                             <div className="text-right">
                               {totalAmount > 0 && (
