@@ -1408,18 +1408,18 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               {/* Итог по расхождениям */}
               {(() => {
                 const ritems = selectedRevision.items ?? [];
-                const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0);
-                const surplus = withDiff.filter(i => (i.difference ?? 0) > 0).length;
-                const shortage = withDiff.filter(i => (i.difference ?? 0) < 0).length;
+                const counted = ritems.filter(i => i.actual_qty != null);
+                const surplus = counted.reduce((sum, i) => (i.difference ?? 0) > 0 ? sum + (i.difference ?? 0) : sum, 0);
+                const shortage = counted.reduce((sum, i) => (i.difference ?? 0) < 0 ? sum + Math.abs(i.difference ?? 0) : sum, 0);
                 return (
                   <div className="flex gap-3">
                     <div className="flex-1 bg-green-50 rounded-xl px-3 py-2 text-center">
                       <p className="text-xs text-green-600 font-medium">Излишки</p>
-                      <p className="text-lg font-bold text-green-700">{surplus}</p>
+                      <p className="text-lg font-bold text-green-700">{surplus} <span className="text-sm font-normal">шт</span></p>
                     </div>
                     <div className="flex-1 bg-red-50 rounded-xl px-3 py-2 text-center">
                       <p className="text-xs text-red-600 font-medium">Недостачи</p>
-                      <p className="text-lg font-bold text-red-700">{shortage}</p>
+                      <p className="text-lg font-bold text-red-700">{shortage} <span className="text-sm font-normal">шт</span></p>
                     </div>
                     <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-center">
                       <p className="text-xs text-gray-500 font-medium">Всего</p>
