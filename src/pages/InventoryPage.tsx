@@ -24,7 +24,7 @@ import LowStockModal from '../components/Inventory/LowStockModal';
 import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs';
 
 interface InventoryPageProps {
   branchId: string;
@@ -65,6 +65,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [saleFilterDateTo, setSaleFilterDateTo] = useState('');
   const [saleProductSearch, setSaleProductSearch] = useState('');
   const [saleEmployees, setSaleEmployees] = useState<{ id: string; name: string; branch_id: string }[]>([]);
+  // Фильтры списаний
+  const [woDateFilter, setWoDateFilter] = useState<string>('all');
+  const [woDateFrom, setWoDateFrom] = useState('');
+  const [woDateTo, setWoDateTo] = useState('');
+  const [woProductSearch, setWoProductSearch] = useState('');
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -176,6 +181,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'movements', label: 'Движения' },
     { key: 'purchases', label: 'Приходы' },
     { key: 'sales', label: 'Продажи' },
+    { key: 'writeoffs', label: 'Списания' },
     { key: 'revisions', label: 'Ревизии' },
   ];
 
@@ -254,13 +260,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 Перемещение
               </button>
             )}
-            <button
-              onClick={() => setShowWriteoff(true)}
-              className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
-            >
-              <Trash2 size={13} />
-              Списание
-            </button>
           </div>
 
           {/* Tabs */}
@@ -448,7 +447,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             { value: 'all', label: 'Все' },
             { value: 'in', label: 'Приход' },
             { value: 'out', label: 'Продажа' },
-            { value: 'writeoff', label: 'Списание' },
             { value: 'transfer', label: 'Перемещение' },
             { value: 'revision_adjust', label: 'Ревизия' },
           ];
@@ -873,6 +871,156 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* СПИСАНИЯ */}
+        {tab === 'writeoffs' && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
+
+          const allWriteoffs = movements.filter(m => {
+            if (m.type !== 'writeoff') return false;
+            // для не-админа — только свой филиал
+            if (role !== 'admin') {
+              if ((m as any).branch_id !== branchId) return false;
+            }
+            return true;
+          });
+
+          const filteredWriteoffs = allWriteoffs.filter(m => {
+            const mDate = m.created_at.split('T')[0];
+            if (woDateFilter === 'today' && mDate !== todayStr) return false;
+            if (woDateFilter === 'week' && new Date(mDate) < weekAgo) return false;
+            if (woDateFilter === 'month' && new Date(mDate) < monthAgo) return false;
+            if (woDateFilter === 'custom') {
+              if (woDateFrom && mDate < woDateFrom) return false;
+              if (woDateTo && mDate > woDateTo) return false;
+            }
+            if (woProductSearch) {
+              const name = ((m.product as any)?.name ?? '').toLowerCase();
+              if (!name.includes(woProductSearch.toLowerCase())) return false;
+            }
+            return true;
+          });
+
+          const hasFilters = woDateFilter !== 'all' || !!woProductSearch;
+
+          const dateOptions = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
+          return (
+            <div className="space-y-3">
+
+              {/* Заголовок + кнопка */}
+              <div className="flex items-center justify-between gap-3">
+                {hasFilters ? (
+                  <p className="text-xs text-gray-400">
+                    Найдено: <span className="font-medium text-gray-600">{filteredWriteoffs.length}</span> из {allWriteoffs.length}
+                  </p>
+                ) : <span />}
+                <button
+                  onClick={() => setShowWriteoff(true)}
+                  className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-700 flex-shrink-0"
+                >
+                  <Plus size={16} />
+                  Новое списание
+                </button>
+              </div>
+
+              {/* Фильтр по дате */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingBottom: '4px' }}>
+                {dateOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setWoDateFilter(o.value)}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 500, border: woDateFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: woDateFilter === o.value ? '#ea580c' : '#fff', color: woDateFilter === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Произвольный период */}
+              {woDateFilter === 'custom' && (
+                <div className="flex gap-2 items-center">
+                  <input type="date" value={woDateFrom} onChange={e => setWoDateFrom(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                  <input type="date" value={woDateTo} onChange={e => setWoDateTo(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                </div>
+              )}
+
+              {/* Поиск по товару */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={woProductSearch}
+                  onChange={e => setWoProductSearch(e.target.value)}
+                  placeholder="Поиск по названию товара..."
+                  className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                />
+              </div>
+
+              {/* Сброс */}
+              {hasFilters && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => { setWoDateFilter('all'); setWoDateFrom(''); setWoDateTo(''); setWoProductSearch(''); }}
+                    className="text-xs text-orange-600 hover:underline"
+                  >
+                    Сбросить фильтры
+                  </button>
+                </div>
+              )}
+
+              {/* Список списаний */}
+              {filteredWriteoffs.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                  {hasFilters ? 'Нет списаний по выбранным фильтрам' : 'Списаний нет'}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  {filteredWriteoffs.map(m => {
+                    const branchName = branches.find(b => b.id === (m as any).branch_id)?.name;
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100"
+                        onClick={() => setSelectedMovementId(m.id)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {(m.product as any)?.name ?? '—'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">
+                            {m.notes ? m.notes : <span className="italic text-gray-300">Причина не указана</span>}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {(m.employee as any)?.name ?? '—'}
+                            {branchName ? ` · ${branchName}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className="text-sm font-semibold text-orange-600">−{m.quantity} шт</span>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(m.created_at).toLocaleDateString('ru-RU')}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
