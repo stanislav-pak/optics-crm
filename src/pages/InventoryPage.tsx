@@ -108,6 +108,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
     try {
+      console.log('calling getStockMovements with branchId:', role === 'admin' ? 'undefined' : branchId);
       const mv = await getStockMovements(role === 'admin' ? undefined : branchId);
       console.log('movements loaded:', mv.length, mv.map(m => m.type));
       console.log('transfer movements:', mv.filter(m => m.type === 'transfer').length);
@@ -547,6 +548,9 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 total movements: {movements.length} |
                 transfer count: {movements.filter(m => m.type === 'transfer').length} |
                 filter: {mvTypeFilter}
+              </div>
+              <div style={{background:'orange', padding:'4px', fontSize:'10px'}}>
+                branchId prop: {branchId} | role: {role}
               </div>
 
               <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" />

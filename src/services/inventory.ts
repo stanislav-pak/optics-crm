@@ -183,6 +183,8 @@ export async function getStockMovements(branchId?: string, productId?: string) {
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
+  console.log('RAW movements from supabase:', JSON.stringify(data?.slice(0, 3)));
+  console.log('RAW error:', JSON.stringify(error));
   if (error) throw error;
   return data as StockMovement[];
 }
