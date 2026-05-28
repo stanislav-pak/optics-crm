@@ -18,7 +18,7 @@ const STAGES = [
 ];
 
 const STATUS_MAP: Record<string, string> = {
-  new: 'new', negotiation: 'in_progress', quote: 'deal', payment: 'paid', closed: 'closed',
+  new: 'new', negotiation: 'in_progress', quote: 'in_progress', payment: 'in_progress', closed: 'closed',
 };
 
 interface LastStageInfo { stage: string; employeeName: string; changedAt: string; }
