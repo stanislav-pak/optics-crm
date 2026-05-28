@@ -70,6 +70,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [woDateFrom, setWoDateFrom] = useState('');
   const [woDateTo, setWoDateTo] = useState('');
   const [woProductSearch, setWoProductSearch] = useState('');
+  // Фильтры ревизий
+  const [rvFilterBranch, setRvFilterBranch] = useState('');
+  const [rvFilterStatus, setRvFilterStatus] = useState('all');
+  const [rvDateFilter, setRvDateFilter] = useState('all');
+  const [rvDateFrom, setRvDateFrom] = useState('');
+  const [rvDateTo, setRvDateTo] = useState('');
+  const [rvProductSearch, setRvProductSearch] = useState('');
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -1006,67 +1013,204 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         })()}
 
         {/* РЕВИЗИИ */}
-        {tab === 'revisions' && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => setShowRevision(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700">
-                <QrCode size={16} />
-                Начать ревизию
-              </button>
-            </div>
-            {revisions.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">Ревизий нет</div>
-            ) : (
-              <div className="space-y-3">
-                {revisions.map(r => {
-                  const ritems = r.items ?? [];
-                  const counted = ritems.filter(i => i.actual_qty != null).length;
-                  const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0).length;
-                  const isInProgress = r.status === 'in_progress';
-                  return (
-                    <div key={r.id}
-                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
-                      onClick={() => { if (!isInProgress) setSelectedRevision(r); }}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            Ревизия от {new Date(r.created_at).toLocaleDateString('ru-RU')}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Подсчитано: {counted}/{ritems.length} · Расхождений: {withDiff}
-                          </p>
-                        </div>
-                        <StatusBadge status={r.status} />
-                      </div>
-                      <div className="flex items-center justify-end gap-2">
-                        {isInProgress ? (
-                          <button
-                            onClick={e => { e.stopPropagation(); setContinueRevisionId(r.id); setShowRevision(true); }}
-                            className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700">
-                            Продолжить
-                          </button>
-                        ) : (
-                          <button
-                            onClick={e => { e.stopPropagation(); setSelectedRevision(r); }}
-                            className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200">
-                            Просмотр
-                          </button>
-                        )}
-                        {role !== 'manager' && (
-                          <button
-                            onClick={e => handleDeleteRevision(r.id, e)}
-                            className="p-1.5 text-gray-300 hover:text-red-400">
-                            <Trash2 size={15} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+        {tab === 'revisions' && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
+
+          const filteredRevisions = revisions.filter(r => {
+            if (role === 'admin' && rvFilterBranch && (r as any).branch_id !== rvFilterBranch) return false;
+            if (rvFilterStatus !== 'all' && r.status !== rvFilterStatus) return false;
+            const rDate = r.created_at.split('T')[0];
+            if (rvDateFilter === 'today' && rDate !== todayStr) return false;
+            if (rvDateFilter === 'week' && new Date(rDate) < weekAgo) return false;
+            if (rvDateFilter === 'month' && new Date(rDate) < monthAgo) return false;
+            if (rvDateFilter === 'custom') {
+              if (rvDateFrom && rDate < rvDateFrom) return false;
+              if (rvDateTo && rDate > rvDateTo) return false;
+            }
+            if (rvProductSearch) {
+              const found = r.items?.some(i =>
+                (i.product as any)?.name?.toLowerCase().includes(rvProductSearch.toLowerCase())
+              );
+              if (!found) return false;
+            }
+            return true;
+          });
+
+          const hasFilters = !!(rvFilterBranch || rvFilterStatus !== 'all' || rvDateFilter !== 'all' || rvProductSearch);
+
+          const resetFilters = () => {
+            setRvFilterBranch(''); setRvFilterStatus('all');
+            setRvDateFilter('all'); setRvDateFrom(''); setRvDateTo('');
+            setRvProductSearch('');
+          };
+
+          const statusOptions = [
+            { value: 'all', label: 'Все статусы' },
+            { value: 'draft', label: 'Черновик' },
+            { value: 'in_progress', label: 'Активна' },
+            { value: 'completed', label: 'Завершена' },
+          ];
+
+          const dateOptions = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
+          return (
+            <div className="space-y-4">
+
+              {/* Кнопка + счётчик */}
+              <div className="flex items-center justify-between gap-3">
+                {hasFilters ? (
+                  <p className="text-xs text-gray-400">
+                    Показано: <span className="font-medium text-gray-600">{filteredRevisions.length}</span> из {revisions.length}
+                  </p>
+                ) : <span />}
+                <button
+                  onClick={() => setShowRevision(true)}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700 flex-shrink-0"
+                >
+                  <QrCode size={16} />
+                  Начать ревизию
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Фильтры */}
+              <div className="space-y-3">
+
+                {/* Филиал + Статус */}
+                <div className={role === 'admin' ? 'flex gap-2' : ''}>
+                  {role === 'admin' && (
+                    <select
+                      value={rvFilterBranch}
+                      onChange={e => setRvFilterBranch(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                    >
+                      <option value="">Все филиалы</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>{b.is_warehouse ? '🏭 ' : ''}{b.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <select
+                    value={rvFilterStatus}
+                    onChange={e => setRvFilterStatus(e.target.value)}
+                    className={`${role === 'admin' ? 'flex-1' : 'w-full'} border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white`}
+                  >
+                    {statusOptions.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Дата */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {dateOptions.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => setRvDateFilter(o.value)}
+                      style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', border: rvDateFilter === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: rvDateFilter === o.value ? '#7c3aed' : '#fff', color: rvDateFilter === o.value ? '#fff' : '#4b5563' }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Произвольный период */}
+                {rvDateFilter === 'custom' && (
+                  <div className="flex gap-2 items-center">
+                    <input type="date" value={rvDateFrom} onChange={e => setRvDateFrom(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                    <input type="date" value={rvDateTo} onChange={e => setRvDateTo(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  </div>
+                )}
+
+                {/* Поиск по товару */}
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={rvProductSearch}
+                    onChange={e => setRvProductSearch(e.target.value)}
+                    placeholder="Поиск по названию товара в ревизии..."
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                  />
+                </div>
+
+                {/* Сброс */}
+                {hasFilters && (
+                  <div className="flex justify-end">
+                    <button onClick={resetFilters} className="text-xs text-purple-600 hover:underline">
+                      Сбросить фильтры
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Список */}
+              {filteredRevisions.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                  {hasFilters ? 'Нет ревизий по выбранным фильтрам' : 'Ревизий нет'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredRevisions.map(r => {
+                    const ritems = r.items ?? [];
+                    const counted = ritems.filter(i => i.actual_qty != null).length;
+                    const withDiff = ritems.filter(i => (i.difference ?? 0) !== 0).length;
+                    const isInProgress = r.status === 'in_progress';
+                    return (
+                      <div key={r.id}
+                        className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                        onClick={() => { if (!isInProgress) setSelectedRevision(r); }}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              Ревизия от {new Date(r.created_at).toLocaleDateString('ru-RU')}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              Подсчитано: {counted}/{ritems.length} · Расхождений: {withDiff}
+                            </p>
+                          </div>
+                          <StatusBadge status={r.status} />
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          {isInProgress ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); setContinueRevisionId(r.id); setShowRevision(true); }}
+                              className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700">
+                              Продолжить
+                            </button>
+                          ) : (
+                            <button
+                              onClick={e => { e.stopPropagation(); setSelectedRevision(r); }}
+                              className="px-4 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200">
+                              Просмотр
+                            </button>
+                          )}
+                          {role !== 'manager' && (
+                            <button
+                              onClick={e => handleDeleteRevision(r.id, e)}
+                              className="p-1.5 text-gray-300 hover:text-red-400">
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {selectedProduct && (
