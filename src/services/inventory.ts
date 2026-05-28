@@ -458,15 +458,17 @@ export async function createReturn(
       .maybeSingle();
 
     if (stockRow) {
-      await supabase
+      const { error: stockUpdErr } = await supabase
         .from('stock')
         .update({ quantity: stockRow.quantity + item.quantity })
         .eq('product_id', item.product_id)
         .eq('branch_id', sale.branch_id);
+      if (stockUpdErr) throw stockUpdErr;
     } else {
-      await supabase
+      const { error: stockInsErr } = await supabase
         .from('stock')
         .insert({ product_id: item.product_id, branch_id: sale.branch_id, quantity: item.quantity });
+      if (stockInsErr) throw stockInsErr;
     }
   }
 
@@ -501,10 +503,11 @@ export async function createReturn(
     si => (totalReturnedMap[si.product_id] ?? 0) >= si.quantity
   );
 
-  await supabase
+  const { error: statusErr } = await supabase
     .from('sales')
     .update({ status: isFullReturn ? 'refunded' : 'partially_refunded' })
     .eq('id', saleId);
+  if (statusErr) throw statusErr;
 
   // 7. Пересчитываем остатки
   await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });

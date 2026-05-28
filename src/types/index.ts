@@ -292,7 +292,7 @@ export interface Stock {
   branch?: Branch;
 }
 
-export type StockMovementType = 'in' | 'out' | 'transfer' | 'writeoff' | 'revision_adjust';
+export type StockMovementType = 'in' | 'out' | 'transfer' | 'writeoff' | 'revision_adjust' | 'return';
 export type StockMovementStatus = 'in_transit' | 'completed' | 'cancelled';
 
 export interface StockMovement {
