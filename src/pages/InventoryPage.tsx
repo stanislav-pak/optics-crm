@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
-  getProducts, getStock, getInventoryStats, getLowStockAlerts,
+  getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers,
 } from '../services/inventory';
@@ -118,7 +118,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try { const s = await getInventoryStats(scopeId); setStats(s); }
     catch (e) { console.error('getInventoryStats error:', e); }
 
-    try { const p = await getProducts(scopeId); setProducts(p); }
+    try {
+      const p = role === 'admin'
+        ? await getProducts(undefined)
+        : await getProductsFromStock(branchId);
+      setProducts(p);
+    }
     catch (e) { console.error('getProducts error:', e); }
 
     try { const st = await getStock(scopeId); setStock(st); }

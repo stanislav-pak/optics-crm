@@ -29,6 +29,30 @@ export async function getProducts(branchId?: string) {
   return data as Product[];
 }
 
+// Для manager/branch_admin: только товары с фактическим остатком в их филиале
+export async function getProductsFromStock(branchId: string): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('stock')
+    .select(`
+      quantity,
+      product:products(
+        id, name, sku, barcode, price, cost_price, unit, min_stock, is_active, branch_id, created_at,
+        category:product_categories(id, name, slug),
+        brand:brands(id, name),
+        stock(quantity, branch_id)
+      )
+    `)
+    .eq('branch_id', branchId)
+    .gt('quantity', 0);
+
+  if (error) throw error;
+
+  return ([...(data ?? [])] as any[])
+    .filter(s => s.product?.is_active !== false)
+    .map(s => s.product as Product)
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ru'));
+}
+
 export async function getProductByBarcode(barcode: string) {
   const { data, error } = await supabase
     .from('products')
