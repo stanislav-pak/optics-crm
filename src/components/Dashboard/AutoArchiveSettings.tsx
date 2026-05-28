@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
+import { useSwipeBack } from '../../hooks/useSwipeBack';
 import { Archive, Clock, MessageSquareOff, Play, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 const LS_KEY_CLOSED   = 'autoArchive_closedDeals';
@@ -39,7 +40,12 @@ function Toggle({
   );
 }
 
-export function AutoArchiveSettings() {
+interface AutoArchiveSettingsProps {
+  onBack?: () => void;
+}
+
+export function AutoArchiveSettings({ onBack }: AutoArchiveSettingsProps) {
+  useSwipeBack(onBack ?? (() => {}));
   const [archiveClosed,   setArchiveClosed]   = useState<boolean>(() =>
     localStorage.getItem(LS_KEY_CLOSED) !== 'false'   // дефолт true
   );

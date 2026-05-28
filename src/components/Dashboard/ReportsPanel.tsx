@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
+import { useSwipeBack } from '../../hooks/useSwipeBack';
 
 interface StageStats {
   stage: string;
@@ -61,7 +62,12 @@ function getPeriodDates(period: string, customFrom?: string, customTo?: string):
   return {};
 }
 
-export function ReportsPanel() {
+interface ReportsPanelProps {
+  onBack?: () => void;
+}
+
+export function ReportsPanel({ onBack }: ReportsPanelProps) {
+  useSwipeBack(onBack ?? (() => {}));
   const [allChatsWithStage, setAllChatsWithStage] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePeriod, setActivePeriod] = useState('all');

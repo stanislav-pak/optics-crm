@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { useSwipeBack } from '../../hooks/useSwipeBack';
 
 interface TaskItem {
   id: string;
@@ -35,6 +36,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export function TasksPanel({ onBack }: TasksPanelProps) {
   const { employee } = useAuth();
   const isAdmin = employee?.role === 'admin' || employee?.role === 'branch_admin';
+  useSwipeBack(onBack ?? (() => {}));
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);

@@ -314,7 +314,7 @@ function AppContent() {
       {isAdmin && adminView === 'settings' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Настройки" />}
-          <AutoArchiveSettings />
+          <AutoArchiveSettings onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'inventory' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -330,17 +330,17 @@ function AppContent() {
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Задачи" />}
-          <TasksPanel />
+          <TasksPanel onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'reports' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Аналитика" />}
-          <ReportsPanel />
+          <ReportsPanel onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'activity' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Активность" />}
-          <EmployeeActivity />
+          <EmployeeActivity onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'dashboard' && !activeChat ? (
         <div className="flex-1 flex flex-col overflow-hidden">

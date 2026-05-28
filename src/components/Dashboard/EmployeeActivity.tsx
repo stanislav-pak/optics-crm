@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
+import { useSwipeBack } from '../../hooks/useSwipeBack';
 
 interface EmployeeActivity {
   id: string;
@@ -48,7 +49,12 @@ const STATUS_LABELS = {
   offline: 'Офлайн',
 };
 
-export function EmployeeActivity() {
+interface EmployeeActivityProps {
+  onBack?: () => void;
+}
+
+export function EmployeeActivity({ onBack }: EmployeeActivityProps) {
+  useSwipeBack(onBack ?? (() => {}));
   const [employees, setEmployees] = useState<EmployeeActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
