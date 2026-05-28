@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
@@ -33,6 +34,35 @@ interface InventoryPageProps {
   defaultTab?: Tab;
   storefront?: boolean;
 }
+
+// ---- Excel export helpers ----
+const STATUS_RU: Record<string, string> = {
+  draft: 'Черновик', confirmed: 'Подтверждён', received: 'Получен',
+  cancelled: 'Отменён', pending: 'Ожидает', paid: 'Оплачено',
+  refunded: 'Возврат', in_progress: 'В процессе', completed: 'Завершена',
+  in_transit: 'В пути',
+};
+const MV_TYPE_RU: Record<string, string> = {
+  in: 'Приход', out: 'Продажа', writeoff: 'Списание',
+  transfer: 'Перемещение', revision_adjust: 'Ревизия',
+};
+function xlsxExport(rows: Record<string, unknown>[], filename: string) {
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Данные');
+  XLSX.writeFile(wb, filename);
+}
+function xlsxDate() { return new Date().toISOString().split('T')[0]; }
+
+const ExportBtn = ({ onClick }: { onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 flex-shrink-0"
+  >
+    <Download size={13} />
+    Экспорт
+  </button>
+);
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
@@ -512,19 +542,35 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 />
               </div>
 
-              {/* Счётчик результатов */}
-              {(mvTypeFilter !== 'all' || mvDateFilter !== 'all' || mvProductSearch) && (
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-400">
-                    Найдено: {filteredMovements.length} из {movements.length}
-                  </p>
-                  <button
-                    onClick={() => { setMvTypeFilter('all'); setMvDateFilter('all'); setMvDateFrom(''); setMvDateTo(''); setMvProductSearch(''); }}
-                    className="text-xs text-blue-600 hover:underline">
-                    Сбросить фильтры
-                  </button>
+              {/* Счётчик + экспорт */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  {(mvTypeFilter !== 'all' || mvDateFilter !== 'all' || mvProductSearch) && (
+                    <>
+                      <p className="text-xs text-gray-400">
+                        Найдено: {filteredMovements.length} из {movements.length}
+                      </p>
+                      <button
+                        onClick={() => { setMvTypeFilter('all'); setMvDateFilter('all'); setMvDateFrom(''); setMvDateTo(''); setMvProductSearch(''); }}
+                        className="text-xs text-blue-600 hover:underline flex-shrink-0">
+                        Сбросить
+                      </button>
+                    </>
+                  )}
                 </div>
-              )}
+                <ExportBtn onClick={() => {
+                  const rows = filteredMovements.map(m => ({
+                    'Дата': new Date(m.created_at).toLocaleDateString('ru-RU'),
+                    'Тип': MV_TYPE_RU[m.type] ?? m.type,
+                    'Товар': (m.product as any)?.name ?? '—',
+                    'Артикул': (m.product as any)?.sku ?? '—',
+                    'Количество': m.quantity,
+                    'Сотрудник': (m.employee as any)?.name ?? '—',
+                    'Примечание': m.notes ?? '',
+                  }));
+                  xlsxExport(rows, `движения_${xlsxDate()}.xlsx`);
+                }} />
+              </div>
 
               {/* Сводка остатков по филиалам при фильтре «Перемещение» — только для admin */}
               {mvTypeFilter === 'transfer' && role === 'admin' && (
@@ -588,6 +634,25 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {tab === 'purchases' && (
           <div className="space-y-4">
             <div className="flex justify-end gap-2">
+              <ExportBtn onClick={() => {
+                const rows: Record<string, unknown>[] = [];
+                purchases.forEach(po => {
+                  const date = new Date(po.created_at).toLocaleDateString('ru-RU');
+                  const supplier = (po.supplier as any)?.name ?? '—';
+                  const status = STATUS_RU[po.status] ?? po.status;
+                  if (po.items?.length) {
+                    po.items.forEach(i => rows.push({
+                      'Дата': date, 'Поставщик': supplier,
+                      'Товар': (i.product as any)?.name ?? '—',
+                      'Количество': i.quantity, 'Цена прихода': i.cost_price,
+                      'Сумма': i.quantity * i.cost_price, 'Статус': status,
+                    }));
+                  } else {
+                    rows.push({ 'Дата': date, 'Поставщик': supplier, 'Товар': '—', 'Количество': '—', 'Цена прихода': '—', 'Сумма': po.total, 'Статус': status });
+                  }
+                });
+                xlsxExport(rows, `приходы_${xlsxDate()}.xlsx`);
+              }} />
               <button onClick={() => setShowSuppliers(true)}
                 className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50">
                 <Users size={16} />
@@ -705,13 +770,29 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 ) : (
                   <span />
                 )}
-                <button
-                  onClick={() => setShowAddSale(true)}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700 flex-shrink-0"
-                >
-                  <Plus size={16} />
-                  Новая продажа
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <ExportBtn onClick={() => {
+                    const rows = filteredSales.map(s => ({
+                      'Дата': new Date(s.created_at).toLocaleDateString('ru-RU'),
+                      'Клиент': (s.client as any)?.name || (s.client as any)?.phone || '—',
+                      'Сотрудник': (s.employee as any)?.name ?? '—',
+                      'Товары': s.items?.map(i => `${(i.product as any)?.name} ×${i.quantity}`).join('; ') ?? '—',
+                      'Итого': s.total,
+                      'Наличными': s.paid_cash || 0,
+                      'Kaspi QR': s.paid_kaspi || 0,
+                      'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : 'Смешанная',
+                      'Статус': STATUS_RU[s.status] ?? s.status,
+                    }));
+                    xlsxExport(rows, `продажи_${xlsxDate()}.xlsx`);
+                  }} />
+                  <button
+                    onClick={() => setShowAddSale(true)}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700"
+                  >
+                    <Plus size={16} />
+                    Новая продажа
+                  </button>
+                </div>
               </div>
 
               {/* Фильтры */}
@@ -914,13 +995,27 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     Найдено: <span className="font-medium text-gray-600">{filteredWriteoffs.length}</span> из {allWriteoffs.length}
                   </p>
                 ) : <span />}
-                <button
-                  onClick={() => setShowWriteoff(true)}
-                  className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-700 flex-shrink-0"
-                >
-                  <Plus size={16} />
-                  Новое списание
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <ExportBtn onClick={() => {
+                    const rows = filteredWriteoffs.map(m => ({
+                      'Дата': new Date(m.created_at).toLocaleDateString('ru-RU'),
+                      'Товар': (m.product as any)?.name ?? '—',
+                      'Артикул': (m.product as any)?.sku ?? '—',
+                      'Количество': m.quantity,
+                      'Причина': m.notes ?? '—',
+                      'Сотрудник': (m.employee as any)?.name ?? '—',
+                      'Филиал': branches.find(b => b.id === (m as any).branch_id)?.name ?? '—',
+                    }));
+                    xlsxExport(rows, `списания_${xlsxDate()}.xlsx`);
+                  }} />
+                  <button
+                    onClick={() => setShowWriteoff(true)}
+                    className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-700"
+                  >
+                    <Plus size={16} />
+                    Новое списание
+                  </button>
+                </div>
               </div>
 
               {/* Фильтр по дате */}
@@ -1071,13 +1166,33 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     Показано: <span className="font-medium text-gray-600">{filteredRevisions.length}</span> из {revisions.length}
                   </p>
                 ) : <span />}
-                <button
-                  onClick={() => setShowRevision(true)}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700 flex-shrink-0"
-                >
-                  <QrCode size={16} />
-                  Начать ревизию
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <ExportBtn onClick={() => {
+                    const rows = filteredRevisions.map(r => {
+                      const items = r.items ?? [];
+                      const counted = items.filter(i => i.actual_qty != null);
+                      const surplus = counted.reduce((s, i) => (i.difference ?? 0) > 0 ? s + (i.difference ?? 0) : s, 0);
+                      const shortage = counted.reduce((s, i) => (i.difference ?? 0) < 0 ? s + Math.abs(i.difference ?? 0) : s, 0);
+                      return {
+                        'Дата': new Date(r.created_at).toLocaleDateString('ru-RU'),
+                        'Статус': STATUS_RU[r.status] ?? r.status,
+                        'Позиций всего': items.length,
+                        'Подсчитано': counted.length,
+                        'Излишки (шт)': surplus,
+                        'Недостачи (шт)': shortage,
+                        'Дата завершения': r.completed_at ? new Date(r.completed_at).toLocaleDateString('ru-RU') : '—',
+                      };
+                    });
+                    xlsxExport(rows, `ревизии_${xlsxDate()}.xlsx`);
+                  }} />
+                  <button
+                    onClick={() => setShowRevision(true)}
+                    className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700"
+                  >
+                    <QrCode size={16} />
+                    Начать ревизию
+                  </button>
+                </div>
               </div>
 
               {/* Фильтры */}

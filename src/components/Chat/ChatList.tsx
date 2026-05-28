@@ -1,8 +1,14 @@
 ﻿import { useState, useEffect, useContext } from 'react';
+import * as XLSX from 'xlsx';
 import { useChats } from '../../hooks/useChats';
 import { AuthContext } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
 import type { Chat, ChatListFilters } from '../../types';
+
+const CLIENT_STATUS_RU: Record<string, string> = {
+  new: 'Новый', in_progress: 'В работе', deal: 'В ожидании оплаты',
+  paid: 'Оплачено', closed: 'Закрыт',
+};
 
 const STATUS_COLORS: Record<string, string> = {
   new: '#22c55e',
@@ -218,7 +224,34 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
         <h1 className="text-[#e9edef] font-semibold text-base tracking-wide">Чаты</h1>
-        <span className="text-xs text-[#8696a0] bg-white/5 px-2 py-0.5 rounded-full">{filteredByStage.length}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#8696a0] bg-white/5 px-2 py-0.5 rounded-full">{filteredByStage.length}</span>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                const rows = filteredByStage.map(c => ({
+                  'Имя': c.client?.name ?? '—',
+                  'Телефон': c.client?.phone ?? '—',
+                  'Филиал': branches.find(b => b.id === c.branch_id)?.name ?? '—',
+                  'Статус': CLIENT_STATUS_RU[c.client?.status ?? ''] ?? c.client?.status ?? '—',
+                  'Первый контакт': new Date(c.created_at).toLocaleDateString('ru-RU'),
+                  'Последний контакт': c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('ru-RU') : '—',
+                }));
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Клиенты');
+                XLSX.writeFile(wb, `клиенты_${new Date().toISOString().split('T')[0]}.xlsx`);
+              }}
+              className="flex items-center gap-1 text-[10px] text-[#8696a0] hover:text-[#e9edef] bg-white/5 px-2 py-0.5 rounded-full transition-colors"
+              title="Экспорт клиентов в Excel"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              xlsx
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Admin mobile filters */}
