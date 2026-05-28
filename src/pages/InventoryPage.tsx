@@ -22,6 +22,7 @@ import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
 import LowStockModal from '../components/Inventory/LowStockModal';
 import WriteoffModal from '../components/Inventory/WriteoffModal';
+import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -53,6 +54,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showWriteoff, setShowWriteoff] = useState(false);
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -273,7 +275,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
             <div>
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Последние движения</h2>
-              <MovementsTable movements={movements.slice(0, 10)} />
+              <MovementsTable movements={movements.slice(0, 10)} onRowClick={id => setSelectedMovementId(id)} />
             </div>
           </div>
         )}
@@ -548,7 +550,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 </div>
               )}
 
-              <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" />
+              <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" onRowClick={id => setSelectedMovementId(id)} />
             </div>
           );
         })()}
@@ -772,6 +774,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           role={role}
           onClose={() => setShowWriteoff(false)}
           onSuccess={() => { loadAll(); setShowWriteoff(false); }}
+        />
+      )}
+
+      {selectedMovementId && (
+        <MovementDetailModal
+          movementId={selectedMovementId}
+          onClose={() => setSelectedMovementId(null)}
         />
       )}
 
@@ -1094,7 +1103,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MovementsTable({ movements, emptyText = 'Движений нет' }: { movements: StockMovement[]; emptyText?: string }) {
+function MovementsTable({ movements, emptyText = 'Движений нет', onRowClick }: { movements: StockMovement[]; emptyText?: string; onRowClick?: (id: string) => void }) {
   const typeLabel: Record<string, { label: string; color: string }> = {
     in: { label: 'Приход', color: 'text-green-600' },
     out: { label: 'Расход', color: 'text-red-600' },
@@ -1118,7 +1127,7 @@ function MovementsTable({ movements, emptyText = 'Движений нет' }: { 
           {movements.map(m => {
             const t = typeLabel[m.type] ?? { label: m.type, color: 'text-gray-600' };
             return (
-              <div key={m.id} className="grid grid-cols-12 items-center px-4 py-3">
+              <div key={m.id} className={`grid grid-cols-12 items-center px-4 py-3 ${onRowClick ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100' : ''}`} onClick={() => onRowClick?.(m.id)}>
                 <div className="col-span-4">
                   <p className="text-sm text-gray-900">{(m.product as any)?.name ?? '—'}</p>
                   {m.type === 'transfer' && m.notes
