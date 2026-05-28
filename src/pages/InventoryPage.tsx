@@ -241,16 +241,30 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
             {alerts.length > 0 && (
               <div>
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">⚠️ Заканчивается на складе</h2>
-                <div className="bg-white rounded-xl border border-red-100 divide-y divide-gray-100">
+                <div className="bg-white rounded-xl border border-red-100 divide-y divide-gray-100 overflow-hidden">
                   {alerts.slice(0, 5).map((a, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setShowLowStock(true)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-red-50 active:bg-red-100 text-left transition-colors"
+                    >
                       <div>
                         <p className="text-sm font-medium text-gray-900">{(a.product as any)?.name}</p>
                         <p className="text-xs text-gray-500">Мин: {(a.product as any)?.min_stock} {(a.product as any)?.unit}</p>
                       </div>
-                      <span className="text-red-600 font-semibold text-sm">{a.current_qty} шт</span>
-                    </div>
+                      <span className="text-red-600 font-semibold text-sm tabular-nums">{a.current_qty} шт</span>
+                    </button>
                   ))}
+                  {alerts.length > 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowLowStock(true)}
+                      className="w-full px-4 py-2.5 text-xs text-center text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      Ещё {alerts.length - 5} товаров →
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -302,16 +316,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                       p.barcode,
                     ].filter(Boolean).join(' · ');
 
-                    // In-transit для этого товара
-                    const isAdmin = role === 'admin';
-                    const productTransit = inTransitMovements.filter(m => m.product_id === p.id);
-                    const outgoing = productTransit
-                      .filter(m => isAdmin || m.branch_id === branchId)
-                      .reduce((sum, m) => sum + m.quantity, 0);
-                    const incoming = productTransit
-                      .filter(m => isAdmin || m.to_branch_id === branchId)
-                      .reduce((sum, m) => sum + m.quantity, 0);
-
                     return (
                       <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer" onClick={() => setSelectedProduct(p)}>
                         <div className="flex-1 min-w-0">
@@ -325,17 +329,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                               {qty} {p.unit}
                             </span>
                           </div>
-                          {/* Строка 1.5: in-transit */}
-                          {outgoing > 0 && (
-                            <p className="text-xs text-orange-500 tabular-nums mt-0.5 text-right">
-                              📤 В пути: {outgoing} {p.unit}
-                            </p>
-                          )}
-                          {incoming > 0 && (
-                            <p className="text-xs text-blue-500 tabular-nums mt-0.5 text-right">
-                              📥 Ожидается: {incoming} {p.unit}
-                            </p>
-                          )}
                           {/* Строка 2: мета */}
                           {meta && <p className="text-xs text-gray-400 truncate mt-0.5">{meta}</p>}
                         </div>
