@@ -9,7 +9,7 @@ import {
 import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, Revision, Branch
+  StockMovement, PurchaseOrder, Sale, SaleStatus, Revision, Branch
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
@@ -74,7 +74,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [salesRefreshKey, setSalesRefreshKey] = useState(0);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -217,14 +216,23 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Быстрая перезагрузка только списка продаж (без полного loadAll)
   async function loadSales() {
-    console.log('loadSales called');
     const scopeId = role === 'admin' ? undefined : branchId;
     try {
       const sa = await getSales(scopeId);
-      console.log('sales loaded:', sa.length);
       setSales(sa);
     }
     catch (e) { console.error('getSales reload error:', e); }
+  }
+
+  async function handleReturnSuccess(newStatus: SaleStatus) {
+    const saleId = returnSale?.id;
+    if (!saleId) return;
+
+    setSales(prev => prev.map(s => (s.id === saleId ? { ...s, status: newStatus } : s)));
+    setSelectedSale(prev => (prev?.id === saleId && prev ? { ...prev, status: newStatus } : prev));
+    setReturnSale(null);
+
+    await loadSales();
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -937,7 +945,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   {hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
                 </div>
               ) : (
-                <div key={salesRefreshKey} className="space-y-3">
+                <div className="space-y-3">
                   {filteredSales.map(s => (
                     <div key={s.id}
                       className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
@@ -1420,8 +1428,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ReturnModal
           sale={returnSale}
           employeeId={employeeId}
-          onClose={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); loadSales(); }}
-          onSuccess={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); setSalesRefreshKey(k => k + 1); loadSales(); }}
+          onClose={() => setReturnSale(null)}
+          onSuccess={handleReturnSuccess}
         />
       )}
 

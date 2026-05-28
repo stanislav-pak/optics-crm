@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import { createReturn } from '../../services/inventory';
-import type { Sale } from '../../types';
+import type { Sale, SaleStatus } from '../../types';
 
 interface Props {
   sale: Sale;
   employeeId: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newStatus: SaleStatus) => void;
 }
 
 export default function ReturnModal({ sale, employeeId, onClose, onSuccess }: Props) {
@@ -56,9 +56,8 @@ export default function ReturnModal({ sale, employeeId, onClose, onSuccess }: Pr
         .map(i => ({ product_id: i.product_id, quantity: qtys[i.product_id] ?? 0 }))
         .filter(i => i.quantity > 0);
 
-      await createReturn(sale.id, returnItems, reason.trim(), employeeId);
-      onSuccess();
-      onClose();
+      const newStatus = await createReturn(sale.id, returnItems, reason.trim(), employeeId);
+      onSuccess(newStatus);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

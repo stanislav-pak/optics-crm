@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type {
   Product, ProductCategory, Brand, Stock, StockMovement,
   Supplier, PurchaseOrder, PurchaseOrderItem,
-  Sale, SaleItem, Revision, RevisionItem,
+  Sale, SaleItem, SaleStatus, Revision, RevisionItem,
   InventoryStats, StockAlert, Branch
 } from '../types';
 
@@ -413,7 +413,7 @@ export async function createReturn(
   returnItems: { product_id: string; quantity: number }[],
   reason: string,
   employeeId: string
-) {
+): Promise<SaleStatus> {
   // 1. Загружаем продажу с позициями
   const { data: sale, error: saleErr } = await supabase
     .from('sales')
@@ -503,18 +503,19 @@ export async function createReturn(
     si => (totalReturnedMap[si.product_id] ?? 0) >= si.quantity
   );
 
+  const newStatus: SaleStatus = isFullRefund ? 'refunded' : 'partially_refunded';
+
   const { error: statusErr } = await supabase
     .from('sales')
-    .update({ status: isFullRefund ? 'refunded' : 'partially_refunded' })
+    .update({ status: newStatus })
     .eq('id', saleId);
 
-  if (statusErr) {
-    console.error('Failed to update sale status:', statusErr);
-    // не бросаем ошибку, продолжаем
-  }
+  if (statusErr) throw statusErr;
 
   // 7. Пересчитываем остатки
   await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });
+
+  return newStatus;
 }
 
 export async function getSales(branchId?: string) {
