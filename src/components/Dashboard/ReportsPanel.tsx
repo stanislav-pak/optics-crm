@@ -1,235 +1,409 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, BarChart, Bar, Cell,
+} from 'recharts';
 
-interface StageStats {
-  stage: string;
-  label: string;
-  count: number;
-  color: string;
-}
-
-interface EmployeeStat {
+// ── типы ──────────────────────────────────────────────────────────────────────
+interface SaleRow {
   id: string;
-  name: string;
+  branch_id: string | null;
   total: number;
-  closed: number;
-  conversion: number;
+  created_at: string;
+  status: string;
+  items: { quantity: number; price: number; product_id: string; product: { cost_price: number; name: string } | null }[];
+  branch: { id: string; name: string } | null;
+  employee: { id: string; name: string } | null;
 }
 
-interface BranchStat {
+interface ChatRow {
   id: string;
-  name: string;
-  city: string;
-  total: number;
-  closed: number;
+  branch_id: string;
+  last_message_at: string | null;
+  employee: { id: string; name: string } | null;
+  branch: { id: string; name: string; city: string } | null;
+  current_stage: string;
 }
 
-const STAGE_META: Record<string, { label: string; color: string }> = {
-  new:         { label: 'Новый',      color: 'bg-blue-500' },
-  negotiation: { label: 'Переговоры', color: 'bg-amber-500' },
-  quote:       { label: 'Счёт',       color: 'bg-purple-500' },
-  payment:     { label: 'Оплата',     color: 'bg-emerald-500' },
-  closed:      { label: 'Закрыт',     color: 'bg-gray-500' },
+// ── константы ─────────────────────────────────────────────────────────────────
+const STAGE_META: Record<string, { label: string; hex: string }> = {
+  new:         { label: 'Новый',      hex: '#3b82f6' },
+  negotiation: { label: 'Переговоры', hex: '#f59e0b' },
+  quote:       { label: 'Счёт',       hex: '#a855f7' },
+  payment:     { label: 'Оплата',     hex: '#10b981' },
+  closed:      { label: 'Закрыт',     hex: '#6b7280' },
 };
 
-const DATE_PERIODS = [
-  { key: 'all',   label: 'Всё время' },
-  { key: 'today', label: 'Сегодня' },
-  { key: 'week',  label: 'Неделя' },
-  { key: 'month', label: 'Месяц' },
+const PERIODS = [
+  { key: 'week',   label: 'Неделя' },
+  { key: 'month',  label: 'Месяц' },
+  { key: 'all',    label: 'Всё время' },
   { key: 'custom', label: 'Период' },
 ];
 
-function getPeriodDates(period: string, customFrom?: string, customTo?: string): { from?: Date; to?: Date } {
+function periodRange(key: string, from?: string, to?: string): { from: Date | null; to: Date | null } {
   const now = new Date();
-  if (period === 'today') {
-    const from = new Date(now); from.setHours(0, 0, 0, 0);
-    const to = new Date(now); to.setHours(23, 59, 59, 999);
-    return { from, to };
+  if (key === 'week') {
+    const f = new Date(now); f.setDate(now.getDate() - 6); f.setHours(0, 0, 0, 0);
+    return { from: f, to: now };
   }
-  if (period === 'week') {
-    const from = new Date(now); from.setDate(now.getDate() - 7); from.setHours(0, 0, 0, 0);
-    return { from, to: now };
+  if (key === 'month') {
+    const f = new Date(now); f.setDate(1); f.setHours(0, 0, 0, 0);
+    return { from: f, to: now };
   }
-  if (period === 'month') {
-    const from = new Date(now); from.setDate(1); from.setHours(0, 0, 0, 0);
-    return { from, to: now };
+  if (key === 'custom' && from && to) {
+    return { from: new Date(from), to: new Date(to + 'T23:59:59') };
   }
-  if (period === 'custom' && customFrom && customTo) {
-    return { from: new Date(customFrom), to: new Date(customTo + 'T23:59:59') };
-  }
-  return {};
+  return { from: null, to: null };
 }
 
-interface ReportsPanelProps {
-  onBack?: () => void;
+function fmtMoney(n: number) {
+  if (n >= 1_000_000) return `₸${(n / 1_000_000).toFixed(1)}М`;
+  if (n >= 1_000) return `₸${(n / 1_000).toFixed(0)}К`;
+  return `₸${n.toLocaleString()}`;
 }
 
-export function ReportsPanel({ onBack }: ReportsPanelProps) {
-  const [allChatsWithStage, setAllChatsWithStage] = useState<any[]>([]);
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ── компонент ─────────────────────────────────────────────────────────────────
+interface ReportsPanelProps { onBack?: () => void; }
+
+export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
+  const [sales, setSales] = useState<SaleRow[]>([]);
+  const [chats, setChats] = useState<ChatRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activePeriod, setActivePeriod] = useState('all');
+  const [period, setPeriod] = useState('month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchStats = async () => {
-    const { data: chats } = await supabase
-      .from('chats')
-      .select('id, branch_id, last_message_at, employee:employees(id, name), branch:branches(id, name, city)');
+  async function fetchAll() {
+    setLoading(true);
+    const [salesRes, chatsRes, stagesRes] = await Promise.all([
+      supabase
+        .from('sales')
+        .select(`id, branch_id, total, created_at, status,
+          items:sale_items(quantity, price, product_id, product:products(cost_price, name)),
+          branch:branches(id, name),
+          employee:employees(id, name)`)
+        .in('status', ['paid', 'partially_refunded'])
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('chats')
+        .select('id, branch_id, last_message_at, employee:employees(id, name), branch:branches(id, name, city)'),
+      supabase
+        .from('deal_stages')
+        .select('chat_id, current_stage, moved_to_stage_at')
+        .order('moved_to_stage_at', { ascending: false }),
+    ]);
 
-    const { data: stages } = await supabase
-      .from('deal_stages')
-      .select('chat_id, current_stage, moved_to_stage_at')
-      .order('moved_to_stage_at', { ascending: false });
+    setSales((salesRes.data ?? []) as SaleRow[]);
 
     const latestStage: Record<string, string> = {};
-    stages?.forEach((s) => {
+    (stagesRes.data ?? []).forEach((s: any) => {
       if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
     });
-
-    setAllChatsWithStage((chats ?? []).map(c => ({
+    setChats(((chatsRes.data ?? []) as any[]).map(c => ({
       ...c,
       current_stage: latestStage[c.id] ?? 'new',
     })));
     setLoading(false);
-  };
+  }
 
-  const { from: periodFrom, to: periodTo } = getPeriodDates(activePeriod, customFrom, customTo);
+  // ── фильтрация ──────────────────────────────────────────────────────────────
+  const { from: pFrom, to: pTo } = periodRange(period, customFrom, customTo);
 
-  const chatsWithStage = allChatsWithStage.filter(c => {
-    if (!periodFrom) return true;
+  const filteredSales = useMemo(() => sales.filter(s => {
+    const d = new Date(s.created_at);
+    if (pFrom && d < pFrom) return false;
+    if (pTo && d > pTo) return false;
+    return true;
+  }), [sales, pFrom, pTo]);
+
+  const filteredChats = useMemo(() => chats.filter(c => {
+    if (!pFrom) return true;
     const d = c.last_message_at ? new Date(c.last_message_at) : null;
     if (!d) return false;
-    if (periodFrom && d < periodFrom) return false;
-    if (periodTo && d > periodTo) return false;
+    if (pFrom && d < pFrom) return false;
+    if (pTo && d > pTo) return false;
     return true;
-  });
+  }), [chats, pFrom, pTo]);
 
-  const totalChats = chatsWithStage.length;
-  const totalClosed = chatsWithStage.filter(c => c.current_stage === 'closed').length;
-  const conversionRate = totalChats > 0 ? Math.round((totalClosed / totalChats) * 100) : 0;
+  // ── выручка и доход ─────────────────────────────────────────────────────────
+  const totalRevenue = useMemo(() =>
+    filteredSales.reduce((s, sale) => s + sale.total, 0), [filteredSales]);
 
-  const stageCounts: Record<string, number> = {};
-  chatsWithStage.forEach(c => {
-    stageCounts[c.current_stage] = (stageCounts[c.current_stage] ?? 0) + 1;
-  });
+  const totalCost = useMemo(() =>
+    filteredSales.reduce((sum, sale) =>
+      sum + (sale.items ?? []).reduce((s, item) =>
+        s + item.quantity * (item.product?.cost_price ?? 0), 0), 0),
+    [filteredSales]);
 
-  const stageStats: StageStats[] = Object.entries(STAGE_META).map(([key, meta]) => ({
-    stage: key, label: meta.label, color: meta.color, count: stageCounts[key] ?? 0,
+  const totalProfit = totalRevenue - totalCost;
+
+  // ── график по дням ──────────────────────────────────────────────────────────
+  const chartData = useMemo(() => {
+    const byDay: Record<string, number> = {};
+    filteredSales.forEach(s => {
+      const day = s.created_at.split('T')[0];
+      byDay[day] = (byDay[day] ?? 0) + s.total;
+    });
+    return Object.entries(byDay)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => ({ date, label: fmtDate(date), amount }));
+  }, [filteredSales]);
+
+  // ── топ-5 товаров ───────────────────────────────────────────────────────────
+  const topProducts = useMemo(() => {
+    const map: Record<string, { name: string; qty: number; revenue: number }> = {};
+    filteredSales.forEach(sale =>
+      (sale.items ?? []).forEach(item => {
+        const name = item.product?.name ?? item.product_id;
+        if (!map[name]) map[name] = { name, qty: 0, revenue: 0 };
+        map[name].qty += item.quantity;
+        map[name].revenue += item.quantity * item.price;
+      })
+    );
+    return Object.values(map)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [filteredSales]);
+
+  const maxProductRevenue = Math.max(...topProducts.map(p => p.revenue), 1);
+
+  // ── воронка сделок ──────────────────────────────────────────────────────────
+  const stageCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    filteredChats.forEach(ch => {
+      c[ch.current_stage] = (c[ch.current_stage] ?? 0) + 1;
+    });
+    return c;
+  }, [filteredChats]);
+
+  const funnelStages = Object.entries(STAGE_META).map(([key, meta]) => ({
+    key, ...meta, count: stageCounts[key] ?? 0,
   }));
+  const maxFunnelCount = Math.max(...funnelStages.map(s => s.count), 1);
 
-  const empMap: Record<string, EmployeeStat> = {};
-  chatsWithStage.forEach(c => {
-    const emp = c.employee as any;
-    if (!emp) return;
-    if (!empMap[emp.id]) empMap[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0, conversion: 0 };
-    empMap[emp.id].total++;
-    if (c.current_stage === 'closed') empMap[emp.id].closed++;
-  });
-  const employeeStats: EmployeeStat[] = Object.values(empMap).map(e => ({
-    ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0,
-  })).sort((a, b) => b.total - a.total);
+  // ── по филиалам ─────────────────────────────────────────────────────────────
+  const branchStats = useMemo(() => {
+    const map: Record<string, { id: string; name: string; revenue: number; profit: number }> = {};
+    filteredSales.forEach(sale => {
+      const br = sale.branch;
+      if (!br) return;
+      if (!map[br.id]) map[br.id] = { id: br.id, name: br.name, revenue: 0, profit: 0 };
+      const cost = (sale.items ?? []).reduce((s, i) => s + i.quantity * (i.product?.cost_price ?? 0), 0);
+      map[br.id].revenue += sale.total;
+      map[br.id].profit += sale.total - cost;
+    });
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+  }, [filteredSales]);
 
-  const branchMap: Record<string, BranchStat> = {};
-  chatsWithStage.forEach(c => {
-    const br = c.branch as any;
-    if (!br) return;
-    if (!branchMap[br.id]) branchMap[br.id] = { id: br.id, name: br.name, city: br.city, total: 0, closed: 0 };
-    branchMap[br.id].total++;
-    if (c.current_stage === 'closed') branchMap[br.id].closed++;
-  });
-  const branchStats: BranchStat[] = Object.values(branchMap).sort((a, b) => b.total - a.total);
+  // ── по менеджерам ────────────────────────────────────────────────────────────
+  const empStats = useMemo(() => {
+    const totalChatsCount = filteredChats.length;
+    const map: Record<string, { id: string; name: string; total: number; closed: number }> = {};
+    filteredChats.forEach(c => {
+      const emp = c.employee;
+      if (!emp) return;
+      if (!map[emp.id]) map[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0 };
+      map[emp.id].total++;
+      if (c.current_stage === 'closed') map[emp.id].closed++;
+    });
+    return Object.values(map)
+      .map(e => ({ ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0 }))
+      .sort((a, b) => b.total - a.total);
+    void totalChatsCount;
+  }, [filteredChats]);
 
-  const maxStageCount = Math.max(...stageStats.map(s => s.count), 1);
+  // ── tooltip ──────────────────────────────────────────────────────────────────
+  const ChartTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="rounded-xl px-3 py-2 text-xs shadow-lg" style={{ backgroundColor: '#2a3942', border: '1px solid #374045' }}>
+        <p style={{ color: '#8696a0' }} className="mb-1">{label}</p>
+        <p style={{ color: '#e9edef' }} className="font-semibold">₸{payload[0].value?.toLocaleString()}</p>
+      </div>
+    );
+  };
 
+  // ── рендер ───────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="flex-1 flex items-center justify-center">
+    <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: '#0b141a' }}>
       <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
+  const totalClosed = filteredChats.filter(c => c.current_stage === 'closed').length;
+  const totalChatsCount = filteredChats.length;
+  const conversionRate = totalChatsCount > 0 ? Math.round((totalClosed / totalChatsCount) * 100) : 0;
+
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0b141a] p-4">
-      {/* Фильтр по периоду */}
-      <div className="mb-4">
-        <div className="grid grid-cols-5 gap-1 mb-2">
-          {DATE_PERIODS.map(p => (
-            <button key={p.key} onClick={() => { setActivePeriod(p.key); setShowDatePicker(p.key === 'custom'); }}
-              className={`text-[10px] px-1 py-1.5 rounded-full transition-colors text-center ${
-                activePeriod === p.key ? 'bg-emerald-500 text-white' : 'bg-white/5 text-[#8696a0] hover:bg-white/10'
-              }`}>
+    <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ backgroundColor: '#0b141a' }}>
+
+      {/* ── Фильтр периода ── */}
+      <div className="space-y-2">
+        <div className="flex gap-1.5 flex-wrap">
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className="text-[11px] px-3 py-1.5 rounded-full transition-colors font-medium"
+              style={{
+                backgroundColor: period === p.key ? '#10b981' : 'rgba(255,255,255,0.05)',
+                color: period === p.key ? '#fff' : '#8696a0',
+              }}
+            >
               {p.label}
             </button>
           ))}
         </div>
-        {showDatePicker && (
+        {period === 'custom' && (
           <div className="flex gap-2">
-            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
-            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-              className="flex-1 bg-[#202c33] text-[#d1d7db] text-xs rounded-lg px-2 py-1.5 outline-none border border-white/5" />
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+              className="flex-1 text-xs rounded-lg px-2 py-1.5 outline-none"
+              style={{ backgroundColor: '#202c33', color: '#d1d7db', border: '1px solid rgba(255,255,255,0.05)' }} />
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+              className="flex-1 text-xs rounded-lg px-2 py-1.5 outline-none"
+              style={{ backgroundColor: '#202c33', color: '#d1d7db', border: '1px solid rgba(255,255,255,0.05)' }} />
           </div>
         )}
       </div>
 
-      {/* Top stats */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      {/* ── Топ метрики ── */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl p-4 space-y-1" style={{ backgroundColor: '#202c33' }}>
+          <p className="text-[10px] uppercase tracking-wide" style={{ color: '#8696a0' }}>Выручка</p>
+          <p className="text-2xl font-bold" style={{ color: '#e9edef' }}>₸{totalRevenue.toLocaleString()}</p>
+          <p className="text-[10px]" style={{ color: '#8696a0' }}>{filteredSales.length} продаж</p>
+        </div>
+        <div className="rounded-xl p-4 space-y-1" style={{ backgroundColor: '#202c33' }}>
+          <p className="text-[10px] uppercase tracking-wide" style={{ color: '#8696a0' }}>Доход</p>
+          <p className="text-2xl font-bold" style={{ color: totalProfit >= 0 ? '#10b981' : '#f87171' }}>
+            ₸{totalProfit.toLocaleString()}
+          </p>
+          <p className="text-[10px]" style={{ color: '#8696a0' }}>
+            Маржа {totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0}%
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Всего чатов',    value: totalChats,           color: 'text-[#e9edef]' },
-          { label: 'Закрыто сделок', value: totalClosed,          color: 'text-emerald-400' },
-          { label: 'Конверсия',      value: `${conversionRate}%`, color: 'text-amber-400' },
-        ].map((m) => (
-          <div key={m.label} className="bg-[#202c33] rounded-xl p-3">
-            <p className="text-[10px] text-[#8696a0] mb-1 leading-tight">{m.label}</p>
-            <p className={`text-xl font-bold ${m.color}`}>{m.value}</p>
+          { label: 'Чатов',    value: totalChatsCount, color: '#e9edef' },
+          { label: 'Закрыто',  value: totalClosed,     color: '#10b981' },
+          { label: 'Конверсия',value: `${conversionRate}%`, color: '#f59e0b' },
+        ].map(m => (
+          <div key={m.label} className="rounded-xl p-3" style={{ backgroundColor: '#202c33' }}>
+            <p className="text-[10px]" style={{ color: '#8696a0' }}>{m.label}</p>
+            <p className="text-lg font-bold mt-0.5" style={{ color: m.color }}>{m.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Воронка */}
-      <div className="bg-[#202c33] rounded-xl p-4 mb-3">
-        <h3 className="text-xs font-medium text-[#e9edef] mb-3">Воронка продаж</h3>
-        <div className="space-y-3">
-          {stageStats.map((s) => (
-            <div key={s.stage}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${s.color}`} />
-                  <span className="text-xs text-[#d1d7db]">{s.label}</span>
+      {/* ── График продаж по дням ── */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
+        <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Продажи по дням</h3>
+        {chartData.length === 0 ? (
+          <p className="text-xs text-center py-6" style={{ color: '#8696a0' }}>Нет данных за период</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: '#8696a0', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: '#8696a0', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={fmtMoney}
+              />
+              <Tooltip content={<ChartTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="amount"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: '#10b981', stroke: '#111b21', strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* ── Воронка сделок ── */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
+        <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Воронка сделок</h3>
+        <div className="space-y-2">
+          {funnelStages.map((s, idx) => {
+            const widthPct = maxFunnelCount > 0 ? (s.count / maxFunnelCount) * 100 : 0;
+            const prev = idx > 0 ? funnelStages[idx - 1].count : null;
+            const convPct = prev && prev > 0 ? Math.round((s.count / prev) * 100) : null;
+            return (
+              <div key={s.key}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs" style={{ color: '#d1d7db' }}>{s.label}</span>
+                  <div className="flex items-center gap-2">
+                    {convPct !== null && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#8696a0' }}>
+                        {convPct}%
+                      </span>
+                    )}
+                    <span className="text-xs font-semibold tabular-nums" style={{ color: '#e9edef', minWidth: '2ch', textAlign: 'right' }}>
+                      {s.count}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-xs font-medium text-[#e9edef]">{s.count}</span>
+                <div className="h-5 rounded-md overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                  <div
+                    className="h-full rounded-md transition-all duration-500"
+                    style={{ width: `${widthPct}%`, backgroundColor: s.hex, opacity: 0.85 }}
+                  />
+                </div>
               </div>
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.count / maxStageCount) * 100}%` }} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* По филиалам */}
-      <div className="bg-[#202c33] rounded-xl p-4 mb-3">
-        <h3 className="text-xs font-medium text-[#e9edef] mb-3">По филиалам</h3>
-        {branchStats.length === 0 ? (
-          <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
+      {/* ── Топ-5 товаров ── */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
+        <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Топ товаров</h3>
+        {topProducts.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных</p>
         ) : (
           <div className="space-y-3">
-            {branchStats.map((b) => (
-              <div key={b.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-[#e9edef]">{b.name}</p>
-                  <p className="text-[10px] text-[#8696a0]">{b.city}</p>
+            {topProducts.map((p, idx) => (
+              <div key={p.name}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color: '#8696a0', minWidth: '1.2rem' }}>
+                      #{idx + 1}
+                    </span>
+                    <span className="text-xs truncate" style={{ color: '#d1d7db' }}>{p.name}</span>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <span className="text-xs font-semibold" style={{ color: '#e9edef' }}>
+                      {fmtMoney(p.revenue)}
+                    </span>
+                    <span className="text-[10px] ml-1" style={{ color: '#8696a0' }}>· {p.qty} шт</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium text-[#e9edef]">{b.total} чатов</p>
-                  <p className="text-[10px] text-emerald-400">
-                    {b.total > 0 ? Math.round((b.closed / b.total) * 100) : 0}% закрыто
-                  </p>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${(p.revenue / maxProductRevenue) * 100}%`, backgroundColor: '#3b82f6', opacity: 0.8 }}
+                  />
                 </div>
               </div>
             ))}
@@ -237,23 +411,51 @@ export function ReportsPanel({ onBack }: ReportsPanelProps) {
         )}
       </div>
 
-      {/* По менеджерам */}
-      <div className="bg-[#202c33] rounded-xl p-4">
-        <h3 className="text-xs font-medium text-[#e9edef] mb-3">По менеджерам</h3>
-        {employeeStats.length === 0 ? (
-          <p className="text-xs text-[#8696a0] text-center py-4">Нет данных</p>
+      {/* ── По филиалам ── */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
+        <h3 className="text-xs font-semibold mb-3" style={{ color: '#e9edef' }}>По филиалам</h3>
+        {branchStats.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных</p>
+        ) : (
+          <div>
+            <div className="grid grid-cols-3 gap-2 mb-2 pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {['Филиал', 'Выручка', 'Доход'].map(h => (
+                <p key={h} className="text-[10px] font-medium" style={{ color: '#8696a0' }}>{h}</p>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {branchStats.map(b => (
+                <div key={b.id} className="grid grid-cols-3 gap-2 items-center">
+                  <p className="text-xs truncate" style={{ color: '#d1d7db' }}>{b.name}</p>
+                  <p className="text-xs font-semibold" style={{ color: '#e9edef' }}>{fmtMoney(b.revenue)}</p>
+                  <p className="text-xs font-semibold" style={{ color: b.profit >= 0 ? '#10b981' : '#f87171' }}>
+                    {fmtMoney(b.profit)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── По менеджерам ── */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
+        <h3 className="text-xs font-semibold mb-3" style={{ color: '#e9edef' }}>По менеджерам</h3>
+        {empStats.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных</p>
         ) : (
           <div className="space-y-2">
-            {employeeStats.map((e) => (
-              <div key={e.id} className="bg-[#2a3942] rounded-xl p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+            {empStats.map(e => (
+              <div key={e.id} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: '#2a3942' }}>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#10b981,#0d9488)' }}>
                   {e.name[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-[#e9edef] truncate">{e.name}</p>
-                  <p className="text-[10px] text-[#8696a0]">{e.total} чатов · {e.closed} закрыто</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: '#e9edef' }}>{e.name}</p>
+                  <p className="text-[10px]" style={{ color: '#8696a0' }}>{e.total} чатов · {e.closed} закрыто</p>
                 </div>
-                <span className={`text-sm font-bold flex-shrink-0 ${e.conversion > 0 ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: e.conversion > 0 ? '#10b981' : '#8696a0' }}>
                   {e.conversion}%
                 </span>
               </div>
@@ -261,6 +463,7 @@ export function ReportsPanel({ onBack }: ReportsPanelProps) {
           </div>
         )}
       </div>
+
     </div>
   );
 }
