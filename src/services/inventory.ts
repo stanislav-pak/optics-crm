@@ -168,24 +168,21 @@ export async function addStockMovement(movement: Omit<StockMovement, 'id' | 'cre
 }
 
 export async function getStockMovements(branchId?: string, productId?: string) {
-  try {
-    const { data, error } = await supabase
-      .from('stock_movements')
-      .select('id, type, quantity, branch_id, status, created_at, product:products(id, name, sku), employee:employees(id, name)')
-      .order('created_at', { ascending: false })
-      .limit(200);
+  let query = supabase
+    .from('stock_movements')
+    .select('*, product:products(id, name, sku), employee:employees!stock_movements_created_by_fkey(id, name)')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-    if (error) {
-      alert('SUPABASE ERROR: ' + JSON.stringify(error));
-      throw error;
-    }
-
-    alert('MOVEMENTS: ' + (data?.length || 0) + ' | types: ' + data?.map(m => m.type).join(','));
-    return (data || []) as StockMovement[];
-  } catch (e) {
-    alert('CATCH ERROR: ' + String(e));
-    throw e;
+  if (branchId) {
+    query = query.or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`);
   }
+
+  if (productId) query = query.eq('product_id', productId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as StockMovement[];
 }
 
 // ============================================
