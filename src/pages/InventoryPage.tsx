@@ -9,7 +9,7 @@ import {
 import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, SaleStatus, Revision, Branch
+  StockMovement, PurchaseOrder, Sale, Revision, Branch
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
@@ -26,7 +26,7 @@ import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 import ReturnModal from '../components/Inventory/ReturnModal';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
 interface InventoryPageProps {
   branchId: string;
@@ -102,6 +102,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [woDateFrom, setWoDateFrom] = useState('');
   const [woDateTo, setWoDateTo] = useState('');
   const [woProductSearch, setWoProductSearch] = useState('');
+  // Фильтры возвратов
+  const [retFilterDate, setRetFilterDate] = useState<string>('all');
+  const [retFilterDateFrom, setRetFilterDateFrom] = useState('');
+  const [retFilterDateTo, setRetFilterDateTo] = useState('');
+  const [retFilterBranch, setRetFilterBranch] = useState('');
+  const [retProductSearch, setRetProductSearch] = useState('');
   // Фильтры ревизий
   const [rvFilterBranch, setRvFilterBranch] = useState('');
   const [rvFilterStatus, setRvFilterStatus] = useState('all');
@@ -120,7 +126,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [returnSale, setReturnSale] = useState<Sale | null>(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -249,7 +255,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }
 
   async function handleReturnSuccess() {
-    setReturnSale(null);
+    setShowReturnModal(false);
     setSalesRefreshKey(k => k + 1);
     await Promise.all([
       loadSales(),    // продажи + движения
@@ -265,6 +271,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'purchases', label: 'Приходы' },
     { key: 'sales', label: 'Продажи' },
     { key: 'writeoffs', label: 'Списания' },
+    { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
   ];
 
@@ -969,90 +976,52 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </div>
               ) : (
                 <div key={salesRefreshKey} className="space-y-3">
-                  {filteredSales.map(s => {
-                    const saleReturns = movements.filter(m => m.type === 'return' && m.reference_id === s.id);
-                    const returnedByProduct: Record<string, number> = {};
-                    saleReturns.forEach(r => {
-                      returnedByProduct[r.product_id] = (returnedByProduct[r.product_id] ?? 0) + r.quantity;
-                    });
-                    const totalReturnQty = saleReturns.reduce((sum, r) => sum + r.quantity, 0);
-                    const totalReturnAmount = saleReturns.reduce((sum, r) => {
-                      const saleItem = s.items?.find(i => i.product_id === r.product_id);
-                      return sum + r.quantity * (saleItem?.price ?? 0);
-                    }, 0);
-                    const hasReturns = saleReturns.length > 0;
-
-                    return (
-                      <div key={s.id}
-                        className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
-                        onClick={() => setSelectedSale(s)}>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
-                            <StatusBadge status={s.status} />
-                          </div>
+                  {filteredSales.map(s => (
+                    <div key={s.id}
+                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                      onClick={() => setSelectedSale(s)}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {(s.client as any)?.name || (s.client as any)?.phone || 'Без клиента'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(s.created_at).toLocaleDateString('ru-RU')} · {(s.employee as any)?.name}
+                          </p>
                         </div>
-
-                        {/* Товары + строки возвратов */}
-                        <div className="space-y-1">
-                          {s.items?.slice(0, 3).map((item, idx) => (
-                            <div key={idx}>
-                              <div className="flex justify-between text-xs text-gray-500">
-                                <span>{(item.product as any)?.name} × {item.quantity}</span>
-                                <span>₸{(item.quantity * item.price).toLocaleString()}</span>
-                              </div>
-                              {(returnedByProduct[item.product_id] ?? 0) > 0 && (
-                                <div className="flex justify-between text-xs text-orange-500 pl-2 mt-0.5">
-                                  <span>↩ Возврат × {returnedByProduct[item.product_id]}</span>
-                                  <span>−₸{(returnedByProduct[item.product_id] * item.price).toLocaleString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {(s.items?.length ?? 0) > 3 && (
-                            <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
-                          )}
-                          {hasReturns && (
-                            <div className="flex justify-between text-xs font-medium pt-1 border-t border-orange-100 mt-1">
-                              <span className="text-orange-600">
-                                {s.status === 'refunded' ? '↩ Полный возврат' : `↩ Частичный возврат · ${totalReturnQty} шт`}
-                              </span>
-                              <span className="text-orange-600">−₸{totalReturnAmount.toLocaleString()}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Оплата + кнопка Вернуть */}
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                          <span className="text-xs text-gray-500">
-                            {s.payment_method === 'cash' ? '💵 Наличные' :
-                             s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
-                            {s.paid_cash > 0 && s.paid_kaspi > 0 && (
-                              <span className="ml-1 text-gray-400">
-                                ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
-                              </span>
-                            )}
-                          </span>
-                          {(s.status === 'paid' || s.status === 'partially_refunded') && (
-                            <button
-                              onClick={e => { e.stopPropagation(); setReturnSale(s); }}
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
-                            >
-                              ↩ Вернуть
-                            </button>
-                          )}
+                        <div className="text-right">
+                          <p className="text-base font-bold text-gray-900">₸{s.total.toLocaleString()}</p>
+                          <StatusBadge status={s.status} />
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Товары */}
+                      <div className="space-y-1">
+                        {s.items?.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-500">
+                            <span>{(item.product as any)?.name} × {item.quantity}</span>
+                            <span>₸{(item.quantity * item.price).toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {(s.items?.length ?? 0) > 3 && (
+                          <p className="text-xs text-gray-400">+ ещё {(s.items?.length ?? 0) - 3} позиций</p>
+                        )}
+                      </div>
+
+                      {/* Оплата */}
+                      <div className="pt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-500">
+                          {s.payment_method === 'cash' ? '💵 Наличные' :
+                           s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                          {s.paid_cash > 0 && s.paid_kaspi > 0 && (
+                            <span className="ml-1 text-gray-400">
+                              ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1210,6 +1179,188 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         </div>
                         <div className="text-right flex-shrink-0">
                           <span className="text-sm font-semibold text-orange-600">−{m.quantity} шт</span>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(m.created_at).toLocaleDateString('ru-RU')}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ВОЗВРАТЫ */}
+        {tab === 'returns' && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
+
+          const allReturns = movements.filter(m => {
+            if (m.type !== 'return') return false;
+            if (role !== 'admin' && (m as any).branch_id !== branchId) return false;
+            return true;
+          });
+
+          const filteredReturns = allReturns.filter(m => {
+            if (role === 'admin' && retFilterBranch && (m as any).branch_id !== retFilterBranch) return false;
+            const mDate = m.created_at.split('T')[0];
+            if (retFilterDate === 'today' && mDate !== todayStr) return false;
+            if (retFilterDate === 'week' && new Date(mDate) < weekAgo) return false;
+            if (retFilterDate === 'month' && new Date(mDate) < monthAgo) return false;
+            if (retFilterDate === 'custom') {
+              if (retFilterDateFrom && mDate < retFilterDateFrom) return false;
+              if (retFilterDateTo && mDate > retFilterDateTo) return false;
+            }
+            if (retProductSearch) {
+              const name = ((m.product as any)?.name ?? '').toLowerCase();
+              if (!name.includes(retProductSearch.toLowerCase())) return false;
+            }
+            return true;
+          });
+
+          const hasFilters = retFilterDate !== 'all' || !!retProductSearch || (role === 'admin' && !!retFilterBranch);
+
+          const dateOptions = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
+          return (
+            <div className="space-y-3">
+
+              {/* Заголовок + кнопка */}
+              <div className="flex items-center justify-between gap-3">
+                {hasFilters ? (
+                  <p className="text-xs text-gray-400">
+                    Найдено: <span className="font-medium text-gray-600">{filteredReturns.length}</span> из {allReturns.length}
+                  </p>
+                ) : <span />}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <ExportBtn onClick={() => {
+                    const rows = filteredReturns.map(m => ({
+                      'Дата': new Date(m.created_at).toLocaleDateString('ru-RU'),
+                      'Товар': (m.product as any)?.name ?? '—',
+                      'Артикул': (m.product as any)?.sku ?? '—',
+                      'Количество': m.quantity,
+                      'Причина': m.notes ?? '—',
+                      'Сотрудник': (m.employee as any)?.name ?? '—',
+                      'Филиал': branches.find(b => b.id === (m as any).branch_id)?.name ?? '—',
+                    }));
+                    xlsxExport(rows, `возвраты_${xlsxDate()}.xlsx`);
+                  }} />
+                  <button
+                    onClick={() => setShowReturnModal(true)}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  >
+                    <Plus size={16} />
+                    Новый возврат
+                  </button>
+                </div>
+              </div>
+
+              {/* Фильтр по филиалу (только admin) */}
+              {role === 'admin' && (
+                <select
+                  value={retFilterBranch}
+                  onChange={e => setRetFilterBranch(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Все филиалы</option>
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.is_warehouse ? '🏭 ' : ''}{b.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Фильтр по дате */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', paddingBottom: '4px' }}>
+                {dateOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setRetFilterDate(o.value)}
+                    style={{ flexShrink: 0, whiteSpace: 'nowrap', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 500, border: retFilterDate === o.value ? 'none' : '1px solid #e5e7eb', backgroundColor: retFilterDate === o.value ? '#2563eb' : '#fff', color: retFilterDate === o.value ? '#fff' : '#4b5563', cursor: 'pointer' }}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Произвольный период */}
+              {retFilterDate === 'custom' && (
+                <div className="flex gap-2 items-center">
+                  <input type="date" value={retFilterDateFrom} onChange={e => setRetFilterDateFrom(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                  <input type="date" value={retFilterDateTo} onChange={e => setRetFilterDateTo(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+
+              {/* Поиск по товару */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={retProductSearch}
+                  onChange={e => setRetProductSearch(e.target.value)}
+                  placeholder="Поиск по названию товара..."
+                  className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+              </div>
+
+              {/* Сброс */}
+              {hasFilters && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => { setRetFilterDate('all'); setRetFilterDateFrom(''); setRetFilterDateTo(''); setRetFilterBranch(''); setRetProductSearch(''); }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Сбросить фильтры
+                  </button>
+                </div>
+              )}
+
+              {/* Список возвратов */}
+              {filteredReturns.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                  {hasFilters ? 'Нет возвратов по выбранным фильтрам' : 'Возвратов нет'}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  {filteredReturns.map(m => {
+                    const branchName = branches.find(b => b.id === (m as any).branch_id)?.name;
+                    const relatedSale = m.reference_id ? sales.find(s => s.id === m.reference_id) : null;
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100"
+                        onClick={() => setSelectedMovementId(m.id)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {(m.product as any)?.name ?? '—'}
+                          </p>
+                          {relatedSale && (
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">
+                              {(relatedSale.client as any)?.name || (relatedSale.client as any)?.phone || 'Без клиента'}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-0.5 truncate">
+                            {m.notes ? m.notes : <span className="italic text-gray-300">Причина не указана</span>}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {(m.employee as any)?.name ?? '—'}
+                            {branchName ? ` · ${branchName}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className="text-sm font-semibold text-blue-600">+{m.quantity} шт</span>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {new Date(m.created_at).toLocaleDateString('ru-RU')}
                           </p>
@@ -1477,11 +1628,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
 
-      {returnSale && (
+      {showReturnModal && (
         <ReturnModal
-          sale={returnSale}
+          sales={sales}
           employeeId={employeeId}
-          onClose={() => setReturnSale(null)}
+          onClose={() => setShowReturnModal(false)}
           onSuccess={handleReturnSuccess}
         />
       )}
