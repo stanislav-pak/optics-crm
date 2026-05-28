@@ -241,7 +241,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0.5 mt-3 pb-1 overflow-x-auto -mx-6 px-6">
+          <div className="flex flex-wrap gap-1 mt-3 pb-1">
             {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
               <button
                 key={t.key}
