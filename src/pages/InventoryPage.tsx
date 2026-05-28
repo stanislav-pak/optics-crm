@@ -435,6 +435,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           return (
             <div className="space-y-3">
 
+              {/* Кнопка списания — всегда видима, для всех ролей */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowWriteoff(true)}
+                  className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
+                >
+                  <Plus size={13} />
+                  Новое списание
+                </button>
+              </div>
+
               {/* Баннер входящих перемещений */}
               {incomingTransfers.length > 0 && (
                 <button
@@ -510,19 +521,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     onClick={() => { setMvTypeFilter('all'); setMvDateFilter('all'); setMvDateFrom(''); setMvDateTo(''); setMvProductSearch(''); }}
                     className="text-xs text-blue-600 hover:underline">
                     Сбросить фильтры
-                  </button>
-                </div>
-              )}
-
-              {/* Кнопка создания списания при фильтре «Списание» */}
-              {mvTypeFilter === 'writeoff' && role !== 'manager' && (
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setShowWriteoff(true)}
-                    className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
-                  >
-                    <Plus size={13} />
-                    Новое списание
                   </button>
                 </div>
               )}
