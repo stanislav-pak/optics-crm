@@ -5,7 +5,7 @@ export const useSwipeBack = (onBack: () => void) => {
     let startX = 0
     const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX }
     const onTouchEnd = (e: TouchEvent) => {
-      if (startX < 30 && e.changedTouches[0].clientX - startX > 80) onBack()
+      if (startX < 70 && e.changedTouches[0].clientX - startX > 80) onBack()
     }
     document.addEventListener('touchstart', onTouchStart)
     document.addEventListener('touchend', onTouchEnd)
