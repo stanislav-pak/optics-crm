@@ -108,6 +108,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [retFilterDateTo, setRetFilterDateTo] = useState('');
   const [retFilterBranch, setRetFilterBranch] = useState('');
   const [retProductSearch, setRetProductSearch] = useState('');
+  const [retExpanded, setRetExpanded] = useState<Set<string>>(new Set());
   // Фильтры ревизий
   const [rvFilterBranch, setRvFilterBranch] = useState('');
   const [rvFilterStatus, setRvFilterStatus] = useState('all');
@@ -1390,7 +1391,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
                           {/* Товары */}
                           <div className="space-y-1">
-                            {mvs.slice(0, 3).map((m, idx) => {
+                            {(retExpanded.has(groupKey) ? mvs : mvs.slice(0, 3)).map((m, idx) => {
                               const unitPrice = (m as any).price
                                 ?? relatedSale?.items?.find(i => i.product_id === m.product_id)?.price
                                 ?? 0;
@@ -1402,7 +1403,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                               );
                             })}
                             {mvs.length > 3 && (
-                              <p className="text-xs text-gray-400">+ ещё {mvs.length - 3} позиций</p>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setRetExpanded(prev => {
+                                    const next = new Set(prev);
+                                    next.has(groupKey) ? next.delete(groupKey) : next.add(groupKey);
+                                    return next;
+                                  });
+                                }}
+                                className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-0.5"
+                              >
+                                {retExpanded.has(groupKey) ? 'Скрыть' : `+ ещё ${mvs.length - 3} позиций`}
+                              </button>
                             )}
                           </div>
 
