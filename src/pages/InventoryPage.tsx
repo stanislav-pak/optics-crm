@@ -107,7 +107,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     try { const al = await getLowStockAlerts(scopeId); setAlerts(al); }
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
-    try { const mv = await getStockMovements(scopeId); setMovements(mv); }
+    try {
+      const mv = await getStockMovements(scopeId);
+      console.log('movements loaded:', mv.length, mv.map(m => m.type));
+      console.log('transfer movements:', mv.filter(m => m.type === 'transfer').length);
+      setMovements(mv);
+    }
     catch (e) { console.error('getStockMovements error:', e); }
 
     try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }

@@ -179,10 +179,12 @@ export async function getStockMovements(branchId?: string, productId?: string) {
     .limit(100);
 
   // Для transfer нужно видеть движения как отправителя так и получателя
+  console.log('getStockMovements called, branchId:', branchId);
   if (branchId) query = query.or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`);
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
+  console.log('getStockMovements result:', data?.length, 'error:', error);
   if (error) {
     console.error('getStockMovements error:', error);
     throw error;
