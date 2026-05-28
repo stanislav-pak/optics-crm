@@ -177,9 +177,6 @@ function AppContent() {
   };
 
   const handleBack = () => {
-    const previousView = mobileHistory[mobileHistory.length - 1] ?? 'unknown';
-    console.log('onBack called, current mobileView:', mobileView, '| adminView:', adminView);
-    alert('back called from: ' + previousView);
     setActiveChat(null);
     setMobileView('list');
     if (isAdmin) setAdminView('dashboard');
