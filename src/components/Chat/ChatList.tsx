@@ -179,6 +179,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         const map: Record<string, string> = {};
         // order DESC → первый попавшийся для каждого chat_id — самый последний
         data?.forEach(s => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
+        console.log('stageMap:', map);
         setStageMap(map);
       });
   };
@@ -367,11 +368,14 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
             <p className="text-sm text-[#8696a0]">{search ? 'Ничего не найдено' : 'Нет чатов'}</p>
           </div>
         )}
-        {!loading && filteredByStage.map((chat) => (
-          <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
-            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
-            stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
-        ))}
+        {!loading && filteredByStage.map((chat) => {
+          console.log('chat.id:', chat.id, '| stage for chat:', stageMap[chat.id]);
+          return (
+            <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
+              dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
+              stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
+          );
+        })}
       </div>
 
       {/* Stage tabs */}
