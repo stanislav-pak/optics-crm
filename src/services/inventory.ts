@@ -586,6 +586,9 @@ export async function createTransfer(
     .eq('branch_id', fromBranchId);
   if (stockErr) throw stockErr;
 
+  // Пересчитываем остатки отправителя
+  await supabase.rpc('recalculate_stock', { p_branch_id: fromBranchId });
+
   // Создаём движение со статусом in_transit
   const { error } = await supabase.from('stock_movements').insert({
     product_id: productId,
@@ -638,6 +641,10 @@ export async function confirmTransfer(
       quantity: confirmedQuantity,
     });
   }
+
+  // Пересчитываем остатки получателя и отправителя
+  await supabase.rpc('recalculate_stock', { p_branch_id: movement.to_branch_id });
+  await supabase.rpc('recalculate_stock', { p_branch_id: movement.branch_id });
 
   // Обновляем движение
   const { error: updateErr } = await supabase.from('stock_movements').update({
