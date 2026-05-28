@@ -20,6 +20,7 @@ import IncomingTransfersModal from '../components/Inventory/IncomingTransfersMod
 import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
+import LowStockModal from '../components/Inventory/LowStockModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -66,6 +67,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
+  const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ branch_id: string; to_branch_id: string; quantity: number }[]>([]);
 
   // Загружаем филиалы один раз при монтировании
@@ -196,10 +198,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-900">Склад</h1>
           {alerts.length > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm">
+            <button
+              onClick={() => setShowLowStock(true)}
+              className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-100 transition-colors"
+            >
               <AlertTriangle size={16} />
               <span>{alerts.length} товаров заканчивается</span>
-            </div>
+            </button>
           )}
         </div>
 
@@ -958,6 +963,14 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       )}
       {showSuppliers && (
         <SuppliersModal onClose={() => setShowSuppliers(false)} />
+      )}
+
+      {showLowStock && (
+        <LowStockModal
+          alerts={alerts}
+          branchId={role === 'admin' ? undefined : branchId}
+          onClose={() => setShowLowStock(false)}
+        />
       )}
       {selectedBranch && (
         <BranchDetailModal

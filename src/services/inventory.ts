@@ -3,7 +3,7 @@ import type {
   Product, ProductCategory, Brand, Stock, StockMovement,
   Supplier, PurchaseOrder, PurchaseOrderItem,
   Sale, SaleItem, Revision, RevisionItem,
-  InventoryStats, StockAlert
+  InventoryStats, StockAlert, Branch
 } from '../types';
 
 // ============================================
@@ -136,14 +136,20 @@ export async function getLowStockAlerts(branchId?: string) {
       branch:branches(id, name)
     `);
 
+  // Для admin (branchId undefined) — не фильтруем, загружаем все филиалы
   if (branchId) query = query.eq('branch_id', branchId);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data as Stock[]).filter(
-    s => s.product && s.quantity <= (s.product as Product).min_stock
-  ) as unknown as StockAlert[];
+  return (data as Stock[])
+    .filter(s => s.product && s.quantity <= (s.product as Product).min_stock)
+    .map(s => ({
+      product: s.product as Product,
+      current_qty: s.quantity,
+      min_stock: (s.product as Product).min_stock,
+      branch: s.branch as Branch,
+    })) as StockAlert[];
 }
 
 // ============================================
