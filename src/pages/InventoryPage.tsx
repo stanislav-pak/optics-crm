@@ -256,7 +256,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             )}
             <button
               onClick={() => setShowWriteoff(true)}
-              className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
+              className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
             >
               <Trash2 size={13} />
               Списание
