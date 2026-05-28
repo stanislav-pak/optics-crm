@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users } from 'lucide-react';
 import {
   getProducts, getStock, getInventoryStats, getLowStockAlerts,
@@ -70,6 +70,13 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number }[]>([]);
 
+  // Pull-to-refresh
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const pullStartY = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const PULL_THRESHOLD = 80;
+
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
     supabase.from('branches').select('id, name, is_warehouse').order('name').then(({ data }) => {
@@ -91,8 +98,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   }, [tab]);
 
   async function loadAll() {
-    console.log('loadAll CALLED, branchId:', branchId, 'role:', role);
-    setMovements([]); // сброс перед загрузкой
     // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
     const scopeId = role === 'admin' ? undefined : branchId;
     setLoading(true);
@@ -109,13 +114,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     try { const al = await getLowStockAlerts(scopeId); setAlerts(al); }
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
-    try {
-      const mvBranchId = role === 'admin' ? undefined : branchId;
-      console.log('MOVEMENTS CALL branchId:', mvBranchId, 'role:', role);
-      const mv = await getStockMovements(mvBranchId);
-      console.log('MOVEMENTS RESULT:', mv?.length, mv?.map(m => m.type));
-      setMovements(mv || []);
-    }
+    try { const mv = await getStockMovements(role === 'admin' ? undefined : branchId); setMovements(mv); }
     catch (e) { console.error('getStockMovements error:', e); }
 
     try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }
@@ -199,8 +198,54 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     );
   }
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    pullStartY.current = e.touches[0].clientY;
+    setIsPulling(false);
+    setPullY(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+    if (scrollTop > 0) return; // не pull-to-refresh если не в самом верху
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy > 0) {
+      setPullY(Math.min(dy, PULL_THRESHOLD + 20));
+      setIsPulling(dy >= PULL_THRESHOLD);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPulling && !loading) {
+      loadAll();
+    }
+    setPullY(0);
+    setIsPulling(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      ref={scrollRef}
+      className="min-h-screen bg-gray-50 overflow-y-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh индикатор */}
+      {pullY > 10 && (
+        <div
+          className="flex items-center justify-center transition-all duration-150"
+          style={{ height: `${Math.min(pullY, PULL_THRESHOLD + 20)}px`, overflow: 'hidden' }}
+        >
+          <div className={`w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full ${isPulling || loading ? 'animate-spin' : ''}`}
+            style={{ opacity: Math.min(pullY / PULL_THRESHOLD, 1) }}
+          />
+        </div>
+      )}
+      {loading && pullY === 0 && (
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -217,10 +262,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
-          <button onClick={() => loadAll()} style={{background:'red', color:'white', padding:'4px 8px', fontSize:'12px', borderRadius:'4px', flexShrink:0}}>
-            Reload
-          </button>
+        <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
           {tabs.map(t => (
             <button
               key={t.key}
@@ -369,9 +411,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
           const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
-          console.log('all movements in state:', movements.length, movements.map(m => m.type));
-          console.log('mvTypeFilter:', mvTypeFilter);
-
           const filteredMovements = movements.filter(m => {
             // Фильтр по типу
             if (mvTypeFilter !== 'all' && m.type !== mvTypeFilter) return false;
@@ -394,8 +433,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
             return true;
           });
-
-          console.log('filteredMovements:', filteredMovements.length);
 
           const typeOptions: { value: string; label: string }[] = [
             { value: 'all', label: 'Все' },
@@ -548,15 +585,6 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                   </div>
                 </div>
               )}
-
-              <div style={{background:'yellow', padding:'8px', fontSize:'11px', marginBottom:'8px'}}>
-                total movements: {movements.length} |
-                transfer count: {movements.filter(m => m.type === 'transfer').length} |
-                filter: {mvTypeFilter}
-              </div>
-              <div style={{background:'orange', padding:'4px', fontSize:'10px'}}>
-                branchId prop: {branchId} | role: {role}
-              </div>
 
               <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" />
             </div>
