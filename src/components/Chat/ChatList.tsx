@@ -173,13 +173,15 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   }, [isAdmin]);
 
   const fetchStageMap = () => {
+    console.log('fetching stageMap, showAdminMobile:', showAdminMobile);
     supabase.from('deal_stages').select('chat_id, current_stage, moved_to_stage_at')
       .order('moved_to_stage_at', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('stageMap result: rows=', data?.length, 'error=', error, 'sample=', data?.slice(0, 3));
         const map: Record<string, string> = {};
         // order DESC → первый попавшийся для каждого chat_id — самый последний
         data?.forEach(s => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
-        console.log('stageMap:', map);
+        console.log('stageMap built:', map);
         setStageMap(map);
       });
   };
