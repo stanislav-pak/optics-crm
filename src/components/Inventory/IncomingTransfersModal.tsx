@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, PackageCheck } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, PackageCheck, AlertTriangle, CheckCircle } from 'lucide-react';
 import { getIncomingTransfers, confirmTransfer } from '../../services/inventory';
 
 interface IncomingTransfer {
@@ -22,14 +22,12 @@ interface Props {
 export default function IncomingTransfersModal({ branchId, employeeId, onClose, onUpdated }: Props) {
   const [transfers, setTransfers] = useState<IncomingTransfer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmedQtys, setConfirmedQtys] = useState<Record<string, number>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef<Record<string, boolean>>({});
 
-  useEffect(() => {
-    loadTransfers();
-  }, [branchId]);
+  useEffect(() => { loadTransfers(); }, [branchId]);
 
   // Свайп вправо — закрыть
   useEffect(() => {
@@ -53,7 +51,6 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
     try {
       const data = (await getIncomingTransfers(branchId)) as IncomingTransfer[];
       setTransfers(data);
-      // Дефолтное подтверждённое количество = ожидаемое
       const qtys: Record<string, number> = {};
       data.forEach(t => { qtys[t.id] = t.quantity; });
       setConfirmedQtys(qtys);
@@ -65,17 +62,19 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
   }
 
   async function handleConfirm(transferId: string) {
+    if (submittingRef.current[transferId]) return;
+    submittingRef.current[transferId] = true;
     setError(null);
-    setSubmitting(true);
+    setSubmittingId(transferId);
     try {
       await confirmTransfer(transferId, confirmedQtys[transferId] ?? 0, employeeId);
       setTransfers(prev => prev.filter(t => t.id !== transferId));
-      setExpandedId(null);
       onUpdated();
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
-      setSubmitting(false);
+      submittingRef.current[transferId] = false;
+      setSubmittingId(null);
     }
   }
 
@@ -88,6 +87,11 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
           <div className="flex items-center gap-2">
             <PackageCheck size={18} className="text-orange-500" />
             <h2 className="text-base font-semibold text-gray-900">Входящие перемещения</h2>
+            {transfers.length > 0 && (
+              <span className="bg-orange-100 text-orange-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                {transfers.length}
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
@@ -95,7 +99,7 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-6 h-6 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
@@ -105,117 +109,125 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
               Нет ожидающих перемещений
             </div>
           ) : transfers.map(t => {
-            const isExpanded = expandedId === t.id;
             const confirmedQty = confirmedQtys[t.id] ?? t.quantity;
             const discrepancy = t.quantity - confirmedQty;
+            const isSubmitting = submittingId === t.id;
 
             return (
-              <div
-                key={t.id}
-                className={`border rounded-xl overflow-hidden transition-colors ${
-                  isExpanded ? 'border-orange-200' : 'border-gray-200'
-                }`}
-              >
-                {/* Карточка перемещения */}
-                <div className="px-4 py-3 bg-white">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {t.product?.name ?? '—'}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Из: <span className="text-gray-600">{t.from_branch?.name ?? '—'}</span>
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs bg-orange-50 text-orange-600 border border-orange-100 px-2 py-0.5 rounded-full font-medium">
-                          Ожидается: {t.quantity} шт
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {new Date(t.created_at).toLocaleDateString('ru-RU')}
-                        </span>
-                      </div>
-                    </div>
-                    {!isExpanded && (
-                      <button
-                        onClick={() => setExpandedId(t.id)}
-                        className="flex-shrink-0 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors"
-                      >
-                        Принять
-                      </button>
-                    )}
-                  </div>
+              <div key={t.id} className="border border-orange-200 rounded-xl overflow-hidden bg-white">
+
+                {/* Шапка карточки */}
+                <div className="px-4 py-3 bg-orange-50 border-b border-orange-100">
+                  <p className="text-sm font-semibold text-gray-900 leading-snug">
+                    {t.product?.name ?? '—'}
+                  </p>
+                  {t.product?.sku && (
+                    <p className="text-xs text-gray-400 mt-0.5">{t.product.sku}</p>
+                  )}
                 </div>
 
-                {/* Форма подтверждения */}
-                {isExpanded && (
-                  <div className="border-t border-orange-100 bg-orange-50 px-4 py-3 space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Фактически получено
-                      </label>
-                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white">
-                        <button
-                          type="button"
-                          onMouseDown={e => {
-                            e.preventDefault();
-                            setConfirmedQtys(prev => ({ ...prev, [t.id]: Math.max(0, (prev[t.id] ?? t.quantity) - 1) }));
-                          }}
-                          className="px-4 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-r border-gray-200 flex-shrink-0"
-                        >−</button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={confirmedQty === 0 ? '' : String(confirmedQty)}
-                          onChange={e => {
-                            const val = parseInt(e.target.value.replace(/[^0-9]/g, '') || '0');
-                            setConfirmedQtys(prev => ({ ...prev, [t.id]: Math.min(val, t.quantity) }));
-                          }}
-                          className="flex-1 text-center text-sm py-2 border-0 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={e => {
-                            e.preventDefault();
-                            setConfirmedQtys(prev => ({ ...prev, [t.id]: Math.min((prev[t.id] ?? t.quantity) + 1, t.quantity) }));
-                          }}
-                          className="px-4 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-l border-gray-200 flex-shrink-0"
-                        >+</button>
-                      </div>
-
-                      {discrepancy > 0 && (
-                        <p className="text-xs text-red-500 mt-1 font-medium">
-                          ⚠️ Расхождение: {discrepancy} шт
-                        </p>
-                      )}
-                      {discrepancy === 0 && confirmedQty > 0 && (
-                        <p className="text-xs text-green-600 mt-1">✓ Количество совпадает</p>
-                      )}
-                    </div>
-
-                    {error && (
-                      <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setExpandedId(null); setError(null); }}
-                        className="flex-1 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-white bg-white"
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        onClick={() => handleConfirm(t.id)}
-                        disabled={submitting || confirmedQty === 0}
-                        className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium disabled:opacity-50"
-                      >
-                        {submitting ? 'Подтверждаем...' : 'Подтвердить'}
-                      </button>
-                    </div>
+                {/* Детали */}
+                <div className="px-4 py-3 space-y-2">
+                  {/* Откуда + дата */}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      Откуда:{' '}
+                      <span className="font-medium text-gray-700">
+                        {t.from_branch?.name ?? '—'}
+                      </span>
+                    </span>
+                    <span>{new Date(t.created_at).toLocaleDateString('ru-RU')}</span>
                   </div>
-                )}
+
+                  {/* Отправлено */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Отправлено:</span>
+                    <span className="text-sm font-semibold text-orange-600 tabular-nums">
+                      {t.quantity} шт
+                    </span>
+                  </div>
+
+                  {/* Степпер: фактически получено */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Фактически получено
+                    </label>
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setConfirmedQtys(prev => ({
+                            ...prev,
+                            [t.id]: Math.max(0, (prev[t.id] ?? t.quantity) - 1),
+                          }));
+                        }}
+                        className="px-4 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-r border-gray-200 flex-shrink-0"
+                      >−</button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={confirmedQty === 0 ? '' : String(confirmedQty)}
+                        onChange={e => {
+                          const val = parseInt(e.target.value.replace(/[^0-9]/g, '') || '0');
+                          setConfirmedQtys(prev => ({ ...prev, [t.id]: Math.min(val, t.quantity) }));
+                        }}
+                        className="flex-1 text-center text-sm py-2 border-0 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setConfirmedQtys(prev => ({
+                            ...prev,
+                            [t.id]: Math.min((prev[t.id] ?? t.quantity) + 1, t.quantity),
+                          }));
+                        }}
+                        className="px-4 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-l border-gray-200 flex-shrink-0"
+                      >+</button>
+                    </div>
+
+                    {/* Статус расхождения */}
+                    {discrepancy > 0 ? (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
+                        <p className="text-xs text-red-500 font-medium">
+                          Расхождение: {discrepancy} шт
+                        </p>
+                      </div>
+                    ) : confirmedQty > 0 ? (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <CheckCircle size={12} className="text-green-500 flex-shrink-0" />
+                        <p className="text-xs text-green-600">Количество совпадает</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Ошибка */}
+                  {error && submittingId === null && (
+                    <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                      {error}
+                    </p>
+                  )}
+
+                  {/* Кнопка подтверждения */}
+                  <button
+                    onClick={() => handleConfirm(t.id)}
+                    disabled={isSubmitting || confirmedQty === 0}
+                    className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors mt-1"
+                  >
+                    {isSubmitting ? 'Подтверждаем...' : 'Подтвердить приёмку'}
+                  </button>
+                </div>
               </div>
             );
           })}
+
+          {error && submittingId === null && transfers.length > 0 && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Footer */}

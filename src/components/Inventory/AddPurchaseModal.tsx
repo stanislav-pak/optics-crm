@@ -54,7 +54,9 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
         if (warehouse) setReceivingBranchId(warehouse.id);
       }
     });
-    getProducts(receivingBranchId).then(setProducts);
+    getProducts(receivingBranchId).then(data =>
+      setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
+    );
   }, [branchId]);
 
   // Предзаполнение из initialData после загрузки продуктов

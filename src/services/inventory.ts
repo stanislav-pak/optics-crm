@@ -178,7 +178,8 @@ export async function getStockMovements(branchId?: string, productId?: string) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  if (branchId) query = query.eq('branch_id', branchId);
+  // Для transfer нужно видеть движения как отправителя так и получателя
+  if (branchId) query = query.or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`);
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
@@ -665,8 +666,8 @@ export async function getIncomingTransfers(branchId: string) {
     .from('stock_movements')
     .select(`
       id, product_id, branch_id, to_branch_id, quantity, notes, created_at, status,
-      product:products!product_id(id, name, sku),
-      from_branch:branches!branch_id(id, name)
+      product:products!stock_movements_product_id_fkey(id, name, sku),
+      from_branch:branches!stock_movements_branch_id_fkey(id, name)
     `)
     .eq('to_branch_id', branchId)
     .eq('type', 'transfer')

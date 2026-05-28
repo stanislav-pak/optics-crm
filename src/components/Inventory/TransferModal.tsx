@@ -72,7 +72,12 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
       .select('*, product:products(id, name, sku, barcode, unit)')
       .eq('branch_id', fromBranchId)
       .gt('quantity', 0)
-      .then(({ data }) => setStockItems((data ?? []) as StockItem[]));
+      .then(({ data }) => {
+        const sorted = ([...(data ?? [])] as StockItem[]).sort((a, b) =>
+          a.product.name.localeCompare(b.product.name, 'ru')
+        );
+        setStockItems(sorted);
+      });
     setSelectedStock(null);
     setQuantity(1);
   }, [fromBranchId]);

@@ -39,7 +39,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [change, setChange] = useState(0);
 
   useEffect(() => {
-    getProducts(branchId).then(setProducts);
+    getProducts(branchId).then(data =>
+      setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
+    );
     supabase.from('clients').select('id, name, phone').eq('branch_id', branchId).then(({ data }) => setClients(data ?? []));
   }, [branchId]);
 

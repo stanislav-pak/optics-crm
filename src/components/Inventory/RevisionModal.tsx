@@ -56,7 +56,10 @@ export default function RevisionModal({ branchId, employeeId, existingRevisionId
         .eq('revision_id', rev.id)
         .order('created_at');
       setRevision(rev);
-      setItems(data ?? []);
+      const sorted = [...(data ?? [])].sort((a, b) =>
+        ((a.product as any)?.name ?? '').localeCompare((b.product as any)?.name ?? '', 'ru')
+      );
+      setItems(sorted);
     } catch (e: any) {
       alert('Ошибка: ' + (e?.message || String(e)));
       onClose();
