@@ -170,16 +170,29 @@ function AppContent() {
   const isManager = employee.role === 'manager';
   const isAdmin = employee.role === 'admin' || employee.role === 'branch_admin';
 
+  const [chatSource, setChatSource] = useState<'list' | 'crm'>('list');
+
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
+    setChatSource('list');
     if (isAdmin) setAdminView('chat');
     if (isMobile) setMobileView('chat');
   };
 
+  const handleOpenChatFromCRM = (chat: Chat) => {
+    setActiveChat(chat);
+    setChatSource('crm');
+    setMobileView('chat');
+  };
+
   const handleBack = () => {
     setActiveChat(null);
-    setMobileView('list');
-    if (isAdmin) setAdminView('dashboard');
+    if (chatSource === 'crm') {
+      setMobileView('manager-crm');
+    } else {
+      setMobileView('list');
+      if (isAdmin) setAdminView('dashboard');
+    }
   };
 
   const handleBackToList = () => {
@@ -354,7 +367,7 @@ function AppContent() {
       ) : activeChat ? (
         <>
           <div className="flex-1 flex flex-col overflow-hidden">
-            <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={isMobile ? handleBack : undefined} />
+            <ChatWindow chat={activeChat} onArchive={handleArchive} onBack={isMobile ? handleBack : undefined} source={chatSource} />
           </div>
           {!isMobile && <CRMSidebar chat={activeChat} />}
         </>
@@ -377,7 +390,7 @@ function AppContent() {
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
           {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
-          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />}
+          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onOpenChat={handleOpenChatFromCRM} />}
           {mobileView === 'inventory' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Склад" />

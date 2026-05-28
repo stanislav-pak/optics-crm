@@ -3,14 +3,16 @@ import { supabase } from '../../services/supabase';
 import { CRMSidebar } from './CRMSidebar';
 import type { Chat } from '../../types';
 
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новый', in_progress: 'В работе', deal: 'Ожид. оплаты', paid: 'Оплачено', closed: 'Закрыт',
+// Метки и цвета берём из deal_stages.current_stage (не clients.status)
+const STAGE_LABELS: Record<string, string> = {
+  new: 'Новый', negotiation: 'Переговоры', quote: 'Счёт',
+  payment: 'В ожидании оплаты', closed: 'Закрыт',
 };
-const STATUS_COLORS: Record<string, string> = {
+const STAGE_COLORS: Record<string, string> = {
   new: 'text-emerald-400 bg-emerald-500/20',
-  in_progress: 'text-blue-400 bg-blue-500/20',
-  deal: 'text-purple-400 bg-purple-500/20',
-  paid: 'text-amber-400 bg-amber-500/20',
+  negotiation: 'text-blue-400 bg-blue-500/20',
+  quote: 'text-purple-400 bg-purple-500/20',
+  payment: 'text-amber-400 bg-amber-500/20',
   closed: 'text-gray-400 bg-gray-500/20',
 };
 const PRIORITY_COLORS: Record<string, string> = {
@@ -35,9 +37,10 @@ function formatDate(dateStr?: string): string {
 interface ManagerCRMPanelProps {
   onBack: () => void;
   employeeId?: string;
+  onOpenChat?: (chat: Chat) => void;
 }
 
-export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
+export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPanelProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -45,6 +48,8 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // stageMap: chat_id → последний этап из deal_stages
+  const [stageMap, setStageMap] = useState<Record<string, string>>({});
 
   // selectedChat ref для свайпа
   const selectedChatRef = useRef<Chat | null>(null);
@@ -80,11 +85,17 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
         .eq('employee_id', employeeId).eq('is_sent', false).order('remind_at', { ascending: true }),
       supabase.from('comments').select('id, text, created_at, chat_id, chat:chats(id, client:clients(name, phone))')
         .eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(10),
-    ]).then(([c, t, r, cm]) => {
+      supabase.from('deal_stages').select('chat_id, current_stage, moved_to_stage_at')
+        .order('moved_to_stage_at', { ascending: false }),
+    ]).then(([c, t, r, cm, ds]) => {
       setChats((c.data ?? []) as Chat[]);
       setTasks((t.data ?? []) as Task[]);
       setReminders((r.data ?? []) as Reminder[]);
       setComments((cm.data ?? []) as Comment[]);
+      // Строим stageMap: берём только первую (последнюю по времени) запись на чат
+      const map: Record<string, string> = {};
+      (ds.data ?? []).forEach((s: any) => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
+      setStageMap(map);
       setLoading(false);
     });
   }, [employeeId, refreshKey]);
@@ -115,6 +126,16 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
             </p>
             <p className="text-xs text-[#8696a0]">{selectedChat.client?.phone}</p>
           </div>
+          {onOpenChat && (
+            <button
+              onClick={() => onOpenChat(selectedChat)}
+              title="Открыть чат"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 active:scale-95 transition-transform flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-hidden">
           <CRMSidebar chat={selectedChat} />
@@ -256,11 +277,14 @@ export function ManagerCRMPanel({ onBack, employeeId }: ManagerCRMPanelProps) {
                         </p>
                         <p className="text-xs text-[#8696a0]">{chat.client?.phone}</p>
                       </div>
-                      {chat.client?.status && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[chat.client.status] ?? 'text-gray-400 bg-gray-500/20'}`}>
-                          {STATUS_LABELS[chat.client.status] ?? chat.client.status}
-                        </span>
-                      )}
+                      {(() => {
+                        const stage = stageMap[chat.id] ?? 'new';
+                        return (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STAGE_COLORS[stage] ?? 'text-gray-400 bg-gray-500/20'}`}>
+                            {STAGE_LABELS[stage] ?? stage}
+                          </span>
+                        );
+                      })()}
                       <svg className="w-4 h-4 text-[#8696a0] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

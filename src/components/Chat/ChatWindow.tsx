@@ -11,6 +11,7 @@ interface ChatWindowProps {
   chat: Chat;
   onArchive?: () => void;
   onBack?: () => void;
+  source?: 'list' | 'crm';
 }
 
 interface PendingFile {
@@ -119,7 +120,7 @@ function ContactMessage({ content, isOutbound, time, isRead }: {
   );
 }
 
-export function ChatWindow({ chat, onArchive, onBack }: ChatWindowProps) {
+export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWindowProps) {
   const { employee } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
