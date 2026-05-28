@@ -1408,7 +1408,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           sale={returnSale}
           employeeId={employeeId}
           onClose={() => setReturnSale(null)}
-          onSuccess={() => { loadAll(); setReturnSale(null); }}
+          onSuccess={() => loadAll()}
         />
       )}
 
