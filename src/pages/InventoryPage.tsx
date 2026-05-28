@@ -348,48 +348,55 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
         {/* ТОВАРЫ */}
         {tab === 'products' && (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Поиск по названию, SKU, штрихкоду..."
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <ExportBtn onClick={() => {
-                // Карта: productId → последний поставщик из приходов
-                const supplierMap: Record<string, string> = {};
-                purchases.forEach(po => {
-                  const sName = (po.supplier as any)?.name;
-                  if (!sName) return;
-                  po.items?.forEach(i => { if (!supplierMap[i.product_id]) supplierMap[i.product_id] = sName; });
-                });
-                const rows = filteredProducts.map(p => {
-                  const qty = stock
-                    .filter(s => s.product_id === p.id)
-                    .reduce((sum, s) => sum + s.quantity, 0);
-                  return {
-                    'Название': p.name,
-                    'SKU / Артикул': p.sku ?? '—',
-                    'Штрихкод': p.barcode ?? '—',
-                    'Остаток (шт)': qty,
-                    'Цена закупочная': p.cost_price,
-                    'Цена продажная': p.price,
-                    'Разница цен': p.price - p.cost_price,
-                    'Поставщик': supplierMap[p.id] ?? '—',
-                  };
-                });
-                xlsxExport(rows, `товары_${xlsxDate()}.xlsx`);
-              }} />
+          <div className="space-y-3">
+            {/* Поиск — на всю ширину */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Поиск по названию, SKU, штрихкоду..."
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {/* Кнопки — Экспорт и Добавить */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const supplierMap: Record<string, string> = {};
+                  purchases.forEach(po => {
+                    const sName = (po.supplier as any)?.name;
+                    if (!sName) return;
+                    po.items?.forEach(i => { if (!supplierMap[i.product_id]) supplierMap[i.product_id] = sName; });
+                  });
+                  const rows = filteredProducts.map(p => {
+                    const qty = stock
+                      .filter(s => s.product_id === p.id)
+                      .reduce((sum, s) => sum + s.quantity, 0);
+                    return {
+                      'Название': p.name,
+                      'SKU / Артикул': p.sku ?? '—',
+                      'Штрихкод': p.barcode ?? '—',
+                      'Остаток (шт)': qty,
+                      'Цена закупочная': p.cost_price,
+                      'Цена продажная': p.price,
+                      'Разница цен': p.price - p.cost_price,
+                      'Поставщик': supplierMap[p.id] ?? '—',
+                    };
+                  });
+                  xlsxExport(rows, `товары_${xlsxDate()}.xlsx`);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <Download size={15} />
+                Экспорт
+              </button>
               {role !== 'manager' && (
                 <button
                   onClick={() => setShowAddProduct(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
                 >
-                  <Plus size={16} />
+                  <Plus size={15} />
                   Добавить
                 </button>
               )}
