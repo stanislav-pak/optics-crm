@@ -1,9 +1,30 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Component, type ReactNode } from 'react';
 import { supabase } from '../../services/supabase';
-import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, BarChart, Bar, Cell,
-} from 'recharts';
+
+// ── ErrorBoundary ─────────────────────────────────────────────────────────────
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  componentDidCatch(e: Error, info: any) { console.error('[ReportsPanel] crash:', e, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0b141a' }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: '#f87171' }}>Ошибка в аналитике</p>
+          <p className="text-xs text-center" style={{ color: '#8696a0' }}>{this.state.error}</p>
+          <button
+            onClick={() => this.setState({ error: null })}
+            className="mt-4 px-4 py-2 rounded-lg text-xs"
+            style={{ backgroundColor: '#202c33', color: '#e9edef' }}
+          >
+            Попробовать снова
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── типы ──────────────────────────────────────────────────────────────────────
 interface SaleRow {
@@ -65,17 +86,18 @@ function fmtMoney(n: number) {
 }
 
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+  try {
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+  } catch { return iso; }
 }
 
-// ── компонент ─────────────────────────────────────────────────────────────────
-interface ReportsPanelProps { onBack?: () => void; }
-
-export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
+// ── внутренний компонент (обёрнут в ErrorBoundary снаружи) ────────────────────
+function ReportsPanelInner() {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [chats, setChats] = useState<ChatRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [period, setPeriod] = useState('month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -84,105 +106,164 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
 
   async function fetchAll() {
     setLoading(true);
-    const [salesRes, chatsRes, stagesRes] = await Promise.all([
-      supabase
-        .from('sales')
-        .select(`id, branch_id, total, created_at, status,
-          items:sale_items(quantity, price, product_id, product:products(cost_price, name)),
-          branch:branches(id, name),
-          employee:employees(id, name)`)
-        .in('status', ['paid', 'partially_refunded'])
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('chats')
-        .select('id, branch_id, last_message_at, employee:employees(id, name), branch:branches(id, name, city)'),
-      supabase
-        .from('deal_stages')
-        .select('chat_id, current_stage, moved_to_stage_at')
-        .order('moved_to_stage_at', { ascending: false }),
-    ]);
+    setLoadError(null);
+    try {
+      console.log('[ReportsPanel] fetchAll start');
 
-    setSales((salesRes.data ?? []) as SaleRow[]);
+      // 1. Продажи
+      let salesData: SaleRow[] = [];
+      try {
+        const res = await supabase
+          .from('sales')
+          .select(`id, branch_id, total, created_at, status,
+            items:sale_items(quantity, price, product_id, product:products(cost_price, name)),
+            branch:branches(id, name),
+            employee:employees(id, name)`)
+          .in('status', ['paid', 'partially_refunded'])
+          .order('created_at', { ascending: true });
+        if (res.error) {
+          console.error('[ReportsPanel] sales error:', res.error);
+        } else {
+          salesData = (res.data ?? []) as SaleRow[];
+          console.log('[ReportsPanel] sales loaded:', salesData.length);
+        }
+      } catch (e) { console.error('[ReportsPanel] sales fetch exception:', e); }
+      setSales(salesData);
 
-    const latestStage: Record<string, string> = {};
-    (stagesRes.data ?? []).forEach((s: any) => {
-      if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
-    });
-    setChats(((chatsRes.data ?? []) as any[]).map(c => ({
-      ...c,
-      current_stage: latestStage[c.id] ?? 'new',
-    })));
-    setLoading(false);
+      // 2. Чаты
+      let chatsData: any[] = [];
+      try {
+        const res = await supabase
+          .from('chats')
+          .select('id, branch_id, last_message_at, employee:employees(id, name), branch:branches(id, name, city)');
+        if (res.error) {
+          console.error('[ReportsPanel] chats error:', res.error);
+        } else {
+          chatsData = res.data ?? [];
+          console.log('[ReportsPanel] chats loaded:', chatsData.length);
+        }
+      } catch (e) { console.error('[ReportsPanel] chats fetch exception:', e); }
+
+      // 3. Стадии
+      let stagesData: any[] = [];
+      try {
+        const res = await supabase
+          .from('deal_stages')
+          .select('chat_id, current_stage, moved_to_stage_at')
+          .order('moved_to_stage_at', { ascending: false });
+        if (res.error) {
+          console.error('[ReportsPanel] stages error:', res.error);
+        } else {
+          stagesData = res.data ?? [];
+          console.log('[ReportsPanel] stages loaded:', stagesData.length);
+        }
+      } catch (e) { console.error('[ReportsPanel] stages fetch exception:', e); }
+
+      // Сборка чатов со стадиями
+      try {
+        const latestStage: Record<string, string> = {};
+        stagesData.forEach((s: any) => {
+          if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
+        });
+        setChats(chatsData.map((c: any) => ({
+          ...c,
+          current_stage: latestStage[c.id] ?? 'new',
+        })));
+      } catch (e) { console.error('[ReportsPanel] chats merge exception:', e); }
+
+      console.log('[ReportsPanel] fetchAll done');
+    } catch (e) {
+      console.error('[ReportsPanel] fetchAll outer exception:', e);
+      setLoadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
   }
 
   // ── фильтрация ──────────────────────────────────────────────────────────────
   const { from: pFrom, to: pTo } = periodRange(period, customFrom, customTo);
 
-  const filteredSales = useMemo(() => sales.filter(s => {
-    const d = new Date(s.created_at);
-    if (pFrom && d < pFrom) return false;
-    if (pTo && d > pTo) return false;
-    return true;
-  }), [sales, pFrom, pTo]);
+  const filteredSales = useMemo(() => {
+    try {
+      return sales.filter(s => {
+        const d = new Date(s.created_at);
+        if (pFrom && d < pFrom) return false;
+        if (pTo && d > pTo) return false;
+        return true;
+      });
+    } catch (e) { console.error('[ReportsPanel] filteredSales error:', e); return []; }
+  }, [sales, pFrom, pTo]);
 
-  const filteredChats = useMemo(() => chats.filter(c => {
-    if (!pFrom) return true;
-    const d = c.last_message_at ? new Date(c.last_message_at) : null;
-    if (!d) return false;
-    if (pFrom && d < pFrom) return false;
-    if (pTo && d > pTo) return false;
-    return true;
-  }), [chats, pFrom, pTo]);
+  const filteredChats = useMemo(() => {
+    try {
+      return chats.filter(c => {
+        if (!pFrom) return true;
+        const d = c.last_message_at ? new Date(c.last_message_at) : null;
+        if (!d) return false;
+        if (pFrom && d < pFrom) return false;
+        if (pTo && d > pTo) return false;
+        return true;
+      });
+    } catch (e) { console.error('[ReportsPanel] filteredChats error:', e); return []; }
+  }, [chats, pFrom, pTo]);
 
   // ── выручка и доход ─────────────────────────────────────────────────────────
-  const totalRevenue = useMemo(() =>
-    filteredSales.reduce((s, sale) => s + sale.total, 0), [filteredSales]);
+  const totalRevenue = useMemo(() => {
+    try { return filteredSales.reduce((s, sale) => s + (sale.total ?? 0), 0); }
+    catch (e) { console.error('[ReportsPanel] totalRevenue error:', e); return 0; }
+  }, [filteredSales]);
 
-  const totalCost = useMemo(() =>
-    filteredSales.reduce((sum, sale) =>
-      sum + (sale.items ?? []).reduce((s, item) =>
-        s + item.quantity * (item.product?.cost_price ?? 0), 0), 0),
-    [filteredSales]);
+  const totalCost = useMemo(() => {
+    try {
+      return filteredSales.reduce((sum, sale) =>
+        sum + (sale.items ?? []).reduce((s, item) =>
+          s + (item.quantity ?? 0) * (item.product?.cost_price ?? 0), 0), 0);
+    } catch (e) { console.error('[ReportsPanel] totalCost error:', e); return 0; }
+  }, [filteredSales]);
 
   const totalProfit = totalRevenue - totalCost;
 
-  // ── график по дням ──────────────────────────────────────────────────────────
+  // ── данные по дням (простой список вместо графика) ──────────────────────────
   const chartData = useMemo(() => {
-    const byDay: Record<string, number> = {};
-    filteredSales.forEach(s => {
-      const day = s.created_at.split('T')[0];
-      byDay[day] = (byDay[day] ?? 0) + s.total;
-    });
-    return Object.entries(byDay)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, amount]) => ({ date, label: fmtDate(date), amount }));
+    try {
+      const byDay: Record<string, number> = {};
+      filteredSales.forEach(s => {
+        const day = (s.created_at ?? '').split('T')[0];
+        if (day) byDay[day] = (byDay[day] ?? 0) + (s.total ?? 0);
+      });
+      return Object.entries(byDay)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, amount]) => ({ date, label: fmtDate(date), amount }));
+    } catch (e) { console.error('[ReportsPanel] chartData error:', e); return []; }
   }, [filteredSales]);
+
+  const maxChartAmount = Math.max(...chartData.map(d => d.amount), 1);
 
   // ── топ-5 товаров ───────────────────────────────────────────────────────────
   const topProducts = useMemo(() => {
-    const map: Record<string, { name: string; qty: number; revenue: number }> = {};
-    filteredSales.forEach(sale =>
-      (sale.items ?? []).forEach(item => {
-        const name = item.product?.name ?? item.product_id;
-        if (!map[name]) map[name] = { name, qty: 0, revenue: 0 };
-        map[name].qty += item.quantity;
-        map[name].revenue += item.quantity * item.price;
-      })
-    );
-    return Object.values(map)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+    try {
+      const map: Record<string, { name: string; qty: number; revenue: number }> = {};
+      filteredSales.forEach(sale =>
+        (sale.items ?? []).forEach(item => {
+          const name = item.product?.name ?? item.product_id ?? '—';
+          if (!map[name]) map[name] = { name, qty: 0, revenue: 0 };
+          map[name].qty += item.quantity ?? 0;
+          map[name].revenue += (item.quantity ?? 0) * (item.price ?? 0);
+        })
+      );
+      return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    } catch (e) { console.error('[ReportsPanel] topProducts error:', e); return []; }
   }, [filteredSales]);
 
   const maxProductRevenue = Math.max(...topProducts.map(p => p.revenue), 1);
 
-  // ── воронка сделок ──────────────────────────────────────────────────────────
+  // ── воронка ─────────────────────────────────────────────────────────────────
   const stageCounts = useMemo(() => {
-    const c: Record<string, number> = {};
-    filteredChats.forEach(ch => {
-      c[ch.current_stage] = (c[ch.current_stage] ?? 0) + 1;
-    });
-    return c;
+    try {
+      const c: Record<string, number> = {};
+      filteredChats.forEach(ch => { c[ch.current_stage] = (c[ch.current_stage] ?? 0) + 1; });
+      return c;
+    } catch (e) { console.error('[ReportsPanel] stageCounts error:', e); return {}; }
   }, [filteredChats]);
 
   const funnelStages = Object.entries(STAGE_META).map(([key, meta]) => ({
@@ -192,50 +273,51 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
 
   // ── по филиалам ─────────────────────────────────────────────────────────────
   const branchStats = useMemo(() => {
-    const map: Record<string, { id: string; name: string; revenue: number; profit: number }> = {};
-    filteredSales.forEach(sale => {
-      const br = sale.branch;
-      if (!br) return;
-      if (!map[br.id]) map[br.id] = { id: br.id, name: br.name, revenue: 0, profit: 0 };
-      const cost = (sale.items ?? []).reduce((s, i) => s + i.quantity * (i.product?.cost_price ?? 0), 0);
-      map[br.id].revenue += sale.total;
-      map[br.id].profit += sale.total - cost;
-    });
-    return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+    try {
+      const map: Record<string, { id: string; name: string; revenue: number; profit: number }> = {};
+      filteredSales.forEach(sale => {
+        const br = sale.branch;
+        if (!br) return;
+        if (!map[br.id]) map[br.id] = { id: br.id, name: br.name, revenue: 0, profit: 0 };
+        const cost = (sale.items ?? []).reduce((s, i) => s + (i.quantity ?? 0) * (i.product?.cost_price ?? 0), 0);
+        map[br.id].revenue += sale.total ?? 0;
+        map[br.id].profit += (sale.total ?? 0) - cost;
+      });
+      return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+    } catch (e) { console.error('[ReportsPanel] branchStats error:', e); return []; }
   }, [filteredSales]);
 
   // ── по менеджерам ────────────────────────────────────────────────────────────
   const empStats = useMemo(() => {
-    const totalChatsCount = filteredChats.length;
-    const map: Record<string, { id: string; name: string; total: number; closed: number }> = {};
-    filteredChats.forEach(c => {
-      const emp = c.employee;
-      if (!emp) return;
-      if (!map[emp.id]) map[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0 };
-      map[emp.id].total++;
-      if (c.current_stage === 'closed') map[emp.id].closed++;
-    });
-    return Object.values(map)
-      .map(e => ({ ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0 }))
-      .sort((a, b) => b.total - a.total);
-    void totalChatsCount;
+    try {
+      const map: Record<string, { id: string; name: string; total: number; closed: number }> = {};
+      filteredChats.forEach(c => {
+        const emp = c.employee;
+        if (!emp) return;
+        if (!map[emp.id]) map[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0 };
+        map[emp.id].total++;
+        if (c.current_stage === 'closed') map[emp.id].closed++;
+      });
+      return Object.values(map)
+        .map(e => ({ ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0 }))
+        .sort((a, b) => b.total - a.total);
+    } catch (e) { console.error('[ReportsPanel] empStats error:', e); return []; }
   }, [filteredChats]);
-
-  // ── tooltip ──────────────────────────────────────────────────────────────────
-  const ChartTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="rounded-xl px-3 py-2 text-xs shadow-lg" style={{ backgroundColor: '#2a3942', border: '1px solid #374045' }}>
-        <p style={{ color: '#8696a0' }} className="mb-1">{label}</p>
-        <p style={{ color: '#e9edef' }} className="font-semibold">₸{payload[0].value?.toLocaleString()}</p>
-      </div>
-    );
-  };
 
   // ── рендер ───────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: '#0b141a' }}>
       <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0b141a' }}>
+      <p className="text-sm font-semibold mb-2" style={{ color: '#f87171' }}>Ошибка загрузки</p>
+      <p className="text-xs text-center mb-4" style={{ color: '#8696a0' }}>{loadError}</p>
+      <button onClick={fetchAll} className="px-4 py-2 rounded-lg text-xs" style={{ backgroundColor: '#202c33', color: '#e9edef' }}>
+        Повторить
+      </button>
     </div>
   );
 
@@ -294,9 +376,9 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Чатов',    value: totalChatsCount, color: '#e9edef' },
-          { label: 'Закрыто',  value: totalClosed,     color: '#10b981' },
-          { label: 'Конверсия',value: `${conversionRate}%`, color: '#f59e0b' },
+          { label: 'Чатов',     value: totalChatsCount,      color: '#e9edef' },
+          { label: 'Закрыто',   value: totalClosed,          color: '#10b981' },
+          { label: 'Конверсия', value: `${conversionRate}%`, color: '#f59e0b' },
         ].map(m => (
           <div key={m.label} className="rounded-xl p-3" style={{ backgroundColor: '#202c33' }}>
             <p className="text-[10px]" style={{ color: '#8696a0' }}>{m.label}</p>
@@ -305,39 +387,31 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
         ))}
       </div>
 
-      {/* ── График продаж по дням ── */}
+      {/* ── Продажи по дням (временно: простой список вместо графика) ── */}
       <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
-        <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Продажи по дням</h3>
+        <p className="text-[10px] mb-1" style={{ color: '#f59e0b' }}>
+          ⚠ График временно заменён списком (отладка)
+        </p>
+        <h3 className="text-xs font-semibold mb-3" style={{ color: '#e9edef' }}>Продажи по дням</h3>
         {chartData.length === 0 ? (
-          <p className="text-xs text-center py-6" style={{ color: '#8696a0' }}>Нет данных за период</p>
+          <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных за период</p>
         ) : (
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: '#8696a0', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fill: '#8696a0', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={fmtMoney}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="amount"
-                stroke="#10b981"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: '#10b981', stroke: '#111b21', strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="space-y-2">
+            {chartData.slice(-14).map(d => (
+              <div key={d.date} className="flex items-center gap-2">
+                <span className="text-[10px] tabular-nums flex-shrink-0 w-12" style={{ color: '#8696a0' }}>{d.label}</span>
+                <div className="flex-1 h-4 rounded overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                  <div
+                    className="h-full rounded"
+                    style={{ width: `${(d.amount / maxChartAmount) * 100}%`, backgroundColor: '#10b981', opacity: 0.8 }}
+                  />
+                </div>
+                <span className="text-[10px] tabular-nums flex-shrink-0 w-16 text-right" style={{ color: '#e9edef' }}>
+                  {fmtMoney(d.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -348,14 +422,15 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
           {funnelStages.map((s, idx) => {
             const widthPct = maxFunnelCount > 0 ? (s.count / maxFunnelCount) * 100 : 0;
             const prev = idx > 0 ? funnelStages[idx - 1].count : null;
-            const convPct = prev && prev > 0 ? Math.round((s.count / prev) * 100) : null;
+            const convPct = prev != null && prev > 0 ? Math.round((s.count / prev) * 100) : null;
             return (
               <div key={s.key}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs" style={{ color: '#d1d7db' }}>{s.label}</span>
                   <div className="flex items-center gap-2">
                     {convPct !== null && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#8696a0' }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#8696a0' }}>
                         {convPct}%
                       </span>
                     )}
@@ -393,9 +468,7 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
                     <span className="text-xs truncate" style={{ color: '#d1d7db' }}>{p.name}</span>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
-                    <span className="text-xs font-semibold" style={{ color: '#e9edef' }}>
-                      {fmtMoney(p.revenue)}
-                    </span>
+                    <span className="text-xs font-semibold" style={{ color: '#e9edef' }}>{fmtMoney(p.revenue)}</span>
                     <span className="text-[10px] ml-1" style={{ color: '#8696a0' }}>· {p.qty} шт</span>
                   </div>
                 </div>
@@ -447,9 +520,11 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
           <div className="space-y-2">
             {empStats.map(e => (
               <div key={e.id} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: '#2a3942' }}>
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#10b981,#0d9488)' }}>
-                  {e.name[0].toUpperCase()}
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#10b981,#0d9488)' }}
+                >
+                  {(e.name?.[0] ?? '?').toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate" style={{ color: '#e9edef' }}>{e.name}</p>
@@ -465,5 +540,16 @@ export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
       </div>
 
     </div>
+  );
+}
+
+// ── публичный экспорт ─────────────────────────────────────────────────────────
+interface ReportsPanelProps { onBack?: () => void; }
+
+export function ReportsPanel({ onBack: _onBack }: ReportsPanelProps) {
+  return (
+    <ErrorBoundary>
+      <ReportsPanelInner />
+    </ErrorBoundary>
   );
 }
