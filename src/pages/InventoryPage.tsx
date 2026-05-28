@@ -24,6 +24,7 @@ import SuppliersModal from '../components/Inventory/SuppliersModal';
 import LowStockModal from '../components/Inventory/LowStockModal';
 import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
+import ReturnModal from '../components/Inventory/ReturnModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs';
 
@@ -39,12 +40,12 @@ interface InventoryPageProps {
 const STATUS_RU: Record<string, string> = {
   draft: 'Черновик', confirmed: 'Подтверждён', received: 'Получен',
   cancelled: 'Отменён', pending: 'Ожидает', paid: 'Оплачено',
-  refunded: 'Возврат', in_progress: 'В процессе', completed: 'Завершена',
+  refunded: 'Возврат', partially_refunded: 'Частичный возврат', in_progress: 'В процессе', completed: 'Завершена',
   in_transit: 'В пути',
 };
 const MV_TYPE_RU: Record<string, string> = {
   in: 'Приход', out: 'Продажа', writeoff: 'Списание',
-  transfer: 'Перемещение', revision_adjust: 'Ревизия',
+  transfer: 'Перемещение', revision_adjust: 'Ревизия', return: 'Возврат',
 };
 function xlsxExport(rows: Record<string, unknown>[], filename: string) {
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -118,6 +119,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [returnSale, setReturnSale] = useState<Sale | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -955,16 +957,24 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         )}
                       </div>
 
-                      {/* Оплата */}
+                      {/* Оплата + кнопка Вернуть */}
                       <div className="flex items-center justify-between pt-2 border-t border-gray-50">
                         <span className="text-xs text-gray-500">
                           {s.payment_method === 'cash' ? '💵 Наличные' :
                            s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                          {s.paid_cash > 0 && s.paid_kaspi > 0 && (
+                            <span className="ml-1 text-gray-400">
+                              ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
+                            </span>
+                          )}
                         </span>
-                        {s.paid_cash > 0 && s.paid_kaspi > 0 && (
-                          <span className="text-xs text-gray-400">
-                            {s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸
-                          </span>
+                        {(s.status === 'paid' || s.status === 'partially_refunded') && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setReturnSale(s); }}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
+                          >
+                            ↩ Вернуть
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1393,6 +1403,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
 
+      {returnSale && (
+        <ReturnModal
+          sale={returnSale}
+          employeeId={employeeId}
+          onClose={() => setReturnSale(null)}
+          onSuccess={() => { loadAll(); setReturnSale(null); }}
+        />
+      )}
+
       {selectedMovementId && (
         <MovementDetailModal
           movementId={selectedMovementId}
@@ -1765,6 +1784,7 @@ function MovementsTable({ movements, emptyText = 'Движений нет', onRo
     transfer: { label: 'Перемещение', color: 'text-blue-600' },
     writeoff: { label: 'Списание', color: 'text-orange-600' },
     revision_adjust: { label: 'Корректировка', color: 'text-purple-600' },
+    return: { label: 'Возврат', color: 'text-blue-500' },
   };
 
   return (
@@ -1813,6 +1833,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: { label: 'Ожидает', className: 'bg-yellow-100 text-yellow-600' },
     paid: { label: 'Оплачено', className: 'bg-green-100 text-green-600' },
     refunded: { label: 'Возврат', className: 'bg-orange-100 text-orange-600' },
+    partially_refunded: { label: 'Частичный возврат', className: 'bg-amber-100 text-amber-700' },
     in_progress: { label: 'В процессе', className: 'bg-blue-100 text-blue-600' },
     completed: { label: 'Завершена', className: 'bg-green-100 text-green-600' },
   };

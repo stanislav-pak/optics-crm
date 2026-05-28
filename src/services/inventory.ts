@@ -408,6 +408,108 @@ export async function createSale(
   return newSale as Sale;
 }
 
+export async function createReturn(
+  saleId: string,
+  returnItems: { product_id: string; quantity: number }[],
+  reason: string,
+  employeeId: string
+) {
+  // 1. Загружаем продажу с позициями
+  const { data: sale, error: saleErr } = await supabase
+    .from('sales')
+    .select('*, items:sale_items(product_id, quantity)')
+    .eq('id', saleId)
+    .single();
+
+  if (saleErr || !sale) throw new Error('Продажа не найдена');
+  if (!sale.branch_id) throw new Error('Филиал продажи не определён');
+
+  // 2. Считаем уже возвращённые количества
+  const { data: existingReturns } = await supabase
+    .from('stock_movements')
+    .select('product_id, quantity')
+    .eq('reference_id', saleId)
+    .eq('type', 'return');
+
+  const returnedMap: Record<string, number> = {};
+  (existingReturns ?? []).forEach(r => {
+    returnedMap[r.product_id] = (returnedMap[r.product_id] ?? 0) + r.quantity;
+  });
+
+  // 3. Валидируем: не превышает ли сумма возвратов кол-во в продаже
+  for (const item of returnItems) {
+    const saleItem = (sale.items as { product_id: string; quantity: number }[])
+      ?.find(i => i.product_id === item.product_id);
+    if (!saleItem) throw new Error('Товар не найден в продаже');
+    const alreadyReturned = returnedMap[item.product_id] ?? 0;
+    if (alreadyReturned + item.quantity > saleItem.quantity) {
+      throw new Error('Суммарный возврат превышает количество в продаже');
+    }
+  }
+
+  // 4. Возвращаем товары на склад
+  for (const item of returnItems) {
+    if (item.quantity === 0) continue;
+    const { data: stockRow } = await supabase
+      .from('stock')
+      .select('quantity')
+      .eq('product_id', item.product_id)
+      .eq('branch_id', sale.branch_id)
+      .maybeSingle();
+
+    if (stockRow) {
+      await supabase
+        .from('stock')
+        .update({ quantity: stockRow.quantity + item.quantity })
+        .eq('product_id', item.product_id)
+        .eq('branch_id', sale.branch_id);
+    } else {
+      await supabase
+        .from('stock')
+        .insert({ product_id: item.product_id, branch_id: sale.branch_id, quantity: item.quantity });
+    }
+  }
+
+  // 5. Создаём движения с type='return'
+  const movements = returnItems
+    .filter(i => i.quantity > 0)
+    .map(item => ({
+      product_id: item.product_id,
+      branch_id: sale.branch_id,
+      type: 'return' as const,
+      status: 'completed',
+      quantity: item.quantity,
+      notes: reason,
+      reference_id: saleId,
+      reference_type: 'return',
+      created_by: employeeId,
+    }));
+
+  if (movements.length > 0) {
+    const { error: movErr } = await supabase.from('stock_movements').insert(movements);
+    if (movErr) throw movErr;
+  }
+
+  // 6. Обновляем статус продажи: полный или частичный возврат
+  const totalReturnedMap: Record<string, number> = { ...returnedMap };
+  returnItems.forEach(i => {
+    totalReturnedMap[i.product_id] = (totalReturnedMap[i.product_id] ?? 0) + i.quantity;
+  });
+
+  const saleItemsTyped = (sale.items as { product_id: string; quantity: number }[]) ?? [];
+  const isFullReturn = saleItemsTyped.every(
+    si => (totalReturnedMap[si.product_id] ?? 0) >= si.quantity
+  );
+
+  await supabase
+    .from('sales')
+    .update({ status: isFullReturn ? 'refunded' : 'partially_refunded' })
+    .eq('id', saleId);
+
+  // 7. Пересчитываем остатки
+  await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });
+}
+
 export async function getSales(branchId?: string) {
   let query = supabase
     .from('sales')

@@ -360,7 +360,7 @@ export interface PurchaseOrderItem {
 }
 
 export type PaymentMethod = 'cash' | 'kaspi_qr' | 'mixed';
-export type SaleStatus = 'pending' | 'paid' | 'cancelled' | 'refunded';
+export type SaleStatus = 'pending' | 'paid' | 'cancelled' | 'refunded' | 'partially_refunded';
 
 export interface Sale {
   id: string;
