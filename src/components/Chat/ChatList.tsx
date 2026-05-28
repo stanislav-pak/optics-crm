@@ -173,15 +173,12 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   }, [isAdmin]);
 
   const fetchStageMap = () => {
-    console.log('fetching stageMap, showAdminMobile:', showAdminMobile);
     supabase.from('deal_stages').select('chat_id, current_stage, moved_to_stage_at')
       .order('moved_to_stage_at', { ascending: false })
-      .then(({ data, error }) => {
-        console.log('stageMap result: rows=', data?.length, 'error=', error, 'sample=', data?.slice(0, 3));
+      .then(({ data }) => {
         const map: Record<string, string> = {};
         // order DESC → первый попавшийся для каждого chat_id — самый последний
         data?.forEach(s => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
-        console.log('stageMap built:', map);
         setStageMap(map);
       });
   };
@@ -374,14 +371,9 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
           </div>
         )}
         {!loading && filteredByStage.map((chat) => (
-          <div key={chat.id}>
-            <ChatItem chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
-              dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
-              stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
-            <div style={{ fontSize: '10px', color: 'red', padding: '0 8px 4px' }}>
-              id: {chat.id.slice(0, 8)} | stage: {stageMap?.[chat.id] ?? 'undefined'}
-            </div>
-          </div>
+          <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
+            dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
+            stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
         ))}
       </div>
 
