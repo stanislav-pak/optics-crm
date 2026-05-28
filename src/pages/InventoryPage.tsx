@@ -21,6 +21,7 @@ import AddSaleModal from '../components/Inventory/AddSaleModal';
 import RevisionModal from '../components/Inventory/RevisionModal';
 import SuppliersModal from '../components/Inventory/SuppliersModal';
 import LowStockModal from '../components/Inventory/LowStockModal';
+import WriteoffModal from '../components/Inventory/WriteoffModal';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions';
 
@@ -51,6 +52,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showWriteoff, setShowWriteoff] = useState(false);
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
   const [showRevision, setShowRevision] = useState(false);
@@ -480,6 +482,19 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 </div>
               )}
 
+              {/* Кнопка создания списания при фильтре «Списание» */}
+              {mvTypeFilter === 'writeoff' && role !== 'manager' && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowWriteoff(true)}
+                    className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700"
+                  >
+                    <Plus size={13} />
+                    Новое списание
+                  </button>
+                </div>
+              )}
+
               {/* Сводка остатков по филиалам при фильтре «Перемещение» */}
               {mvTypeFilter === 'transfer' && (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -747,6 +762,16 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
           role={role}
           onClose={() => setShowTransfer(false)}
           onSuccess={() => { loadAll(); setShowTransfer(false); }}
+        />
+      )}
+
+      {showWriteoff && (
+        <WriteoffModal
+          branchId={branchId}
+          employeeId={employeeId}
+          role={role}
+          onClose={() => setShowWriteoff(false)}
+          onSuccess={() => { loadAll(); setShowWriteoff(false); }}
         />
       )}
 

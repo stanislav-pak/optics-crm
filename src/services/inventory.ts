@@ -677,6 +677,55 @@ export async function getIncomingTransfers(branchId: string) {
 }
 
 // ============================================
+// СПИСАНИЕ
+// ============================================
+
+export async function createWriteoff(
+  branchId: string,
+  productId: string,
+  quantity: number,
+  reason: string,
+  employeeId: string
+) {
+  // Проверяем текущий остаток
+  const { data: stockRow, error: stockFetchErr } = await supabase
+    .from('stock')
+    .select('quantity')
+    .eq('product_id', productId)
+    .eq('branch_id', branchId)
+    .single();
+
+  if (stockFetchErr || !stockRow) throw new Error('Товар не найден на складе');
+  if (stockRow.quantity < quantity) throw new Error(`Недостаточно товара. Доступно: ${stockRow.quantity} шт`);
+
+  // Списываем остаток
+  const { error: stockErr } = await supabase
+    .from('stock')
+    .update({ quantity: stockRow.quantity - quantity })
+    .eq('product_id', productId)
+    .eq('branch_id', branchId);
+
+  if (stockErr) throw stockErr;
+
+  // Создаём движение
+  const { error: movErr } = await supabase.from('stock_movements').insert({
+    product_id: productId,
+    branch_id: branchId,
+    type: 'writeoff',
+    status: 'completed',
+    quantity,
+    notes: reason,
+    reference_type: 'writeoff',
+    created_by: employeeId,
+  });
+
+  if (movErr) throw movErr;
+
+  // Пересчитываем остатки
+  await supabase.rpc('recalculate_stock', { p_branch_id: branchId });
+}
+
+// ============================================
 // СТАТИСТИКА
 // ============================================
 
