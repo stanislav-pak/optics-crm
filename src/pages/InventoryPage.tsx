@@ -1430,37 +1430,76 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               })()}
 
               {/* Позиции */}
-              <div className="border-t border-gray-100 pt-3">
-                <p className="text-xs font-semibold text-gray-500 mb-2">Позиции:</p>
-                <div className="space-y-1.5">
-                  {selectedRevision.items?.map((item, idx) => {
-                    const diff = item.difference ?? 0;
-                    return (
-                      <div key={idx} className={`flex items-center justify-between py-2 px-3 rounded-lg border ${
-                        item.actual_qty === null ? 'border-gray-100 bg-gray-50' :
-                        diff === 0 ? 'border-green-100 bg-green-50' :
-                        diff > 0 ? 'border-blue-100 bg-blue-50' :
-                        'border-red-100 bg-red-50'
-                      }`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 truncate">{(item.product as any)?.name}</p>
-                          <p className="text-xs text-gray-400">
-                            Ожид: {item.expected_qty} · Факт: {item.actual_qty ?? '—'}
-                          </p>
-                        </div>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
-                          item.actual_qty === null ? 'bg-gray-100 text-gray-500' :
-                          diff === 0 ? 'bg-green-100 text-green-600' :
-                          diff > 0 ? 'bg-blue-100 text-blue-600' :
-                          'bg-red-100 text-red-600'
-                        }`}>
-                          {item.actual_qty === null ? '—' : diff > 0 ? `+${diff}` : diff === 0 ? '✓' : diff}
-                        </span>
+              {(() => {
+                const allItems = selectedRevision.items ?? [];
+                const counted = allItems
+                  .filter(i => i.actual_qty != null)
+                  .sort((a, b) => Math.abs(b.difference ?? 0) - Math.abs(a.difference ?? 0));
+                const uncounted = allItems.filter(i => i.actual_qty == null);
+
+                const renderItem = (item: typeof allItems[0], idx: number) => {
+                  const diff = item.difference ?? 0;
+                  const isNull = item.actual_qty == null;
+                  const rowCls = isNull
+                    ? 'border-gray-100 bg-gray-50'
+                    : diff === 0 ? 'border-green-100 bg-green-50'
+                    : diff > 0   ? 'border-green-100 bg-green-50'
+                    :              'border-red-100 bg-red-50';
+                  const badgeCls = isNull
+                    ? 'bg-gray-100 text-gray-400'
+                    : diff === 0 ? 'bg-green-100 text-green-600'
+                    : diff > 0   ? 'bg-green-100 text-green-700'
+                    :              'bg-red-100 text-red-600';
+                  const badgeText = isNull ? '—' : diff > 0 ? `+${diff}` : diff === 0 ? '✓' : String(diff);
+
+                  return (
+                    <div key={idx} className={`flex items-start justify-between py-2 px-3 rounded-lg border ${rowCls}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${isNull ? 'text-gray-400' : 'text-gray-900'}`}>
+                          {(item.product as any)?.name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Ожид: {item.expected_qty} · Факт: {item.actual_qty ?? '—'}
+                        </p>
+                        {!isNull && diff < 0 && (
+                          <p className="text-xs text-red-500 font-medium mt-0.5">Недостача: {Math.abs(diff)} шт</p>
+                        )}
+                        {!isNull && diff > 0 && (
+                          <p className="text-xs text-green-600 font-medium mt-0.5">Излишек: {diff} шт</p>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-3 flex-shrink-0 mt-0.5 ${badgeCls}`}>
+                        {badgeText}
+                      </span>
+                    </div>
+                  );
+                };
+
+                return (
+                  <div className="border-t border-gray-100 pt-3 space-y-3">
+                    {counted.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-1.5">
+                          Подсчитано ({counted.length})
+                        </p>
+                        <div className="space-y-1.5">
+                          {counted.map((item, idx) => renderItem(item, idx))}
+                        </div>
+                      </div>
+                    )}
+                    {uncounted.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-400 mb-1.5">
+                          Не подсчитано ({uncounted.length})
+                        </p>
+                        <div className="space-y-1.5">
+                          {uncounted.map((item, idx) => renderItem(item, idx + counted.length))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="px-5 py-4 border-t border-gray-100">
               <button onClick={() => setSelectedRevision(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
