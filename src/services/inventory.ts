@@ -170,25 +170,20 @@ export async function addStockMovement(movement: Omit<StockMovement, 'id' | 'cre
 export async function getStockMovements(branchId?: string, productId?: string) {
   let query = supabase
     .from('stock_movements')
-    .select(`
-      *,
-      product:products(id, name, sku),
-      employee:employees(id, name)
-    `)
+    .select(`*, product:products(id, name, sku), employee:employees(id, name)`)
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(200);
 
-  // Для transfer нужно видеть движения как отправителя так и получателя
-  console.log('getStockMovements called, branchId:', branchId);
-  if (branchId) query = query.or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`);
+  // Если branchId передан — фильтруем по отправителю ИЛИ получателю
+  // Если branchId undefined (admin) — никакого фильтра, возвращаем всё
+  if (branchId) {
+    query = query.or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`);
+  }
+
   if (productId) query = query.eq('product_id', productId);
 
   const { data, error } = await query;
-  console.log('getStockMovements result:', data?.length, 'error:', error);
-  if (error) {
-    console.error('getStockMovements error:', error);
-    throw error;
-  }
+  if (error) throw error;
   return data as StockMovement[];
 }
 
