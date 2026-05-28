@@ -166,20 +166,31 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       .then(({ data }) => setEmployees(data ?? []));
   }, [isAdmin]);
 
-  useEffect(() => {
-    if (!showAdminMobile) return;
+  const fetchStageMap = () => {
     supabase.from('deal_stages').select('chat_id, current_stage, moved_to_stage_at')
       .order('moved_to_stage_at', { ascending: false })
       .then(({ data }) => {
         const map: Record<string, string> = {};
+        // order DESC → первый попавшийся для каждого chat_id — самый последний
         data?.forEach(s => { if (!map[s.chat_id]) map[s.chat_id] = s.current_stage; });
         setStageMap(map);
       });
+  };
+
+  useEffect(() => {
+    if (!showAdminMobile) return;
+    fetchStageMap();
     supabase.from('chats').select('id, deal_amount').then(({ data }) => {
       const map: Record<string, number | null> = {};
       data?.forEach((c: any) => { map[c.id] = c.deal_amount; });
       setAmountMap(map);
     });
+    // real-time: обновлять stageMap при каждом изменении этапа
+    const channel = supabase
+      .channel('chatlist-deal-stages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'deal_stages' }, fetchStageMap)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [showAdminMobile]);
 
   const filters: ChatListFilters = {
