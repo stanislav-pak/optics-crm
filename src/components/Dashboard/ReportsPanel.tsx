@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, Component, type ReactNode } from 'react';
 import { supabase } from '../../services/supabase';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -394,45 +393,110 @@ function ReportsPanelInner() {
         ))}
       </div>
 
-      {/* ── Продажи по дням ── */}
+      {/* ── Продажи по дням (SVG) ── */}
       <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
         <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Продажи по дням</h3>
         {chartData.length === 0 ? (
           <p className="text-xs text-center py-6" style={{ color: '#8696a0' }}>Нет данных за период</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: '#8696a0', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
+        ) : (() => {
+          // Отступы внутри SVG-координат
+          const W = 300, H = 100;
+          const padL = 38, padR = 6, padT = 6, padB = 20;
+          const cW = W - padL - padR;   // ширина области данных
+          const cH = H - padT - padB;   // высота области данных
+
+          const vals = chartData.map(d => d.amount);
+          const minV = Math.min(...vals);
+          const maxV = Math.max(...vals);
+          const rangeV = maxV - minV || 1;
+
+          const toX = (i: number) =>
+            padL + (chartData.length === 1 ? cW / 2 : (i / (chartData.length - 1)) * cW);
+          const toY = (v: number) =>
+            padT + cH - ((v - minV) / rangeV) * cH;
+
+          const points = chartData.map((d, i) => `${toX(i)},${toY(d.amount)}`).join(' ');
+
+          // Подписи X: первая и последняя (+ средняя если точек > 4)
+          const xLabels: { i: number; label: string }[] = [];
+          xLabels.push({ i: 0, label: chartData[0].label });
+          if (chartData.length > 4) {
+            const mid = Math.floor((chartData.length - 1) / 2);
+            xLabels.push({ i: mid, label: chartData[mid].label });
+          }
+          xLabels.push({ i: chartData.length - 1, label: chartData[chartData.length - 1].label });
+
+          // Подписи Y: 3 уровня
+          const yLevels = [minV, minV + rangeV / 2, maxV];
+
+          return (
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              style={{ width: '100%', height: 'auto', overflow: 'visible' }}
+            >
+              {/* Сетка */}
+              {yLevels.map((v, i) => (
+                <line
+                  key={i}
+                  x1={padL} y1={toY(v)} x2={W - padR} y2={toY(v)}
+                  stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3"
+                />
+              ))}
+
+              {/* Подписи Y */}
+              {yLevels.map((v, i) => (
+                <text
+                  key={i}
+                  x={padL - 4} y={toY(v) + 3}
+                  textAnchor="end"
+                  fontSize={8}
+                  fill="#8696a0"
+                >
+                  {fmtMoney(v)}
+                </text>
+              ))}
+
+              {/* Область под линией */}
+              <polygon
+                points={`${toX(0)},${padT + cH} ${points} ${toX(chartData.length - 1)},${padT + cH}`}
+                fill="rgba(16,185,129,0.08)"
               />
-              <YAxis
-                tick={{ fill: '#8696a0', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={fmtMoney}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#2a3942', border: '1px solid #374045', borderRadius: 8 }}
-                labelStyle={{ color: '#8696a0', fontSize: 11 }}
-                itemStyle={{ color: '#e9edef', fontSize: 11 }}
-                formatter={(v: number) => [`₸${v.toLocaleString()}`, 'Выручка']}
-              />
-              <Line
-                type="monotone"
-                dataKey="amount"
+
+              {/* Линия */}
+              <polyline
+                points={points}
+                fill="none"
                 stroke="#10b981"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: '#10b981', stroke: '#111b21', strokeWidth: 2 }}
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+                strokeLinecap="round"
               />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
+
+              {/* Точки на линии */}
+              {chartData.map((d, i) => (
+                <circle
+                  key={i}
+                  cx={toX(i)} cy={toY(d.amount)} r={chartData.length <= 14 ? 2 : 0}
+                  fill="#10b981"
+                />
+              ))}
+
+              {/* Подписи X */}
+              {xLabels.map(({ i, label }) => (
+                <text
+                  key={i}
+                  x={toX(i)}
+                  y={H - 4}
+                  textAnchor={i === 0 ? 'start' : i === chartData.length - 1 ? 'end' : 'middle'}
+                  fontSize={8}
+                  fill="#8696a0"
+                >
+                  {label}
+                </text>
+              ))}
+            </svg>
+          );
+        })()}
       </div>
 
       {/* ── Воронка сделок ── */}
