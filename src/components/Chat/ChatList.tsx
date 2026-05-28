@@ -370,10 +370,12 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         )}
         {!loading && filteredByStage.map((chat) => (
           <div key={chat.id}>
-            {console.log('DEBUG chat:', chat.id, 'stage:', stageMap?.[chat.id])}
             <ChatItem chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
               dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
               stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
+            <div style={{ fontSize: '10px', color: 'red', padding: '0 8px 4px' }}>
+              id: {chat.id.slice(0, 8)} | stage: {stageMap?.[chat.id] ?? 'undefined'}
+            </div>
           </div>
         ))}
       </div>
