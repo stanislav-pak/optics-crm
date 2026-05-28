@@ -91,6 +91,8 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   }, [tab]);
 
   async function loadAll() {
+    console.log('loadAll CALLED, branchId:', branchId, 'role:', role);
+    setMovements([]); // сброс перед загрузкой
     // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
     const scopeId = role === 'admin' ? undefined : branchId;
     setLoading(true);
@@ -215,7 +217,10 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
+        <div className="flex items-center gap-2 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
+          <button onClick={() => loadAll()} style={{background:'red', color:'white', padding:'4px 8px', fontSize:'12px', borderRadius:'4px', flexShrink:0}}>
+            Reload
+          </button>
           {tabs.map(t => (
             <button
               key={t.key}
