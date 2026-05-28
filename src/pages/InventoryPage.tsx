@@ -386,6 +386,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
           const filteredMovements = movements.filter(m => {
+            // Фронтовой guard: для не-админа только движения своего филиала
+            if (role !== 'admin') {
+              const mb = (m as any).branch_id;
+              const mtb = (m as any).to_branch_id;
+              if (mb !== branchId && mtb !== branchId) return false;
+            }
+
             // Фильтр по типу
             if (mvTypeFilter !== 'all' && m.type !== mvTypeFilter) return false;
 
@@ -520,8 +527,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </div>
               )}
 
-              {/* Сводка остатков по филиалам при фильтре «Перемещение» */}
-              {mvTypeFilter === 'transfer' && (
+              {/* Сводка остатков по филиалам при фильтре «Перемещение» — только для admin */}
+              {mvTypeFilter === 'transfer' && role === 'admin' && (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-700">Остатки по филиалам</h3>
