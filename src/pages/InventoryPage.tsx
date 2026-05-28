@@ -30,10 +30,11 @@ interface InventoryPageProps {
   branchId: string;
   employeeId: string;
   role: 'manager' | 'branch_admin' | 'admin';
+  defaultTab?: Tab;
 }
 
-export default function InventoryPage({ branchId, employeeId, role }: InventoryPageProps) {
-  const [tab, setTab] = useState<Tab>('overview');
+export default function InventoryPage({ branchId, employeeId, role, defaultTab }: InventoryPageProps) {
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<Stock[]>([]);
@@ -228,7 +229,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
 
         {/* Tabs */}
         <div className="flex gap-0.5 mt-4 pb-1 overflow-x-auto -mx-6 px-6">
-          {tabs.map(t => (
+          {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}

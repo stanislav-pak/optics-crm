@@ -42,7 +42,7 @@ function AppContent() {
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings'>('dashboard');
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop'>('list');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -138,7 +138,7 @@ function AppContent() {
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
-        if (view === 'inventory' || (view === 'main' && adminViewRef.current === 'inventory')) {
+        if (view === 'inventory' || view === 'shop' || (view === 'main' && adminViewRef.current === 'inventory')) {
           setMobileView('list');
         } else {
           navigateBackRef.current();
@@ -270,7 +270,7 @@ function AppContent() {
       <div className="flex-1 overflow-hidden">
         <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} />
       </div>
-      {isManager && isMobile && (
+      {(employee.role === 'manager' || employee.role === 'branch_admin') && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
           <button onClick={() => { setMobileHistory([]); setMobileView('list'); }}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'list' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
@@ -293,6 +293,11 @@ function AppContent() {
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'manager-crm' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             <span className="text-[10px] font-medium">CRM</span>
+          </button>
+          <button onClick={() => navigateTo('shop')}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'shop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+            <span className="text-[10px] font-medium">Магазин</span>
           </button>
           <button onClick={() => navigateTo('inventory')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'inventory' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
@@ -377,6 +382,19 @@ function AppContent() {
                   branchId={employee?.branch_id}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                />
+              </div>
+            </div>
+          )}
+          {mobileView === 'shop' && (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <MobilePageHeader title="Магазин" />
+              <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                <InventoryPage
+                  branchId={employee?.branch_id}
+                  employeeId={employee.id}
+                  role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  defaultTab="sales"
                 />
               </div>
             </div>
