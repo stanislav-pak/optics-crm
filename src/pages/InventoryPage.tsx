@@ -74,6 +74,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [salesRefreshKey, setSalesRefreshKey] = useState(0);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -936,7 +937,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   {hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div key={salesRefreshKey} className="space-y-3">
                   {filteredSales.map(s => (
                     <div key={s.id}
                       className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
@@ -1420,7 +1421,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           sale={returnSale}
           employeeId={employeeId}
           onClose={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); loadSales(); }}
-          onSuccess={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); loadSales(); }}
+          onSuccess={() => { console.log('ReturnModal closed, reloading...'); setReturnSale(null); setSalesRefreshKey(k => k + 1); loadSales(); }}
         />
       )}
 
