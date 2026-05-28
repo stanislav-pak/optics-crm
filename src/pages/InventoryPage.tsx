@@ -240,28 +240,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             )}
           </div>
 
-          {/* Быстрые действия */}
-          <div className="flex items-center gap-2 mt-3">
-            {role !== 'manager' && (
-              <button
-                onClick={() => setShowAddPurchase(true)}
-                className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
-              >
-                <Plus size={13} />
-                Приход
-              </button>
-            )}
-            {role === 'admin' && (
-              <button
-                onClick={() => setShowTransfer(true)}
-                className="flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-700"
-              >
-                <Plus size={13} />
-                Перемещение
-              </button>
-            )}
-          </div>
-
           {/* Tabs */}
           <div className="flex gap-0.5 mt-3 pb-1 overflow-x-auto -mx-6 px-6">
             {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
