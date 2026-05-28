@@ -108,11 +108,11 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
     try {
-      console.log('calling getStockMovements with branchId:', role === 'admin' ? 'undefined' : branchId);
-      const mv = await getStockMovements(role === 'admin' ? undefined : branchId);
-      console.log('movements loaded:', mv.length, mv.map(m => m.type));
-      console.log('transfer movements:', mv.filter(m => m.type === 'transfer').length);
-      setMovements(mv);
+      const mvBranchId = role === 'admin' ? undefined : branchId;
+      console.log('MOVEMENTS CALL branchId:', mvBranchId, 'role:', role);
+      const mv = await getStockMovements(mvBranchId);
+      console.log('MOVEMENTS RESULT:', mv?.length, mv?.map(m => m.type));
+      setMovements(mv || []);
     }
     catch (e) { console.error('getStockMovements error:', e); }
 
