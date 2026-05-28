@@ -177,6 +177,7 @@ function AppContent() {
   };
 
   const handleBack = () => {
+    console.log('onBack called, current mobileView:', mobileView, '| adminView:', adminView);
     setActiveChat(null);
     setMobileView('list');
     if (isAdmin) setAdminView('dashboard');
