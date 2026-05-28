@@ -66,6 +66,7 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
+  const [inTransitMovements, setInTransitMovements] = useState<{ branch_id: string; to_branch_id: string; quantity: number }[]>([]);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -120,6 +121,15 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
       const { data: abs } = await supabase.from('stock').select('branch_id, quantity');
       setAllBranchesStock(abs ?? []);
     } catch (e) { console.error('allBranchesStock error:', e); }
+
+    try {
+      const { data: it } = await supabase
+        .from('stock_movements')
+        .select('branch_id, to_branch_id, quantity')
+        .eq('type', 'transfer')
+        .eq('status', 'in_transit');
+      setInTransitMovements(it ?? []);
+    } catch (e) { console.error('inTransitMovements error:', e); }
 
     setLoading(false);
 
@@ -470,6 +480,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                       const total = allBranchesStock
                         .filter(s => s.branch_id === b.id)
                         .reduce((sum, s) => sum + s.quantity, 0);
+                      const outgoing = inTransitMovements
+                        .filter(m => m.branch_id === b.id)
+                        .reduce((sum, m) => sum + m.quantity, 0);
+                      const incoming = inTransitMovements
+                        .filter(m => m.to_branch_id === b.id)
+                        .reduce((sum, m) => sum + m.quantity, 0);
                       return (
                         <button
                           key={b.id}
@@ -481,7 +497,15 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                             {b.is_warehouse && <span className="text-xs mr-1.5">🏭</span>}
                             {b.name}
                           </span>
-                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{total} шт</span>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-sm font-semibold text-gray-900 tabular-nums">{total} шт</span>
+                            {outgoing > 0 && (
+                              <span className="text-xs text-orange-500 tabular-nums">📤 В пути: {outgoing} шт</span>
+                            )}
+                            {incoming > 0 && (
+                              <span className="text-xs text-blue-500 tabular-nums">📥 Ожидается: {incoming} шт</span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
