@@ -543,6 +543,12 @@ export default function InventoryPage({ branchId, employeeId, role }: InventoryP
                 </div>
               )}
 
+              <div style={{background:'yellow', padding:'8px', fontSize:'11px', marginBottom:'8px'}}>
+                total movements: {movements.length} |
+                transfer count: {movements.filter(m => m.type === 'transfer').length} |
+                filter: {mvTypeFilter}
+              </div>
+
               <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" />
             </div>
           );
