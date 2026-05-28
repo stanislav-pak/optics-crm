@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, Component, type ReactNode } from 'react';
 import { supabase } from '../../services/supabase';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -57,6 +58,7 @@ const STAGE_META: Record<string, { label: string; hex: string }> = {
 };
 
 const PERIODS = [
+  { key: 'today',  label: 'Сегодня' },
   { key: 'week',   label: 'Неделя' },
   { key: 'month',  label: 'Месяц' },
   { key: 'all',    label: 'Всё время' },
@@ -65,13 +67,20 @@ const PERIODS = [
 
 function periodRange(key: string, from?: string, to?: string): { from: Date | null; to: Date | null } {
   const now = new Date();
+  if (key === 'today') {
+    const f = new Date(now); f.setHours(0, 0, 0, 0);
+    const t = new Date(now); t.setHours(23, 59, 59, 999);
+    return { from: f, to: t };
+  }
   if (key === 'week') {
     const f = new Date(now); f.setDate(now.getDate() - 6); f.setHours(0, 0, 0, 0);
     return { from: f, to: now };
   }
   if (key === 'month') {
-    const f = new Date(now); f.setDate(1); f.setHours(0, 0, 0, 0);
-    return { from: f, to: now };
+    // Текущий месяц: с 1-го числа по сегодня включительно
+    const f = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const t = new Date(now); t.setHours(23, 59, 59, 999);
+    return { from: f, to: t };
   }
   if (key === 'custom' && from && to) {
     return { from: new Date(from), to: new Date(to + 'T23:59:59') };
@@ -223,7 +232,7 @@ function ReportsPanelInner() {
 
   const totalProfit = totalRevenue - totalCost;
 
-  // ── данные по дням (простой список вместо графика) ──────────────────────────
+  // ── данные по дням ───────────────────────────────────────────────────────────
   const chartData = useMemo(() => {
     try {
       const byDay: Record<string, number> = {};
@@ -236,8 +245,6 @@ function ReportsPanelInner() {
         .map(([date, amount]) => ({ date, label: fmtDate(date), amount }));
     } catch (e) { console.error('[ReportsPanel] chartData error:', e); return []; }
   }, [filteredSales]);
-
-  const maxChartAmount = Math.max(...chartData.map(d => d.amount), 1);
 
   // ── топ-5 товаров ───────────────────────────────────────────────────────────
   const topProducts = useMemo(() => {
@@ -387,31 +394,44 @@ function ReportsPanelInner() {
         ))}
       </div>
 
-      {/* ── Продажи по дням (временно: простой список вместо графика) ── */}
+      {/* ── Продажи по дням ── */}
       <div className="rounded-xl p-4" style={{ backgroundColor: '#202c33' }}>
-        <p className="text-[10px] mb-1" style={{ color: '#f59e0b' }}>
-          ⚠ График временно заменён списком (отладка)
-        </p>
-        <h3 className="text-xs font-semibold mb-3" style={{ color: '#e9edef' }}>Продажи по дням</h3>
+        <h3 className="text-xs font-semibold mb-4" style={{ color: '#e9edef' }}>Продажи по дням</h3>
         {chartData.length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных за период</p>
+          <p className="text-xs text-center py-6" style={{ color: '#8696a0' }}>Нет данных за период</p>
         ) : (
-          <div className="space-y-2">
-            {chartData.slice(-14).map(d => (
-              <div key={d.date} className="flex items-center gap-2">
-                <span className="text-[10px] tabular-nums flex-shrink-0 w-12" style={{ color: '#8696a0' }}>{d.label}</span>
-                <div className="flex-1 h-4 rounded overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                  <div
-                    className="h-full rounded"
-                    style={{ width: `${(d.amount / maxChartAmount) * 100}%`, backgroundColor: '#10b981', opacity: 0.8 }}
-                  />
-                </div>
-                <span className="text-[10px] tabular-nums flex-shrink-0 w-16 text-right" style={{ color: '#e9edef' }}>
-                  {fmtMoney(d.amount)}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: '#8696a0', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: '#8696a0', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={fmtMoney}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#2a3942', border: '1px solid #374045', borderRadius: 8 }}
+                labelStyle={{ color: '#8696a0', fontSize: 11 }}
+                itemStyle={{ color: '#e9edef', fontSize: 11 }}
+                formatter={(v: number) => [`₸${v.toLocaleString()}`, 'Выручка']}
+              />
+              <Line
+                type="monotone"
+                dataKey="amount"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: '#10b981', stroke: '#111b21', strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         )}
       </div>
 
