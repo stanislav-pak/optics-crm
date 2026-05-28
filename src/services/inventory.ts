@@ -754,33 +754,50 @@ export async function createWriteoff(
 // ============================================
 
 export async function getInventoryStats(branchId?: string): Promise<InventoryStats> {
-  let productsQuery = supabase.from('products').select('id', { count: 'exact' }).eq('is_active', true);
-  let stockQuery = supabase.from('stock').select('quantity, product:products(price, min_stock)');
-  let movementsQuery = supabase.from('stock_movements').select('id', { count: 'exact' })
-    .gte('created_at', new Date().toISOString().split('T')[0]);
-
   if (branchId) {
-    productsQuery = productsQuery.eq('branch_id', branchId);
-    stockQuery = stockQuery.eq('branch_id', branchId);
-    movementsQuery = movementsQuery.eq('branch_id', branchId);
+    // Для manager/branch_admin: статистика только по их филиалу,
+    // считаем из stock (quantity > 0) — точнее, чем из products.branch_id
+    const [stockRes, movementsRes] = await Promise.all([
+      supabase
+        .from('stock')
+        .select('quantity, product:products(price, min_stock)')
+        .eq('branch_id', branchId)
+        .gt('quantity', 0),
+      supabase
+        .from('stock_movements')
+        .select('id', { count: 'exact' })
+        .gte('created_at', new Date().toISOString().split('T')[0])
+        .eq('branch_id', branchId),
+    ]);
+
+    const stock = stockRes.data ?? [];
+    const totalValue = stock.reduce((sum, s) =>
+      sum + s.quantity * ((s.product as any)?.price ?? 0), 0);
+    const lowStock = stock.filter(s =>
+      s.quantity <= ((s.product as any)?.min_stock ?? 0)).length;
+
+    return {
+      total_products: stock.length,   // уникальных товаров в наличии (quantity > 0)
+      total_skus: stock.length,       // позиций на складе
+      low_stock_count: lowStock,
+      total_value: totalValue,
+      movements_today: movementsRes.count ?? 0,
+    };
   }
 
+  // Для admin: агрегат по всем филиалам
   const [productsRes, stockRes, movementsRes] = await Promise.all([
-    productsQuery,
-    stockQuery,
-    movementsQuery,
+    supabase.from('products').select('id', { count: 'exact' }).eq('is_active', true),
+    supabase.from('stock').select('quantity, product:products(price, min_stock)'),
+    supabase.from('stock_movements').select('id', { count: 'exact' })
+      .gte('created_at', new Date().toISOString().split('T')[0]),
   ]);
 
   const stock = stockRes.data ?? [];
-  const totalValue = stock.reduce((sum, s) => {
-    const price = (s.product as any)?.price ?? 0;
-    return sum + s.quantity * price;
-  }, 0);
-
-  const lowStock = stock.filter(s => {
-    const minStock = (s.product as any)?.min_stock ?? 0;
-    return s.quantity <= minStock;
-  }).length;
+  const totalValue = stock.reduce((sum, s) =>
+    sum + s.quantity * ((s.product as any)?.price ?? 0), 0);
+  const lowStock = stock.filter(s =>
+    s.quantity <= ((s.product as any)?.min_stock ?? 0)).length;
 
   return {
     total_products: productsRes.count ?? 0,
