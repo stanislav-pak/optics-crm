@@ -9,6 +9,8 @@ interface PurchaseHistoryItem {
   supplier: { name: string } | null;
   quantity: number;
   cost_price: number;
+  kind: 'purchase' | 'transfer';
+  from_branch?: string;
 }
 
 interface Props {
@@ -28,30 +30,60 @@ export default function ProductDetailModal({ product, stock, branchId, onClose, 
 
   useEffect(() => {
     setHistoryLoading(true);
-    supabase
-      .from('purchase_orders')
-      .select('id, created_at, supplier:suppliers(name), items:purchase_order_items(product_id, quantity, cost_price)')
-      .eq('branch_id', branchId)
-      .eq('status', 'received')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!data) { setHistory([]); setHistoryLoading(false); return; }
-        const result: PurchaseHistoryItem[] = [];
-        for (const po of data) {
-          const matchedItems = (po.items as any[]).filter(i => i.product_id === product.id);
-          for (const item of matchedItems) {
-            result.push({
-              id: po.id + '_' + item.cost_price,
-              created_at: po.created_at,
-              supplier: po.supplier as any,
-              quantity: item.quantity,
-              cost_price: item.cost_price,
-            });
-          }
+
+    Promise.all([
+      // Приходы из накладных
+      supabase
+        .from('purchase_orders')
+        .select('id, created_at, supplier:suppliers(name), items:purchase_order_items(product_id, quantity, cost_price)')
+        .eq('branch_id', branchId)
+        .eq('status', 'received')
+        .order('created_at', { ascending: false }),
+
+      // Входящие перемещения
+      supabase
+        .from('stock_movements')
+        .select('id, created_at, quantity, from_branch:branches!stock_movements_branch_id_fkey(name)')
+        .eq('product_id', product.id)
+        .eq('to_branch_id', branchId)
+        .eq('type', 'transfer')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false }),
+    ]).then(([poRes, mvRes]) => {
+      const result: PurchaseHistoryItem[] = [];
+
+      // Из накладных
+      for (const po of (poRes.data ?? [])) {
+        const matchedItems = (po.items as any[]).filter(i => i.product_id === product.id);
+        for (const item of matchedItems) {
+          result.push({
+            id: `po_${po.id}_${item.cost_price}`,
+            created_at: po.created_at,
+            supplier: po.supplier as any,
+            quantity: item.quantity,
+            cost_price: item.cost_price,
+            kind: 'purchase',
+          });
         }
-        setHistory(result);
-        setHistoryLoading(false);
-      });
+      }
+
+      // Из перемещений
+      for (const mv of (mvRes.data ?? [])) {
+        result.push({
+          id: `mv_${mv.id}`,
+          created_at: mv.created_at,
+          supplier: null,
+          quantity: mv.quantity,
+          cost_price: product.cost_price ?? 0,
+          kind: 'transfer',
+          from_branch: (mv.from_branch as any)?.name ?? '—',
+        });
+      }
+
+      result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setHistory(result);
+      setHistoryLoading(false);
+    });
   }, [product.id, branchId]);
 
   // Свайп вправо — закрыть
@@ -139,7 +171,14 @@ export default function ProductDetailModal({ product, stock, branchId, onClose, 
                 {history.map(h => (
                   <div key={h.id} className="flex items-center justify-between px-4 py-2.5">
                     <div>
-                      <p className="text-sm text-gray-700">{h.supplier?.name ?? 'Без поставщика'}</p>
+                      {h.kind === 'transfer' ? (
+                        <p className="text-sm text-gray-700">
+                          <span className="text-purple-500 font-medium">Перемещение</span>
+                          {' · '}{h.from_branch}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-700">{h.supplier?.name ?? 'Без поставщика'}</p>
+                      )}
                       <p className="text-xs text-gray-400">{new Date(h.created_at).toLocaleDateString('ru-RU')}</p>
                     </div>
                     <div className="text-right">
