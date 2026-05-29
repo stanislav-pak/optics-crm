@@ -63,7 +63,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (dy < 80 && dx > 60) {
-        if (selectedChatRef.current) { selectedChatRef.current = null; setSelectedChat(null); setRefreshKey(k => k + 1); } else { onBack(); }
+        if (selectedChatRef.current) { alert('has selected chat, going back to list'); selectedChatRef.current = null; setSelectedChat(null); setRefreshKey(k => k + 1); } else { alert('no selected chat, calling onBack'); onBack(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
