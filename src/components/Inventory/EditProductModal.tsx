@@ -35,8 +35,7 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
 
   const handleCreateCategory = async (name: string) => {
-    const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '') || 'category';
-    const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
+    const { data, error } = await supabase.from('product_categories').insert({ name }).select().single();
     if (error) throw error;
     setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
     set('category_id', data.id);
