@@ -832,7 +832,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   const costPrice = product?.cost_price ?? 0;
                   const total = mv.quantity * costPrice;
                   return (
-                    <div key={`tr-${mv.id}`} className="flex items-center gap-3 px-4 py-3">
+                    <div key={`tr-${mv.id}`} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100" onClick={() => setSelectedMovementId(mv.id)}>
                       <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                         <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
