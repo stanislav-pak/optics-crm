@@ -181,6 +181,7 @@ function AppContent() {
   };
 
   const handleBack = () => {
+    alert('handleBack called, chatSource: ' + chatSourceRef.current);
     setActiveChat(null);
     if (chatSourceRef.current === 'crm') {
       setMobileView('manager-crm');
@@ -385,7 +386,7 @@ function AppContent() {
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
           {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
-          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); setMobileView('chat'); }} />}
+          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onBack={() => { alert('back from crm, mobileView will be: list'); setMobileView('list'); }} onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); setMobileView('chat'); }} />}
           {mobileView === 'inventory' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Склад" />
