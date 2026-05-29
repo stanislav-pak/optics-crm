@@ -110,6 +110,9 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
   if (selectedChat) {
     return (
       <div className="flex-1 flex flex-col bg-[#111b21] overflow-hidden">
+        <div style={{position:'fixed', top:0, left:0, zIndex:9999, background:'red', color:'white', fontSize:'12px', padding:'4px'}}>
+          ref: {selectedChatRef.current ? selectedChatRef.current.id.slice(0,8) : 'null'}
+        </div>
         <div className="px-4 py-3 bg-[#202c33] border-b border-white/5 flex items-center gap-3 flex-shrink-0">
           <button onClick={() => { selectedChatRef.current = null; setSelectedChat(null); }}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform">
