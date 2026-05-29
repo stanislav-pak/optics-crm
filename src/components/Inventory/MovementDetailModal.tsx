@@ -9,7 +9,7 @@ interface MovementDetail {
   notes?: string;
   status?: string;
   created_at: string;
-  product: { name: string; sku?: string } | null;
+  product: { name: string; sku?: string; cost_price?: number } | null;
   employee: { name: string } | null;
   branch: { name: string } | null;
   to_branch: { name: string } | null;
@@ -38,7 +38,7 @@ export default function MovementDetailModal({ movementId, onClose }: Props) {
       .from('stock_movements')
       .select(`
         id, type, quantity, notes, status, created_at,
-        product:products!stock_movements_product_id_fkey(name, sku),
+        product:products!stock_movements_product_id_fkey(name, sku, cost_price),
         employee:employees!stock_movements_created_by_fkey(name),
         branch:branches!stock_movements_branch_id_fkey(name),
         to_branch:branches!stock_movements_to_branch_id_fkey(name)
@@ -154,6 +154,20 @@ export default function MovementDetailModal({ movementId, onClose }: Props) {
                   label="Количество"
                   value={<span style={{ color: meta!.color, fontWeight: 700 }}>{movement.quantity} шт</span>}
                 />
+
+                {/* Цена и сумма — только для перемещений */}
+                {movement.type === 'transfer' && movement.product?.cost_price != null && (
+                  <>
+                    <DetailRow
+                      label="Цена за единицу"
+                      value={`₸${movement.product.cost_price.toLocaleString()}`}
+                    />
+                    <DetailRow
+                      label="Общая сумма"
+                      value={<span style={{ color: '#60a5fa', fontWeight: 700 }}>₸{(movement.quantity * movement.product.cost_price).toLocaleString()}</span>}
+                    />
+                  </>
+                )}
 
                 {/* Филиал */}
                 {movement.type === 'transfer' ? (

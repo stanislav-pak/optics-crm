@@ -843,7 +843,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           {product?.name ?? '—'} · {mv.quantity} шт
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          Перемещение из: {mv.from_branch?.name ?? '—'} · {new Date(mv.created_at).toLocaleDateString('ru-RU')}
+                          {costPrice > 0 ? `₸${costPrice.toLocaleString()} / шт · ` : ''}Из: {mv.from_branch?.name ?? '—'} · {new Date(mv.created_at).toLocaleDateString('ru-RU')}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
