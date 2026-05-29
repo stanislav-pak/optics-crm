@@ -133,6 +133,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
+  const [completedTransfers, setCompletedTransfers] = useState<any[]>([]);
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number }[]>([]);
 
@@ -212,13 +213,33 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
     setLoading(false);
 
-    // Входящие перемещения — всегда по конкретному branchId (не scopeId)
+    // Входящие перемещения (in_transit) — всегда по конкретному branchId (не scopeId)
     try {
       const incoming = await getIncomingTransfers(branchId);
       setIncomingTransfers(incoming);
     } catch (e) {
       console.error('getIncomingTransfers error:', e);
       setIncomingTransfers([]);
+    }
+
+    // Завершённые входящие перемещения для вкладки Приходы
+    try {
+      let q = supabase
+        .from('stock_movements')
+        .select(`
+          id, product_id, branch_id, to_branch_id, quantity, created_at, notes,
+          product:products!stock_movements_product_id_fkey(id, name, cost_price),
+          from_branch:branches!stock_movements_branch_id_fkey(id, name)
+        `)
+        .eq('type', 'transfer')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+      if (role !== 'admin') q = q.eq('to_branch_id', branchId);
+      const { data: ct } = await q;
+      setCompletedTransfers(ct ?? []);
+    } catch (e) {
+      console.error('completedTransfers error:', e);
+      setCompletedTransfers([]);
     }
   }
 
@@ -717,83 +738,125 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         })()}
 
         {/* ПРИХОДЫ */}
-        {tab === 'purchases' && (
-          <div className="space-y-4">
-            <div className="flex justify-end gap-2">
-              <ExportBtn onClick={() => {
-                const rows: Record<string, unknown>[] = [];
-                purchases.forEach(po => {
-                  const date = new Date(po.created_at).toLocaleDateString('ru-RU');
-                  const supplier = (po.supplier as any)?.name ?? '—';
-                  const status = STATUS_RU[po.status] ?? po.status;
-                  if (po.items?.length) {
-                    po.items.forEach(i => rows.push({
-                      'Дата': date, 'Поставщик': supplier,
-                      'Товар': (i.product as any)?.name ?? '—',
-                      'Количество': i.quantity, 'Цена прихода': i.cost_price,
-                      'Сумма': i.quantity * i.cost_price, 'Статус': status,
-                    }));
-                  } else {
-                    rows.push({ 'Дата': date, 'Поставщик': supplier, 'Товар': '—', 'Количество': '—', 'Цена прихода': '—', 'Сумма': po.total, 'Статус': status });
+        {tab === 'purchases' && (() => {
+          // Объединённый список: накладные + завершённые входящие перемещения, сортировка по дате
+          type Entry =
+            | { kind: 'purchase'; date: string; po: PurchaseOrder }
+            | { kind: 'transfer'; date: string; mv: any };
+          const unified: Entry[] = [
+            ...purchases.map(po => ({ kind: 'purchase' as const, date: po.created_at, po })),
+            ...completedTransfers.map(mv => ({ kind: 'transfer' as const, date: mv.created_at, mv })),
+          ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          return (
+            <div className="space-y-4">
+              <div className="flex justify-end gap-2">
+                <ExportBtn onClick={() => {
+                  const rows: Record<string, unknown>[] = [];
+                  purchases.forEach(po => {
+                    const date = new Date(po.created_at).toLocaleDateString('ru-RU');
+                    const supplier = (po.supplier as any)?.name ?? '—';
+                    const status = STATUS_RU[po.status] ?? po.status;
+                    if (po.items?.length) {
+                      po.items.forEach(i => rows.push({
+                        'Дата': date, 'Поставщик': supplier,
+                        'Товар': (i.product as any)?.name ?? '—',
+                        'Количество': i.quantity, 'Цена прихода': i.cost_price,
+                        'Сумма': i.quantity * i.cost_price, 'Статус': status,
+                      }));
+                    } else {
+                      rows.push({ 'Дата': date, 'Поставщик': supplier, 'Товар': '—', 'Количество': '—', 'Цена прихода': '—', 'Сумма': po.total, 'Статус': status });
+                    }
+                  });
+                  xlsxExport(rows, `приходы_${xlsxDate()}.xlsx`);
+                }} />
+                <button onClick={() => setShowSuppliers(true)}
+                  className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50">
+                  <Users size={16} />
+                  Поставщики
+                </button>
+                <button onClick={() => setShowAddPurchase(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+                  <Plus size={16} />
+                  Новый приход
+                </button>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                {unified.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400 text-sm">Приходов нет</div>
+                ) : unified.map(entry => {
+                  if (entry.kind === 'purchase') {
+                    const po = entry.po;
+                    return (
+                      <div
+                        key={`po-${po.id}`}
+                        className={`flex items-center gap-3 px-4 py-3 active:bg-gray-100 ${role !== 'manager' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                        onClick={role !== 'manager' ? () => {
+                          setRepeatPurchaseData({
+                            supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
+                            items: po.items?.map(i => ({
+                              product_id: i.product_id,
+                              quantity: i.quantity,
+                              cost_price: i.cost_price,
+                            })) ?? [],
+                          });
+                          setShowAddPurchase(true);
+                        } : undefined}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {po.items?.map(i => `${(i.product as any)?.name} (${i.quantity} шт)`).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {(po.supplier as any)?.name ?? 'Без поставщика'} · {new Date(po.created_at).toLocaleDateString('ru-RU')}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-medium text-gray-900">₸{po.total.toLocaleString()}</p>
+                          <StatusBadge status={po.status} />
+                        </div>
+                        {role !== 'manager' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
+                            className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
+                            title="Удалить приход"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    );
                   }
-                });
-                xlsxExport(rows, `приходы_${xlsxDate()}.xlsx`);
-              }} />
-              <button onClick={() => setShowSuppliers(true)}
-                className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-lg text-sm hover:bg-gray-50">
-                <Users size={16} />
-                Поставщики
-              </button>
-              <button onClick={() => setShowAddPurchase(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
-                <Plus size={16} />
-                Новый приход
-              </button>
+                  // kind === 'transfer'
+                  const mv = entry.mv;
+                  const product = mv.product;
+                  const costPrice = product?.cost_price ?? 0;
+                  const total = mv.quantity * costPrice;
+                  return (
+                    <div key={`tr-${mv.id}`} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {product?.name ?? '—'} · {mv.quantity} шт
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Перемещение из: {mv.from_branch?.name ?? '—'} · {new Date(mv.created_at).toLocaleDateString('ru-RU')}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-medium text-gray-900">₸{total.toLocaleString()}</p>
+                        <p className="text-[10px] text-purple-500 font-medium">Перемещение</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {purchases.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 text-sm">Приходов нет</div>
-              ) : purchases.map(po => (
-                <div
-                  key={po.id}
-                  className={`flex items-center gap-3 px-4 py-3 active:bg-gray-100 ${role !== 'manager' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                  onClick={role !== 'manager' ? () => {
-                    setRepeatPurchaseData({
-                      supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
-                      items: po.items?.map(i => ({
-                        product_id: i.product_id,
-                        quantity: i.quantity,
-                        cost_price: i.cost_price,
-                      })) ?? [],
-                    });
-                    setShowAddPurchase(true);
-                  } : undefined}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {po.items?.map(i => `${(i.product as any)?.name} (${i.quantity} шт)`).filter(Boolean).join(', ') || `${po.items?.length ?? 0} позиций`}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {(po.supplier as any)?.name ?? 'Без поставщика'} · {new Date(po.created_at).toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-medium text-gray-900">₸{po.total.toLocaleString()}</p>
-                    <StatusBadge status={po.status} />
-                  </div>
-                  {role !== 'manager' && (
-                    <button
-                      onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
-                      className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
-                      title="Удалить приход"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ПРОДАЖИ */}
         {(tab === 'sales' || storefront) && (() => {
