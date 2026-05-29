@@ -138,7 +138,7 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
               <label className="block text-xs font-medium text-gray-500 mb-1">Категория</label>
               <select
                 value={form.category_id}
-                onChange={e => e.target.value === '__new__' ? (setShowNewCategory(true), set('category_id', '')) : set('category_id', e.target.value)}
+                onChange={e => e.target.value === '__new__' ? (setShowNewCategory(true), setShowNewBrand(false), set('category_id', '')) : set('category_id', e.target.value)}
                 className={selectCls}
               >
                 <option value="">— выбрать —</option>
@@ -147,19 +147,12 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
                 ))}
                 <option value="__new__">+ Создать новую</option>
               </select>
-              {showNewCategory && (
-                <InlineCreate
-                  placeholder="Название категории"
-                  onConfirm={handleCreateCategory}
-                  onCancel={() => setShowNewCategory(false)}
-                />
-              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Бренд</label>
               <select
                 value={form.brand_id}
-                onChange={e => e.target.value === '__new__' ? (setShowNewBrand(true), set('brand_id', '')) : set('brand_id', e.target.value)}
+                onChange={e => e.target.value === '__new__' ? (setShowNewBrand(true), setShowNewCategory(false), set('brand_id', '')) : set('brand_id', e.target.value)}
                 className={selectCls}
               >
                 <option value="">— выбрать —</option>
@@ -168,15 +161,22 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
                 ))}
                 <option value="__new__">+ Создать новый</option>
               </select>
-              {showNewBrand && (
-                <InlineCreate
-                  placeholder="Название бренда"
-                  onConfirm={handleCreateBrand}
-                  onCancel={() => setShowNewBrand(false)}
-                />
-              )}
             </div>
           </div>
+          {showNewCategory && (
+            <InlineCreate
+              placeholder="Новая категория"
+              onConfirm={handleCreateCategory}
+              onCancel={() => setShowNewCategory(false)}
+            />
+          )}
+          {showNewBrand && (
+            <InlineCreate
+              placeholder="Новый бренд"
+              onConfirm={handleCreateBrand}
+              onCancel={() => setShowNewBrand(false)}
+            />
+          )}
 
           {/* Цены */}
           <div className="grid grid-cols-2 gap-3">
