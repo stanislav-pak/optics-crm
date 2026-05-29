@@ -21,7 +21,7 @@ interface Props {
   onSuccess: () => void;
 }
 
-type ClientSnap = Pick<Client, 'id' | 'phone'> & { name?: string };
+type ClientSnap = Pick<Client, 'id' | 'phone'> & { name?: string; branch?: { name: string } | null };
 
 export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -105,9 +105,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
     if (!query.trim()) { setNameSuggestions([]); setShowSuggestions(false); return; }
     const { data } = await supabase
       .from('clients')
-      .select('id, name, phone')
-      .ilike('name', `%${query}%`)
-      .limit(5);
+      .select('id, name, phone, branch:branches(name)')
+      .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .limit(7);
     setNameSuggestions((data ?? []) as ClientSnap[]);
     setShowSuggestions(true);
   }
@@ -414,8 +414,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50"
                           >
-                            <p className="text-sm text-gray-900">{s.name}</p>
-                            <p className="text-xs text-gray-400">{s.phone}</p>
+                            <p className="text-sm text-gray-900">{s.name || s.phone}</p>
+                            <p className="text-xs text-gray-400">
+                              {s.name ? s.phone : ''}
+                              {s.name && s.branch?.name ? ' · ' : ''}
+                              {s.branch?.name ?? ''}
+                            </p>
                           </button>
                         ))}
                       </div>
