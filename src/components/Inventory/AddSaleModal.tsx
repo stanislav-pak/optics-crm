@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, QrCode, Trash2 } from 'lucide-react';
+import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check } from 'lucide-react';
 import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -21,11 +21,14 @@ interface Props {
   onSuccess: () => void;
 }
 
+type ClientSnap = Pick<Client, 'id' | 'phone'> & { name?: string };
+
 export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientSnap[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [clientId, setClientId] = useState('');
+  const [selectedClient, setSelectedClient] = useState<ClientSnap | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'kaspi_qr' | 'mixed'>('cash');
   const [paidCash, setPaidCash] = useState('');
   const [paidKaspi, setPaidKaspi] = useState('');
@@ -38,12 +41,107 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [loading, setLoading] = useState(false);
   const [change, setChange] = useState(0);
 
+  // client UI state
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [showClientList, setShowClientList] = useState(false);
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [nameSuggestions, setNameSuggestions] = useState<ClientSnap[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [newClientSaving, setNewClientSaving] = useState(false);
+
   useEffect(() => {
     getProducts(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
-    supabase.from('clients').select('id, name, phone').eq('branch_id', branchId).then(({ data }) => setClients(data ?? []));
+    fetchPaymentClients();
   }, [branchId]);
+
+  async function fetchPaymentClients() {
+    setClientsLoading(true);
+    try {
+      // 1. Последний этап по каждому чату
+      const { data: stages } = await supabase
+        .from('deal_stages')
+        .select('chat_id, current_stage, moved_to_stage_at')
+        .order('moved_to_stage_at', { ascending: false });
+
+      const latestStage: Record<string, string> = {};
+      (stages ?? []).forEach((s: any) => {
+        if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
+      });
+
+      // 2. Чаты на этапе payment
+      const paymentChatIds = Object.entries(latestStage)
+        .filter(([, stage]) => stage === 'payment')
+        .map(([chatId]) => chatId);
+
+      if (paymentChatIds.length === 0) { setClients([]); setClientsLoading(false); return; }
+
+      // 3. client_id из этих чатов
+      const { data: chatsData } = await supabase
+        .from('chats')
+        .select('client_id')
+        .in('id', paymentChatIds);
+
+      const clientIds = [...new Set((chatsData ?? []).map((c: any) => c.client_id).filter(Boolean))];
+      if (clientIds.length === 0) { setClients([]); setClientsLoading(false); return; }
+
+      // 4. Сами клиенты
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('id, name, phone')
+        .in('id', clientIds);
+
+      setClients((clientData ?? []) as ClientSnap[]);
+    } catch (e) {
+      console.error('[AddSaleModal] fetchPaymentClients:', e);
+    }
+    setClientsLoading(false);
+  }
+
+  async function searchClientsByName(query: string) {
+    if (!query.trim()) { setNameSuggestions([]); setShowSuggestions(false); return; }
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, phone')
+      .ilike('name', `%${query}%`)
+      .limit(5);
+    setNameSuggestions((data ?? []) as ClientSnap[]);
+    setShowSuggestions(true);
+  }
+
+  async function handleCreateClient() {
+    if (!newClientPhone.trim()) return;
+    setNewClientSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert({
+          name: newClientName.trim() || null,
+          phone: newClientPhone.trim(),
+          branch_id: branchId,
+          status: 'new',
+          contact_type: 'visit',
+        })
+        .select('id, name, phone')
+        .single();
+
+      if (error) throw error;
+      const snap = data as ClientSnap;
+      setClientId(snap.id);
+      setSelectedClient(snap);
+      setClients(prev => [snap, ...prev]);
+      setShowNewClientForm(false);
+      setNewClientName('');
+      setNewClientPhone('');
+      setNameSuggestions([]);
+    } catch (e: any) {
+      alert('Ошибка: ' + e.message);
+    }
+    setNewClientSaving(false);
+  }
 
   // Свайп для закрытия
   useEffect(() => {
@@ -180,6 +278,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
     setShowKaspiQR(false);
   };
 
+  // Отображаемое имя выбранного клиента
+  const displayClientName = selectedClient
+    ? (selectedClient.name || selectedClient.phone)
+    : clientId
+      ? (clients.find(c => c.id === clientId)?.name || clients.find(c => c.id === clientId)?.phone)
+      : null;
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
@@ -191,16 +296,150 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Клиент */}
+
+            {/* ── Клиент ── */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Клиент (необязательно)</label>
-              <select value={clientId} onChange={e => setClientId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option value="">— без клиента —</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name || c.phone}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Клиент</label>
+
+              {/* Trigger */}
+              <button
+                type="button"
+                onClick={() => { setShowClientList(v => !v); setShowNewClientForm(false); }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <span className={displayClientName ? 'text-gray-900' : 'text-gray-400'}>
+                  {displayClientName ?? '— без клиента —'}
+                </span>
+                <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+              </button>
+
+              {/* Dropdown */}
+              {showClientList && (
+                <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden">
+                  {/* + Новый клиент */}
+                  <button
+                    onMouseDown={e => { e.preventDefault(); setShowNewClientForm(true); setShowClientList(false); }}
+                    className="w-full text-left px-4 py-3 text-sm font-medium text-green-600 hover:bg-green-50 border-b border-gray-100 flex items-center gap-2"
+                  >
+                    <Plus size={14} />
+                    Новый клиент
+                  </button>
+
+                  {/* — без клиента — */}
+                  <button
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      setClientId('');
+                      setSelectedClient(null);
+                      setShowClientList(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-400 hover:bg-gray-50 border-b border-gray-100"
+                  >
+                    — без клиента —
+                  </button>
+
+                  {/* Список клиентов на этапе «Оплата» */}
+                  <div style={{ maxHeight: clients.length > 5 ? 208 : undefined, overflowY: clients.length > 5 ? 'auto' : undefined }}>
+                    {clientsLoading ? (
+                      <div className="px-4 py-3 text-sm text-gray-400">Загрузка...</div>
+                    ) : clients.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-400">Нет клиентов в стадии «Оплата»</div>
+                    ) : clients.map(c => (
+                      <button
+                        key={c.id}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setClientId(c.id);
+                          setSelectedClient(c);
+                          setShowClientList(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between ${clientId === c.id ? 'bg-green-50' : ''}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-900 truncate">{c.name || c.phone}</p>
+                          {c.name && <p className="text-xs text-gray-400">{c.phone}</p>}
+                        </div>
+                        {clientId === c.id && <Check size={14} className="text-green-600 flex-shrink-0 ml-2" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Мини-форма нового клиента */}
+              {showNewClientForm && (
+                <div className="mt-2 border border-green-200 rounded-xl p-3 space-y-2" style={{ backgroundColor: 'rgba(16,185,129,0.04)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-700">Новый клиент</p>
+                    <button
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        setShowNewClientForm(false);
+                        setNewClientName('');
+                        setNewClientPhone('');
+                        setNameSuggestions([]);
+                        setShowSuggestions(false);
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {/* Имя с автокомплитом */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={newClientName}
+                      onChange={e => { setNewClientName(e.target.value); searchClientsByName(e.target.value); }}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      onFocus={() => { if (newClientName.trim() && nameSuggestions.length > 0) setShowSuggestions(true); }}
+                      placeholder="Имя и фамилия"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    {showSuggestions && nameSuggestions.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                        {nameSuggestions.map(s => (
+                          <button
+                            key={s.id}
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              setClientId(s.id);
+                              setSelectedClient(s);
+                              setShowNewClientForm(false);
+                              setNewClientName('');
+                              setNewClientPhone('');
+                              setNameSuggestions([]);
+                              setShowSuggestions(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50"
+                          >
+                            <p className="text-sm text-gray-900">{s.name}</p>
+                            <p className="text-xs text-gray-400">{s.phone}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Телефон */}
+                  <input
+                    type="tel"
+                    value={newClientPhone}
+                    onChange={e => setNewClientPhone(e.target.value)}
+                    placeholder="Телефон *"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+
+                  <button
+                    onMouseDown={e => { e.preventDefault(); handleCreateClient(); }}
+                    disabled={!newClientPhone.trim() || newClientSaving}
+                    className="w-full py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  >
+                    {newClientSaving ? 'Создаём...' : 'Добавить'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Товары */}
