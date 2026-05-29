@@ -87,6 +87,27 @@ function periodRange(key: string, from?: string, to?: string): { from: Date | nu
   return { from: null, to: null };
 }
 
+// Диапазон предыдущего периода (для сравнения)
+function prevPeriodRange(key: string): { from: Date | null; to: Date | null } {
+  const now = new Date();
+  if (key === 'today') {
+    const f = new Date(now); f.setDate(f.getDate() - 1); f.setHours(0, 0, 0, 0);
+    const t = new Date(now); t.setDate(t.getDate() - 1); t.setHours(23, 59, 59, 999);
+    return { from: f, to: t };
+  }
+  if (key === 'week') {
+    const f = new Date(now); f.setDate(now.getDate() - 13); f.setHours(0, 0, 0, 0);
+    const t = new Date(now); t.setDate(now.getDate() - 7); t.setHours(23, 59, 59, 999);
+    return { from: f, to: t };
+  }
+  if (key === 'month') {
+    const f = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+    const t = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    return { from: f, to: t };
+  }
+  return { from: null, to: null };
+}
+
 function fmtMoney(n: number) {
   if (n >= 1_000_000) return `₸${(n / 1_000_000).toFixed(1)}М`;
   if (n >= 1_000) return `₸${(n / 1_000).toFixed(0)}К`;
@@ -98,6 +119,18 @@ function fmtDate(iso: string) {
     const d = new Date(iso);
     return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
   } catch { return iso; }
+}
+
+// ── DeltaBadge ────────────────────────────────────────────────────────────────
+function DeltaBadge({ curr, prev }: { curr: number; prev: number }) {
+  if (prev === 0) return <span className="text-[10px]" style={{ color: '#8696a0' }}>—</span>;
+  const pct = Math.round(((curr - prev) / Math.abs(prev)) * 100);
+  const up = pct >= 0;
+  return (
+    <span className="text-[10px] font-medium" style={{ color: up ? '#10b981' : '#f87171' }}>
+      {up ? '↑' : '↓'}{Math.abs(pct)}% к пред.
+    </span>
+  );
 }
 
 // ── внутренний компонент (обёрнут в ErrorBoundary снаружи) ────────────────────
@@ -231,6 +264,32 @@ function ReportsPanelInner() {
 
   const totalProfit = totalRevenue - totalCost;
 
+  const avgCheck = filteredSales.length > 0 ? Math.round(totalRevenue / filteredSales.length) : 0;
+
+  // ── предыдущий период (для сравнения) ────────────────────────────────────────
+  const prevFilteredSales = useMemo(() => {
+    try {
+      const { from: pf, to: pt } = prevPeriodRange(period);
+      if (!pf || !pt) return [];
+      return sales.filter(s => {
+        const d = new Date(s.created_at);
+        return d >= pf && d <= pt;
+      });
+    } catch (e) { console.error('[ReportsPanel] prevFilteredSales error:', e); return []; }
+  }, [sales, period]);
+
+  const prevRevenue = useMemo(() =>
+    prevFilteredSales.reduce((s, sale) => s + (sale.total ?? 0), 0),
+  [prevFilteredSales]);
+
+  const prevCost = useMemo(() =>
+    prevFilteredSales.reduce((sum, sale) =>
+      sum + (sale.items ?? []).reduce((s, item) => s + (item.quantity ?? 0) * (item.product?.cost_price ?? 0), 0), 0),
+  [prevFilteredSales]);
+
+  const prevProfit = prevRevenue - prevCost;
+  const prevAvgCheck = prevFilteredSales.length > 0 ? Math.round(prevRevenue / prevFilteredSales.length) : 0;
+
   // ── данные по дням ───────────────────────────────────────────────────────────
   const chartData = useMemo(() => {
     try {
@@ -293,22 +352,22 @@ function ReportsPanelInner() {
     } catch (e) { console.error('[ReportsPanel] branchStats error:', e); return []; }
   }, [filteredSales]);
 
-  // ── по менеджерам ────────────────────────────────────────────────────────────
+  // ── по менеджерам (из продаж) ─────────────────────────────────────────────────
   const empStats = useMemo(() => {
     try {
-      const map: Record<string, { id: string; name: string; total: number; closed: number }> = {};
-      filteredChats.forEach(c => {
-        const emp = c.employee;
+      const map: Record<string, { id: string; name: string; salesCount: number; revenue: number }> = {};
+      filteredSales.forEach(sale => {
+        const emp = sale.employee;
         if (!emp) return;
-        if (!map[emp.id]) map[emp.id] = { id: emp.id, name: emp.name, total: 0, closed: 0 };
-        map[emp.id].total++;
-        if (c.current_stage === 'closed') map[emp.id].closed++;
+        if (!map[emp.id]) map[emp.id] = { id: emp.id, name: emp.name, salesCount: 0, revenue: 0 };
+        map[emp.id].salesCount++;
+        map[emp.id].revenue += sale.total ?? 0;
       });
       return Object.values(map)
-        .map(e => ({ ...e, conversion: e.total > 0 ? Math.round((e.closed / e.total) * 100) : 0 }))
-        .sort((a, b) => b.total - a.total);
+        .map(e => ({ ...e, avgCheck: e.salesCount > 0 ? Math.round(e.revenue / e.salesCount) : 0 }))
+        .sort((a, b) => b.revenue - a.revenue);
     } catch (e) { console.error('[ReportsPanel] empStats error:', e); return []; }
-  }, [filteredChats]);
+  }, [filteredSales]);
 
   // ── рендер ───────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -364,20 +423,23 @@ function ReportsPanelInner() {
       </div>
 
       {/* ── Топ метрики ── */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl p-4 space-y-1" style={{ backgroundColor: '#202c33' }}>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl p-3 space-y-1" style={{ backgroundColor: '#202c33' }}>
           <p className="text-[10px] uppercase tracking-wide" style={{ color: '#8696a0' }}>Выручка</p>
-          <p className="text-2xl font-bold" style={{ color: '#e9edef' }}>₸{totalRevenue.toLocaleString()}</p>
-          <p className="text-[10px]" style={{ color: '#8696a0' }}>{filteredSales.length} продаж</p>
+          <p className="text-lg font-bold leading-tight" style={{ color: '#e9edef' }}>₸{totalRevenue.toLocaleString()}</p>
+          <DeltaBadge curr={totalRevenue} prev={prevRevenue} />
         </div>
-        <div className="rounded-xl p-4 space-y-1" style={{ backgroundColor: '#202c33' }}>
+        <div className="rounded-xl p-3 space-y-1" style={{ backgroundColor: '#202c33' }}>
           <p className="text-[10px] uppercase tracking-wide" style={{ color: '#8696a0' }}>Доход</p>
-          <p className="text-2xl font-bold" style={{ color: totalProfit >= 0 ? '#10b981' : '#f87171' }}>
+          <p className="text-lg font-bold leading-tight" style={{ color: totalProfit >= 0 ? '#10b981' : '#f87171' }}>
             ₸{totalProfit.toLocaleString()}
           </p>
-          <p className="text-[10px]" style={{ color: '#8696a0' }}>
-            Маржа {totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0}%
-          </p>
+          <DeltaBadge curr={totalProfit} prev={prevProfit} />
+        </div>
+        <div className="rounded-xl p-3 space-y-1" style={{ backgroundColor: '#202c33' }}>
+          <p className="text-[10px] uppercase tracking-wide" style={{ color: '#8696a0' }}>Ср. чек</p>
+          <p className="text-lg font-bold leading-tight" style={{ color: '#e9edef' }}>₸{avgCheck.toLocaleString()}</p>
+          <DeltaBadge curr={avgCheck} prev={prevAvgCheck} />
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -602,20 +664,23 @@ function ReportsPanelInner() {
           <p className="text-xs text-center py-4" style={{ color: '#8696a0' }}>Нет данных</p>
         ) : (
           <div className="space-y-2">
-            {empStats.map(e => (
+            {empStats.map((e, idx) => (
               <div key={e.id} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: '#2a3942' }}>
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#10b981,#0d9488)' }}
-                >
-                  {(e.name?.[0] ?? '?').toUpperCase()}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  <span className="text-[10px] font-bold tabular-nums w-4 text-center" style={{ color: '#8696a0' }}>#{idx + 1}</span>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                    style={{ background: 'linear-gradient(135deg,#10b981,#0d9488)' }}
+                  >
+                    {(e.name?.[0] ?? '?').toUpperCase()}
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate" style={{ color: '#e9edef' }}>{e.name}</p>
-                  <p className="text-[10px]" style={{ color: '#8696a0' }}>{e.total} чатов · {e.closed} закрыто</p>
+                  <p className="text-[10px]" style={{ color: '#8696a0' }}>{e.salesCount} продаж · ср.чек {fmtMoney(e.avgCheck)}</p>
                 </div>
-                <span className="text-sm font-bold flex-shrink-0" style={{ color: e.conversion > 0 ? '#10b981' : '#8696a0' }}>
-                  {e.conversion}%
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: e.revenue > 0 ? '#10b981' : '#8696a0' }}>
+                  {fmtMoney(e.revenue)}
                 </span>
               </div>
             ))}
