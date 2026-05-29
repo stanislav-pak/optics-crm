@@ -72,7 +72,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
 
   const handleCreateCategory = async (name: string) => {
-    const { data, error } = await supabase.from('product_categories').insert({ name }).select().single();
+    const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-zа-я0-9_]/gi, '');
+    const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
     if (error) throw error;
     setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
     set('category_id', data.id);
