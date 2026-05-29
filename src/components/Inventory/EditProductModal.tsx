@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { updateProduct, getCategories, getBrands } from '../../services/inventory';
+import { supabase } from '../../services/supabase';
 import type { Product, ProductCategory, Brand } from '../../types';
+import InlineCreate from './InlineCreate';
 
 interface Props {
   product: Product;
@@ -27,7 +29,27 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
     description: String(product.attributes?.description ?? ''),
   });
 
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [showNewBrand, setShowNewBrand] = useState(false);
+
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
+
+  const handleCreateCategory = async (name: string) => {
+    const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '') || 'category';
+    const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
+    if (error) throw error;
+    setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
+    set('category_id', data.id);
+    setShowNewCategory(false);
+  };
+
+  const handleCreateBrand = async (name: string) => {
+    const { data, error } = await supabase.from('brands').insert({ name }).select().single();
+    if (error) throw error;
+    setBrands(prev => [...prev, data as Brand].sort((a, b) => a.name.localeCompare(b.name)));
+    set('brand_id', data.id);
+    setShowNewBrand(false);
+  };
 
   useEffect(() => {
     getCategories().then(setCategories).catch(console.error);
@@ -115,21 +137,45 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Категория</label>
-              <select value={form.category_id} onChange={e => set('category_id', e.target.value)} className={selectCls}>
+              <select
+                value={form.category_id}
+                onChange={e => e.target.value === '__new__' ? (setShowNewCategory(true), set('category_id', '')) : set('category_id', e.target.value)}
+                className={selectCls}
+              >
                 <option value="">— выбрать —</option>
                 {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.parent_id ? '  ' : ''}{c.name}</option>
                 ))}
+                <option value="__new__">+ Создать новую</option>
               </select>
+              {showNewCategory && (
+                <InlineCreate
+                  placeholder="Название категории"
+                  onConfirm={handleCreateCategory}
+                  onCancel={() => setShowNewCategory(false)}
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Бренд</label>
-              <select value={form.brand_id} onChange={e => set('brand_id', e.target.value)} className={selectCls}>
+              <select
+                value={form.brand_id}
+                onChange={e => e.target.value === '__new__' ? (setShowNewBrand(true), set('brand_id', '')) : set('brand_id', e.target.value)}
+                className={selectCls}
+              >
                 <option value="">— выбрать —</option>
                 {brands.map(b => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
+                <option value="__new__">+ Создать новый</option>
               </select>
+              {showNewBrand && (
+                <InlineCreate
+                  placeholder="Название бренда"
+                  onConfirm={handleCreateBrand}
+                  onCancel={() => setShowNewBrand(false)}
+                />
+              )}
             </div>
           </div>
 

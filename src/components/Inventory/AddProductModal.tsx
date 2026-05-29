@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode } from 'lucide-react';
 import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
+import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
+import InlineCreate from './InlineCreate';
 
 interface Props {
   branchId: string;
@@ -31,6 +33,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
 
   const [attributes, setAttributes] = useState<ProductAttributes>({});
   const [showScanner, setShowScanner] = useState(false);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [showNewBrand, setShowNewBrand] = useState(false);
 
   const handleGenerateBarcode = () => {
     setForm(f => ({ ...f, barcode: generateBarcode(crypto.randomUUID()) }));
@@ -66,6 +70,23 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
+
+  const handleCreateCategory = async (name: string) => {
+    const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '') || 'category';
+    const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
+    if (error) throw error;
+    setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
+    set('category_id', data.id);
+    setShowNewCategory(false);
+  };
+
+  const handleCreateBrand = async (name: string) => {
+    const { data, error } = await supabase.from('brands').insert({ name }).select().single();
+    if (error) throw error;
+    setBrands(prev => [...prev, data as Brand].sort((a, b) => a.name.localeCompare(b.name)));
+    set('brand_id', data.id);
+    setShowNewBrand(false);
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.price) return;
@@ -130,29 +151,43 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               <label className="block text-xs font-medium text-gray-500 mb-1">Категория</label>
               <select
                 value={form.category_id}
-                onChange={e => set('category_id', e.target.value)}
+                onChange={e => e.target.value === '__new__' ? (setShowNewCategory(true), set('category_id', '')) : set('category_id', e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">— выбрать —</option>
                 {categories.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.parent_id ? '  ' : ''}{c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.parent_id ? '  ' : ''}{c.name}</option>
                 ))}
+                <option value="__new__">+ Создать новую</option>
               </select>
+              {showNewCategory && (
+                <InlineCreate
+                  placeholder="Название категории"
+                  onConfirm={handleCreateCategory}
+                  onCancel={() => setShowNewCategory(false)}
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Бренд</label>
               <select
                 value={form.brand_id}
-                onChange={e => set('brand_id', e.target.value)}
+                onChange={e => e.target.value === '__new__' ? (setShowNewBrand(true), set('brand_id', '')) : set('brand_id', e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">— выбрать —</option>
                 {brands.map(b => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
+                <option value="__new__">+ Создать новый</option>
               </select>
+              {showNewBrand && (
+                <InlineCreate
+                  placeholder="Название бренда"
+                  onConfirm={handleCreateBrand}
+                  onCancel={() => setShowNewBrand(false)}
+                />
+              )}
             </div>
           </div>
 
