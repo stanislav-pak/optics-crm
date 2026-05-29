@@ -11,6 +11,16 @@ interface Props {
   onSave: (updated: Product) => void;
 }
 
+function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const aLatin = /^[a-zA-Z]/.test(a.name);
+    const bLatin = /^[a-zA-Z]/.test(b.name);
+    if (aLatin && !bLatin) return -1;
+    if (!aLatin && bLatin) return 1;
+    return a.name.localeCompare(b.name, aLatin ? 'en' : 'ru');
+  });
+}
+
 export default function EditProductModal({ product, onClose, onSave }: Props) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -38,7 +48,7 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
     const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-zа-я0-9_]/gi, '');
     const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
     if (error) throw error;
-    setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
+    setCategories(prev => sortAlpha([...prev, data as ProductCategory]));
     set('category_id', data.id);
     setShowNewCategory(false);
   };
@@ -46,14 +56,14 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
   const handleCreateBrand = async (name: string) => {
     const { data, error } = await supabase.from('brands').insert({ name }).select().single();
     if (error) throw error;
-    setBrands(prev => [...prev, data as Brand].sort((a, b) => a.name.localeCompare(b.name)));
+    setBrands(prev => sortAlpha([...prev, data as Brand]));
     set('brand_id', data.id);
     setShowNewBrand(false);
   };
 
   useEffect(() => {
-    getCategories().then(setCategories).catch(console.error);
-    getBrands().then(setBrands).catch(console.error);
+    getCategories().then(data => setCategories(sortAlpha(data))).catch(console.error);
+    getBrands().then(data => setBrands(sortAlpha(data))).catch(console.error);
   }, []);
 
   // Свайп вправо — закрыть

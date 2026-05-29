@@ -13,6 +13,16 @@ interface Props {
   onSuccess: () => void;
 }
 
+function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const aLatin = /^[a-zA-Z]/.test(a.name);
+    const bLatin = /^[a-zA-Z]/.test(b.name);
+    if (aLatin && !bLatin) return -1;
+    if (!aLatin && bLatin) return 1;
+    return a.name.localeCompare(b.name, aLatin ? 'en' : 'ru');
+  });
+}
+
 export default function AddProductModal({ branchId, employeeId, onClose, onSuccess }: Props) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -41,8 +51,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   };
 
   useEffect(() => {
-    getCategories().then(setCategories).catch(e => console.error('getCategories failed:', e));
-    getBrands().then(setBrands).catch(e => console.error('getBrands failed:', e));
+    getCategories().then(data => setCategories(sortAlpha(data))).catch(e => console.error('getCategories failed:', e));
+    getBrands().then(data => setBrands(sortAlpha(data))).catch(e => console.error('getBrands failed:', e));
   }, []);
 
   useEffect(() => {
@@ -75,7 +85,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
     const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-zа-я0-9_]/gi, '');
     const { data, error } = await supabase.from('product_categories').insert({ name, slug }).select().single();
     if (error) throw error;
-    setCategories(prev => [...prev, data as ProductCategory].sort((a, b) => a.name.localeCompare(b.name)));
+    setCategories(prev => sortAlpha([...prev, data as ProductCategory]));
     set('category_id', data.id);
     setShowNewCategory(false);
   };
@@ -83,7 +93,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const handleCreateBrand = async (name: string) => {
     const { data, error } = await supabase.from('brands').insert({ name }).select().single();
     if (error) throw error;
-    setBrands(prev => [...prev, data as Brand].sort((a, b) => a.name.localeCompare(b.name)));
+    setBrands(prev => sortAlpha([...prev, data as Brand]));
     set('brand_id', data.id);
     setShowNewBrand(false);
   };
