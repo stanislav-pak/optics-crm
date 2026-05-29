@@ -882,7 +882,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
 
     const stock = stockRes.data ?? [];
     const totalValue = stock.reduce((sum, s) =>
-      sum + s.quantity * ((s.product as any)?.price ?? 0), 0);
+      sum + s.quantity * ((s.product as any)?.cost_price ?? 0), 0);
     const lowStock = stock.filter(s =>
       s.quantity <= ((s.product as any)?.min_stock ?? 0)).length;
 
@@ -905,7 +905,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
 
   const stock = stockRes.data ?? [];
   const totalValue = stock.reduce((sum, s) =>
-    sum + s.quantity * ((s.product as any)?.price ?? 0), 0);
+    sum + s.quantity * ((s.product as any)?.cost_price ?? 0), 0);
   const lowStock = stock.filter(s =>
     s.quantity <= ((s.product as any)?.min_stock ?? 0)).length;
 
