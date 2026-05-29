@@ -131,7 +131,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
           </div>
           {onOpenChat && (
             <button
-              onClick={() => { alert('opening chat from CRM'); onOpenChat(selectedChat); }}
+              onClick={() => onOpenChat(selectedChat)}
               title="Открыть чат"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 active:scale-95 transition-transform flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
