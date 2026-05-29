@@ -870,7 +870,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
     const [stockRes, movementsRes] = await Promise.all([
       supabase
         .from('stock')
-        .select('quantity, product:products(price, min_stock)')
+        .select('quantity, product:products(price, cost_price, min_stock)')
         .eq('branch_id', branchId)
         .gt('quantity', 0),
       supabase
@@ -898,7 +898,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
   // Для admin: агрегат по всем филиалам
   const [productsRes, stockRes, movementsRes] = await Promise.all([
     supabase.from('products').select('id', { count: 'exact' }).eq('is_active', true),
-    supabase.from('stock').select('quantity, product:products(price, min_stock)'),
+    supabase.from('stock').select('quantity, product:products(price, cost_price, min_stock)'),
     supabase.from('stock_movements').select('id', { count: 'exact' })
       .gte('created_at', new Date().toISOString().split('T')[0]),
   ]);
