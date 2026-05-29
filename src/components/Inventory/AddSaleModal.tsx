@@ -466,7 +466,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                         className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">−</button>
                       <input type="text" inputMode="numeric"
                         value={item.quantity === 0 ? '' : String(item.quantity)}
-                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                        onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); updateItem(idx, 'quantity', val === '' ? 0 : parseInt(val)); }}
                         onFocus={e => e.target.select()}
                         className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0" />
                       <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
