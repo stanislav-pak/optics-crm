@@ -53,6 +53,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
 
   // selectedChat ref для свайпа
   const selectedChatRef = useRef<Chat | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
   // Свайп вправо → назад (только внутри ManagerCRMPanel)
@@ -66,11 +67,13 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
         if (selectedChatRef.current) { alert('has selected chat, going back to list'); selectedChatRef.current = null; setSelectedChat(null); setRefreshKey(k => k + 1); } else { alert('no selected chat, calling onBack'); onBack(); }
       }
     };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend', onEnd, { passive: true });
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchend', onEnd, { passive: true });
     return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchend', onEnd);
     };
   }, []);
 
@@ -109,7 +112,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
   // Выбран клиент — показываем его CRM
   if (selectedChat) {
     return (
-      <div className="flex-1 flex flex-col bg-[#111b21] overflow-hidden">
+      <div ref={containerRef} className="flex-1 flex flex-col bg-[#111b21] overflow-hidden">
         <div style={{position:'fixed', top:0, left:0, zIndex:9999, background:'red', color:'white', fontSize:'12px', padding:'4px'}}>
           ref: {selectedChatRef.current ? selectedChatRef.current.id.slice(0,8) : 'null'}
         </div>
@@ -149,7 +152,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
 
   // Главный CRM — сводка + список клиентов
   return (
-    <div className="flex-1 flex flex-col bg-[#0b141a] overflow-hidden">
+    <div ref={containerRef} className="flex-1 flex flex-col bg-[#0b141a] overflow-hidden">
       <div className="px-4 py-3 bg-[#202c33] border-b border-white/5 flex items-center gap-3 flex-shrink-0">
         <button onClick={onBack}
           className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform">
