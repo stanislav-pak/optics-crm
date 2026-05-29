@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check } from 'lucide-react';
-import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
+import { createSale, getProductsFromStock, getProductByBarcode } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
@@ -52,7 +52,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [newClientSaving, setNewClientSaving] = useState(false);
 
   useEffect(() => {
-    getProducts(branchId).then(data =>
+    getProductsFromStock(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchPaymentClients();
