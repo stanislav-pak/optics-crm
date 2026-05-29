@@ -410,7 +410,7 @@ function AppContent() {
               </div>
             </div>
           )}
-          {(mobileView === 'chat' || mobileView === 'main') && MainArea}
+          {mobileView === 'chat' && MainArea}
         </div>
         {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
       </AuthContext.Provider>
