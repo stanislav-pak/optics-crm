@@ -63,7 +63,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
       const dx = e.changedTouches[0].clientX - startX;
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
       if (dy < 80 && dx > 60) {
-        if (selectedChatRef.current) { setSelectedChat(null); setRefreshKey(k => k + 1); } else { onBack(); }
+        if (selectedChatRef.current) { selectedChatRef.current = null; setSelectedChat(null); setRefreshKey(k => k + 1); } else { onBack(); }
       }
     };
     document.addEventListener('touchstart', onStart, { passive: true });
@@ -103,7 +103,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
   // Найти чат по chat_id и открыть его CRM
   const openChatCRM = (chatId: string) => {
     const found = chats.find(c => c.id === chatId);
-    if (found) setSelectedChat(found);
+    if (found) { selectedChatRef.current = found; setSelectedChat(found); }
   };
 
   // Выбран клиент — показываем его CRM
@@ -111,7 +111,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
     return (
       <div className="flex-1 flex flex-col bg-[#111b21] overflow-hidden">
         <div className="px-4 py-3 bg-[#202c33] border-b border-white/5 flex items-center gap-3 flex-shrink-0">
-          <button onClick={() => setSelectedChat(null)}
+          <button onClick={() => { selectedChatRef.current = null; setSelectedChat(null); }}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -266,7 +266,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
               ) : (
                 <div className="space-y-2">
                   {chats.map(chat => (
-                    <button key={chat.id} onClick={() => setSelectedChat(chat)}
+                    <button key={chat.id} onClick={() => { selectedChatRef.current = chat; setSelectedChat(chat); }}
                       className="w-full text-left bg-[#202c33] rounded-xl p-3 flex items-center gap-3 active:bg-white/10 transition-colors">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                         {chat.client?.name ? chat.client.name[0].toUpperCase() : '#'}
