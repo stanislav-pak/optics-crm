@@ -40,6 +40,7 @@ function AppContent() {
   usePushNotifications(employee?.id);
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
+  const [chatSource, setChatSource] = useState<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings'>('dashboard');
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop'>('list');
@@ -171,6 +172,7 @@ function AppContent() {
   const isAdmin = employee.role === 'admin' || employee.role === 'branch_admin';
 
   const handleChatSelect = (chat: Chat) => {
+    setChatSource('list');
     setActiveChat(chat);
     if (isAdmin) setAdminView('chat');
     if (isMobile) setMobileView('chat');
@@ -178,8 +180,12 @@ function AppContent() {
 
   const handleBack = () => {
     setActiveChat(null);
-    setMobileView('list');
-    if (isAdmin) setAdminView('dashboard');
+    if (chatSource === 'crm') {
+      setMobileView('manager-crm');
+    } else {
+      setMobileView('list');
+      if (isAdmin) setAdminView('dashboard');
+    }
   };
 
   const handleBackToList = () => {
@@ -377,7 +383,7 @@ function AppContent() {
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
           {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
-          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} />}
+          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onOpenChat={(chat) => { setChatSource('crm'); setActiveChat(chat); setMobileView('chat'); }} />}
           {mobileView === 'inventory' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Склад" />
