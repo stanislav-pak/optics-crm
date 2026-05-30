@@ -513,7 +513,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     ) : filteredProducts.slice(0, 8).map(p => {
                       const qty = (p.stock as any)?.[0]?.quantity ?? 0;
                       return (
-                        <button key={p.id} onMouseDown={e => { e.preventDefault(); addItem(p); }}
+                        <button key={p.id}
+                          onTouchStart={e => { e.preventDefault(); addItem(p); }}
+                          onClick={() => addItem(p)}
                           className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
                           <div>
                             <p className="text-sm text-gray-900">{p.name}</p>

@@ -363,7 +363,8 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                 ) : filteredProducts.map(p => (
                   <button
                     key={p.id}
-                    onMouseDown={e => { e.preventDefault(); addItem(p); }}
+                    onTouchStart={e => { e.preventDefault(); addItem(p); }}
+                    onClick={() => addItem(p)}
                     className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                   >
                     <div>
