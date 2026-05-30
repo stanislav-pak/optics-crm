@@ -1817,7 +1817,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             const found = products.find(p => p.barcode === barcode || p.sku === barcode);
             if (found) {
               setHighlightedProductId(found.id);
-              setTimeout(() => setHighlightedProductId(null), 2000);
+              setTimeout(() => setHighlightedProductId(null), 5000);
             }
           }}
           onClose={() => setShowScanner(false)}
