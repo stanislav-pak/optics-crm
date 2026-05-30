@@ -201,29 +201,18 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       oscillator.stop(ctx.currentTime + 0.4);
     };
 
-    console.log('🔔 Setting up realtime subscription, branchId:', branchId);
-    const subscription = supabase
-      .channel('incoming-transfers')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'stock_movements',
-        // filter: `to_branch_id=eq.${branchId}`,
-      }, (payload) => {
-        console.log('🔔 incoming transfer received', payload);
+    const channel = supabase
+      .channel(`branch-notifications:${branchId}`)
+      .on('broadcast', { event: 'incoming_transfer' }, () => {
+        playSuccessSound();
+        loadAll();
         setDebugMsg('Получено в ' + new Date().toLocaleTimeString());
-        if (payload.new.type === 'transfer') {
-          playSuccessSound();
-          loadAll();
-        }
       })
       .subscribe((status) => {
         setDebugMsg('Subscription status: ' + status);
       });
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [branchId]);
 
   async function loadAll() {
