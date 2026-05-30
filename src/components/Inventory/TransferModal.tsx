@@ -218,72 +218,68 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Товар</label>
 
-            {/* Поиск + сканер */}
-            <div className="flex gap-2 mb-2">
-              <div className="flex-1 relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={productSearch}
-                  onChange={e => setProductSearch(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
-                  placeholder="Поиск по названию, SKU, штрихкоду..."
-                  className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <button
-                type="button"
-                onMouseDown={e => { e.preventDefault(); setShowScanner(true); }}
-                className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
-                title="Сканировать штрихкод"
-              >
-                <QrCode size={18} />
-              </button>
-            </div>
-
-            {/* Список товаров */}
-            {(isSearchFocused || productSearch.length > 0) && (filteredStock.length === 0 ? (
-              <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
-                {stockItems.length === 0 ? 'Нет товаров на этом складе' : 'Ничего не найдено'}
-              </div>
+            {!selectedStock ? (
+              <>
+                {/* Поиск + сканер */}
+                <div className="flex gap-2 mb-2">
+                  <div className="flex-1 relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                      onFocus={() => setIsSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
+                      placeholder="Поиск по названию, SKU, штрихкоду..."
+                      className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); setShowScanner(true); }}
+                    className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <QrCode size={18} />
+                  </button>
+                </div>
+                {/* Список товаров */}
+                {(isSearchFocused || productSearch.length > 0) && (filteredStock.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                    {stockItems.length === 0 ? 'Нет товаров на этом складе' : 'Ничего не найдено'}
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-gray-100">
+                    {filteredStock.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onTouchStart={e => { e.preventDefault(); setSelectedStock(s); setProductSearch(''); setIsSearchFocused(false); setQuantity(1); }}
+                        onClick={() => { setSelectedStock(s); setProductSearch(''); setIsSearchFocused(false); setQuantity(1); }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-l-2 border-l-transparent transition-colors"
+                      >
+                        <p className="text-sm font-medium text-gray-900">{s.product.name}</p>
+                        <p className="text-xs text-gray-400">
+                          Доступно: <span className="font-medium text-gray-600">{s.quantity} {s.product.unit ?? 'шт'}</span>
+                          {s.product.sku ? ` · ${s.product.sku}` : ''}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </>
             ) : (
-              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-gray-100">
-                {filteredStock.map(s => {
-                  const isSelected = selectedStock?.id === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => { setSelectedStock(isSelected ? null : s); setQuantity(1); }}
-                      className={`w-full text-left px-4 py-2.5 transition-colors ${
-                        isSelected
-                          ? 'bg-blue-50 border-l-2 border-l-blue-500'
-                          : 'hover:bg-gray-50 border-l-2 border-l-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className={`text-sm font-medium truncate ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
-                            {s.product.name}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            Доступно: <span className="font-medium text-gray-600">{s.quantity} {s.product.unit ?? 'шт'}</span>
-                            {s.product.sku ? ` · ${s.product.sku}` : ''}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+              /* Выбранный товар */
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mb-2">
+                <div>
+                  <p className="text-sm font-medium text-blue-700">{selectedStock.product.name}</p>
+                  <p className="text-xs text-gray-500">{selectedStock.product.sku ?? ''}</p>
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); setSelectedStock(null); setProductSearch(''); }}
+                  className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-3"
+                >×</button>
               </div>
-            ))}
+            )}
           </div>
 
           {/* Количество */}
