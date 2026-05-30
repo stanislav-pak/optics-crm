@@ -457,7 +457,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
             <div>
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Последние движения</h2>
-              <MovementsTable movements={movements.slice(0, 10)} onRowClick={id => setSelectedMovementId(id)} />
+              <MovementsTable movements={movements.slice(0, 10)} onRowClick={id => setSelectedMovementId(id)} role={role} />
             </div>
           </div>
         )}
@@ -781,7 +781,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </div>
               )}
 
-              <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" onRowClick={id => setSelectedMovementId(id)} />
+              <MovementsTable movements={filteredMovements} emptyText="Нет движений по выбранным фильтрам" onRowClick={id => setSelectedMovementId(id)} role={role} />
             </div>
           );
         })()}
@@ -2199,7 +2199,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function MovementsTable({ movements, emptyText = 'Движений нет', onRowClick }: { movements: StockMovement[]; emptyText?: string; onRowClick?: (id: string) => void }) {
+function MovementsTable({ movements, emptyText = 'Движений нет', onRowClick, role }: { movements: StockMovement[]; emptyText?: string; onRowClick?: (id: string) => void; role?: string }) {
   const typeLabel: Record<string, { label: string; color: string }> = {
     in: { label: 'Приход', color: 'text-green-600' },
     out: { label: 'Расход', color: 'text-red-600' },
@@ -2224,7 +2224,7 @@ function MovementsTable({ movements, emptyText = 'Движений нет', onRo
           {movements.map(m => {
             const t = typeLabel[m.type] ?? { label: m.type, color: 'text-gray-600' };
             return (
-              <div key={m.id} className={`grid grid-cols-12 items-center px-4 py-3 ${onRowClick ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100' : ''}`} onClick={() => onRowClick?.(m.id)}>
+              <div key={m.id} className={`grid grid-cols-12 items-center px-4 py-3 ${onRowClick ? 'cursor-pointer hover:bg-gray-50 active:bg-gray-100' : ''} ${role === 'admin' && m.type === 'transfer' && m.discrepancy > 0 ? 'bg-red-50 border-l-4 border-red-400' : ''}`} onClick={() => onRowClick?.(m.id)}>
                 <div className="col-span-4">
                   <p className="text-sm text-gray-900">{(m.product as any)?.name ?? '—'}</p>
                   {m.type === 'transfer' && m.notes
@@ -2232,7 +2232,14 @@ function MovementsTable({ movements, emptyText = 'Движений нет', onRo
                     : <p className="text-xs text-gray-400">{(m.employee as any)?.name ?? '—'}</p>
                   }
                 </div>
-                <span className={`col-span-3 text-sm font-medium ${t.color}`}>{t.label}</span>
+                <div className="col-span-3">
+                  <span className={`text-sm font-medium ${t.color}`}>{t.label}</span>
+                  {role === 'admin' && m.type === 'transfer' && m.discrepancy > 0 && (
+                    <div className="text-xs text-red-500 font-medium mt-0.5">
+                      Недостача: {m.discrepancy} шт · ₸{((m.discrepancy ?? 0) * (m.price ?? 0)).toLocaleString('ru-RU')}
+                    </div>
+                  )}
+                </div>
                 <span className="col-span-2 text-sm text-right text-gray-700">{m.quantity}</span>
                 <span className="col-span-3 text-xs text-right text-gray-400">
                   {new Date(m.created_at).toLocaleDateString('ru-RU')}
