@@ -208,6 +208,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         table: 'stock_movements',
         filter: `to_branch_id=eq.${branchId}`,
       }, (payload) => {
+        console.log('🔔 incoming transfer received', payload);
         if (payload.new.type === 'transfer') {
           playSuccessSound();
           loadAll();
