@@ -208,7 +208,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         event: 'INSERT',
         schema: 'public',
         table: 'stock_movements',
-        filter: `to_branch_id=eq.${branchId}`,
+        // filter: `to_branch_id=eq.${branchId}`,
       }, (payload) => {
         console.log('🔔 incoming transfer received', payload);
         setDebugMsg('Получено в ' + new Date().toLocaleTimeString());
@@ -217,7 +217,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           loadAll();
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        setDebugMsg('Subscription status: ' + status);
+      });
 
     return () => {
       supabase.removeChannel(subscription);
