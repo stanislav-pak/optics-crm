@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -67,6 +67,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
 );
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -166,12 +167,27 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }, [tab]);
 
+  // Разблокировка AudioContext при первом касании (iOS)
+  useEffect(() => {
+    const unlock = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    return () => document.removeEventListener('touchstart', unlock);
+  }, []);
+
   // Realtime: звук при входящем перемещении
   useEffect(() => {
     if (!branchId) return;
 
     const playSuccessSound = () => {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = audioCtxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
