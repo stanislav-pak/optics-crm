@@ -37,6 +37,7 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
   const [toBranchId, setToBranchId] = useState('');
   const [selectedStock, setSelectedStock] = useState<StockItem | null>(null);
   const [productSearch, setProductSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -218,6 +219,8 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
                 <input
                   value={productSearch}
                   onChange={e => setProductSearch(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
                   placeholder="Поиск по названию, SKU, штрихкоду..."
                   className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -233,7 +236,7 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
             </div>
 
             {/* Список товаров */}
-            {productSearch.length > 0 && (filteredStock.length === 0 ? (
+            {(isSearchFocused || productSearch.length > 0) && (filteredStock.length === 0 ? (
               <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
                 {stockItems.length === 0 ? 'Нет товаров на этом складе' : 'Ничего не найдено'}
               </div>
