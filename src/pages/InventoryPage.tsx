@@ -67,7 +67,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
 );
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const lastTransferCheckRef = useRef(new Date().toISOString());
   const [debugMsg, setDebugMsg] = useState('');
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
@@ -168,51 +168,47 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }, [tab]);
 
-  // Разблокировка AudioContext при первом касании (iOS)
-  useEffect(() => {
-    const unlock = () => {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-    };
-    document.addEventListener('touchstart', unlock, { once: true });
-    return () => document.removeEventListener('touchstart', unlock);
-  }, []);
-
-  // Realtime: звук при входящем перемещении
+  // Polling: проверка новых входящих перемещений каждые 15 секунд
   useEffect(() => {
     if (!branchId) return;
 
-    const playSuccessSound = () => {
-      const ctx = audioCtxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioCtx = { current: null as AudioContext | null };
+
+    const playSound = () => {
+      const ctx = audioCtx.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioCtx.current = ctx;
       if (ctx.state === 'suspended') ctx.resume();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.frequency.setValueAtTime(520, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.4);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
     };
 
-    const channel = supabase
-      .channel(`branch-notifications:${branchId}`)
-      .on('broadcast', { event: 'incoming_transfer' }, () => {
-        playSuccessSound();
+    const checkNewTransfers = async () => {
+      const { data } = await supabase
+        .from('stock_movements')
+        .select('id')
+        .eq('to_branch_id', branchId)
+        .eq('type', 'transfer')
+        .eq('status', 'in_transit')
+        .gt('created_at', lastTransferCheckRef.current);
+
+      if (data && data.length > 0) {
+        lastTransferCheckRef.current = new Date().toISOString();
+        playSound();
         loadAll();
         setDebugMsg('Получено в ' + new Date().toLocaleTimeString());
-      })
-      .subscribe((status) => {
-        setDebugMsg('Subscription status: ' + status);
-      });
+      }
+    };
 
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(checkNewTransfers, 15000);
+    return () => clearInterval(interval);
   }, [branchId]);
 
   async function loadAll() {
