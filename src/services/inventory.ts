@@ -750,32 +750,6 @@ export async function confirmTransfer(
 
   const discrepancy = movement.quantity - confirmedQuantity;
 
-  // Зачисляем на склад получателя (upsert)
-  const { data: toStock } = await supabase
-    .from('stock')
-    .select('quantity')
-    .eq('product_id', movement.product_id)
-    .eq('branch_id', movement.to_branch_id)
-    .maybeSingle();
-
-  if (toStock) {
-    await supabase
-      .from('stock')
-      .update({ quantity: toStock.quantity + confirmedQuantity })
-      .eq('product_id', movement.product_id)
-      .eq('branch_id', movement.to_branch_id);
-  } else {
-    await supabase.from('stock').insert({
-      product_id: movement.product_id,
-      branch_id: movement.to_branch_id,
-      quantity: confirmedQuantity,
-    });
-  }
-
-  // Пересчитываем остатки получателя и отправителя
-  await supabase.rpc('recalculate_stock', { p_branch_id: movement.to_branch_id });
-  await supabase.rpc('recalculate_stock', { p_branch_id: movement.branch_id });
-
   // Обновляем движение
   const { error: updateErr } = await supabase.from('stock_movements').update({
     status: 'completed',
@@ -787,6 +761,10 @@ export async function confirmTransfer(
   }).eq('id', movementId);
 
   if (updateErr) throw updateErr;
+
+  // Пересчитываем остатки получателя и отправителя
+  await supabase.rpc('recalculate_stock', { p_branch_id: movement.to_branch_id });
+  await supabase.rpc('recalculate_stock', { p_branch_id: movement.branch_id });
 }
 
 export async function getIncomingTransfers(branchId: string) {
