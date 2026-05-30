@@ -200,6 +200,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       oscillator.stop(ctx.currentTime + 0.4);
     };
 
+    console.log('🔔 Setting up realtime subscription, branchId:', branchId);
     const subscription = supabase
       .channel('incoming-transfers')
       .on('postgres_changes', {
