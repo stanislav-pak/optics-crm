@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check } from 'lucide-react';
-import { createSale, getProductsFromStock, getProductByBarcode } from '../../services/inventory';
+import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
@@ -52,7 +52,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [newClientSaving, setNewClientSaving] = useState(false);
 
   useEffect(() => {
-    getProductsFromStock(branchId).then(data =>
+    getProducts(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchPaymentClients();
@@ -466,8 +466,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                         className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">−</button>
                       <input type="text" inputMode="numeric"
                         value={item.quantity === 0 ? '' : String(item.quantity)}
-                        onChange={e => { const val = e.target.value.replace(/[^0-9]/g, ''); updateItem(idx, 'quantity', val === '' ? 0 : parseInt(val)); }}
-                        onClick={e => (e.target as HTMLInputElement).select()}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                        onFocus={e => e.target.select()}
                         className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0" />
                       <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
                         className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">+</button>
