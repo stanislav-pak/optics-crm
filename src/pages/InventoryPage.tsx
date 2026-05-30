@@ -69,6 +69,9 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
+  const lastMovementsViewedRef = useRef<string>(
+    localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
+  );
   const [debugMsg, setDebugMsg] = useState('');
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
@@ -142,7 +145,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
   const [completedTransfers, setCompletedTransfers] = useState<any[]>([]);
   const [showLowStock, setShowLowStock] = useState(false);
-  const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number }[]>([]);
+  const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
 
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
@@ -172,9 +175,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Точка-уведомление на вкладке Движения и кнопке Склада
   useEffect(() => {
-    const has = inTransitMovements.length > 0;
-    setHasUnreadTransfers(has);
-    onPendingTransfersChange?.(has);
+    const hasNew = inTransitMovements.some(
+      m => m.created_at > lastMovementsViewedRef.current
+    );
+    setHasUnreadTransfers(hasNew);
+    onPendingTransfersChange?.(hasNew);
   }, [inTransitMovements]);
 
   // Polling: проверка новых входящих перемещений каждые 15 секунд
@@ -262,7 +267,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       const { data: it } = await supabase
         .from('stock_movements')
-        .select('product_id, branch_id, to_branch_id, quantity')
+        .select('product_id, branch_id, to_branch_id, quantity, created_at')
         .eq('type', 'transfer')
         .eq('status', 'in_transit');
       setInTransitMovements(it ?? []);
@@ -436,9 +441,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 onClick={() => {
                   setTab(t.key);
                   if (t.key === 'movements') {
+                    const now = new Date().toISOString();
+                    lastMovementsViewedRef.current = now;
+                    localStorage.setItem('lastViewedMovements', now);
                     setHasUnreadTransfers(false);
                     onPendingTransfersChange?.(false);
-                    localStorage.setItem('lastViewedMovements', new Date().toISOString());
                   }
                 }}
                 className={`relative px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
