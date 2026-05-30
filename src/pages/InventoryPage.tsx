@@ -166,6 +166,43 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }, [tab]);
 
+  // Realtime: звук при входящем перемещении
+  useEffect(() => {
+    if (!branchId) return;
+
+    const playSuccessSound = () => {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.setValueAtTime(520, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.4);
+    };
+
+    const subscription = supabase
+      .channel('incoming-transfers')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'stock_movements',
+        filter: `to_branch_id=eq.${branchId}`,
+      }, (payload) => {
+        if (payload.new.type === 'transfer') {
+          playSuccessSound();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [branchId]);
+
   async function loadAll() {
     // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
     const scopeId = role === 'admin' ? undefined : branchId;
