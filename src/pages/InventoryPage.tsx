@@ -88,6 +88,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showWriteoff, setShowWriteoff] = useState(false);
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
@@ -504,7 +505,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     ].filter(Boolean).join(' · ');
 
                     return (
-                      <div key={p.id} className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer" onClick={() => setSelectedProduct(p)}>
+                      <div key={p.id} className={`flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer ${highlightedProductId === p.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`} onClick={() => setSelectedProduct(p)}>
                         <div className="flex-1 min-w-0">
                           {/* Строка 1: название · цены · остаток */}
                           <div className="flex items-baseline justify-between gap-2">
@@ -1810,7 +1811,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showScanner && (
         <BarcodeScanner
-          onDetected={barcode => { setSearch(barcode); setShowScanner(false); }}
+          onDetected={barcode => {
+            setSearch(barcode);
+            setShowScanner(false);
+            const found = products.find(p => p.barcode === barcode || p.sku === barcode);
+            if (found) {
+              setHighlightedProductId(found.id);
+              setTimeout(() => setHighlightedProductId(null), 2000);
+            }
+          }}
           onClose={() => setShowScanner(false)}
         />
       )}
