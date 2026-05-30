@@ -68,6 +68,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const [debugMsg, setDebugMsg] = useState('');
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -210,6 +211,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         filter: `to_branch_id=eq.${branchId}`,
       }, (payload) => {
         console.log('🔔 incoming transfer received', payload);
+        setDebugMsg('Получено в ' + new Date().toLocaleTimeString());
         if (payload.new.type === 'transfer') {
           playSuccessSound();
           loadAll();
@@ -395,6 +397,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {debugMsg && (
+        <div className="fixed top-0 left-0 right-0 bg-green-500 text-white text-center p-2 z-50 text-sm">
+          {debugMsg}
+        </div>
+      )}
       {/* Header */}
       {!storefront && (
         <div className="bg-white border-b border-gray-200 px-6 py-4">
