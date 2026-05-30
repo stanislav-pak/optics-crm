@@ -438,6 +438,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   if (t.key === 'movements') {
                     setHasUnreadTransfers(false);
                     onPendingTransfersChange?.(false);
+                    localStorage.setItem('lastViewedMovements', new Date().toISOString());
                   }
                 }}
                 className={`relative px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${

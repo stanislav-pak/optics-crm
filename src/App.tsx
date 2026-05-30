@@ -110,12 +110,14 @@ function AppContent() {
   // Проверяем pending transfers сразу после загрузки employee
   useEffect(() => {
     if (!employee?.branch_id) return;
+    const lastViewed = localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString();
     supabase
       .from('stock_movements')
       .select('id', { count: 'exact', head: true })
       .eq('to_branch_id', employee.branch_id)
       .eq('type', 'transfer')
       .eq('status', 'in_transit')
+      .gt('created_at', lastViewed)
       .then(({ count }) => setHasPendingTransfers((count ?? 0) > 0));
   }, [employee?.branch_id]);
 
