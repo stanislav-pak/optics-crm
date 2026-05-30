@@ -194,6 +194,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       }, (payload) => {
         if (payload.new.type === 'transfer') {
           playSuccessSound();
+          loadAll();
         }
       })
       .subscribe();
