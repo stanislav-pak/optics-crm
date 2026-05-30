@@ -148,7 +148,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       console.log('[addItem] new items:', next.length);
       return next;
     });
-    setSearch('');
+    setSearch(product.name);
     setShowSearch(false);
   };
 

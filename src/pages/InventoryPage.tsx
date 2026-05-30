@@ -781,19 +781,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               </div>
 
               {/* Сводка остатков по филиалам при фильтре «Перемещение» — только для admin */}
-              {mvTypeFilter === 'transfer' && role === 'admin' && (
+              {mvTypeFilter === 'transfer' && (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-700">Остатки по филиалам</h3>
-                    {role === 'admin' && (
-                      <button
-                        onClick={() => setShowTransfer(true)}
-                        className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
-                      >
-                        <Plus size={13} />
-                        Перемещение
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowTransfer(true)}
+                      className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
+                    >
+                      <Plus size={13} />
+                      Перемещение
+                    </button>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {branches.map(b => {

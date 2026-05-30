@@ -191,7 +191,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
         stock_qty: stockQty,
       }];
     });
-    setSearch('');
+    setSearch(product.name);
     setShowSearch(false);
   };
 
