@@ -239,14 +239,21 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
               ))}
             </select>
           </div>
-          <div className="min-w-0">
+          <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Дата прихода</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full max-w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="relative w-full">
+              <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 pointer-events-none">
+                {date
+                  ? new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Выберите дату'}
+              </div>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+              />
+            </div>
           </div>
 
           {/* Список позиций */}
