@@ -35,6 +35,7 @@ interface InventoryPageProps {
   role: 'manager' | 'branch_admin' | 'admin';
   defaultTab?: Tab;
   storefront?: boolean;
+  onPendingTransfersChange?: (has: boolean) => void;
 }
 
 // ---- Excel export helpers ----
@@ -66,9 +67,10 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const [debugMsg, setDebugMsg] = useState('');
+  const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -167,6 +169,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       getRevisions(branchId).then(setRevisions).catch(e => console.error('getRevisions refresh:', e));
     }
   }, [tab]);
+
+  // Точка-уведомление на вкладке Движения и кнопке Склада
+  useEffect(() => {
+    const has = inTransitMovements.length > 0;
+    setHasUnreadTransfers(has);
+    onPendingTransfersChange?.(has);
+  }, [inTransitMovements]);
 
   // Polling: проверка новых входящих перемещений каждые 15 секунд
   useEffect(() => {
@@ -424,14 +433,23 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
+                onClick={() => {
+                  setTab(t.key);
+                  if (t.key === 'movements') {
+                    setHasUnreadTransfers(false);
+                    onPendingTransfersChange?.(false);
+                  }
+                }}
+                className={`relative px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
                   tab === t.key
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {t.label}
+                {t.key === 'movements' && hasUnreadTransfers && tab !== 'movements' && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                )}
               </button>
             ))}
           </div>

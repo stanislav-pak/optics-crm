@@ -43,6 +43,7 @@ function AppContent() {
   const [chatSource, setChatSource] = useState<'list' | 'crm'>('list');
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
+  const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings'>('dashboard');
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop'>('list');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
@@ -314,8 +315,13 @@ function AppContent() {
           </button>
           <button onClick={() => navigateTo('inventory')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'inventory' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            <span className="text-[10px] font-medium">Склад</span>
+            <div className="relative inline-flex flex-col items-center">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              {hasPendingTransfers && mobileView !== 'inventory' && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+              <span className="text-[10px] font-medium">Склад</span>
+            </div>
           </button>
         </div>
       )}
@@ -395,6 +401,7 @@ function AppContent() {
                   branchId={employee?.branch_id}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  onPendingTransfersChange={setHasPendingTransfers}
                 />
               </div>
             </div>
