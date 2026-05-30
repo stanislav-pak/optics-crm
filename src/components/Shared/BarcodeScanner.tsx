@@ -23,7 +23,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       try {
         setStatus('Запрос камеры...');
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: { facingMode: 'environment', advanced: [{ focusMode: 'continuous' }] },
         });
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
