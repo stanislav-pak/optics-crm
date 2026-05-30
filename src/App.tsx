@@ -206,7 +206,6 @@ function AppContent() {
   };
 
   const handleBack = () => {
-    alert('handleBack called, chatSource: ' + chatSourceRef.current);
     setActiveChat(null);
     if (chatSourceRef.current === 'crm') {
       setMobileView('manager-crm');

@@ -133,21 +133,13 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   };
 
   const addItem = (product: Product) => {
-    console.log('[addItem] called with:', product.name, product.id);
-    if (items.find(i => i.product_id === product.id)) {
-      console.log('[addItem] already in list, skip');
-      return;
-    }
-    setItems(prev => {
-      const next = [...prev, {
-        product_id: product.id,
-        product_name: product.name,
-        quantity: 1,
-        cost_price: product.cost_price ?? 0,
-      }];
-      console.log('[addItem] new items:', next.length);
-      return next;
-    });
+    if (items.find(i => i.product_id === product.id)) return;
+    setItems(prev => [...prev, {
+      product_id: product.id,
+      product_name: product.name,
+      quantity: 1,
+      cost_price: product.cost_price ?? 0,
+    }]);
     setSearch(product.name);
     setShowSearch(false);
   };
@@ -175,7 +167,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
         created_by: employeeId,
         received_at: new Date(date).toISOString(),
       };
-      console.log('Создаём приход:', { order: orderData, items });
       await createPurchaseOrder(
         orderData,
         items.map(i => ({
@@ -184,7 +175,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
           cost_price: i.cost_price,
         }))
       );
-      console.log('Приход создан успешно');
       onSuccess();
       onClose();
     } catch (e: any) {

@@ -72,7 +72,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const lastMovementsViewedRef = useRef<string>(
     localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
   );
-  const [debugMsg, setDebugMsg] = useState('');
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [stats, setStats] = useState<InventoryStats | null>(null);
@@ -217,7 +216,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         lastTransferCheckRef.current = new Date().toISOString();
         playSound();
         loadAll();
-        setDebugMsg('Получено в ' + new Date().toLocaleTimeString());
       }
     };
 
@@ -398,25 +396,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {debugMsg && (
-        <div className="fixed top-0 left-0 right-0 bg-green-500 text-white text-center p-2 z-50 text-sm">
-          {debugMsg}
-        </div>
-      )}
-      <button
-        onClick={async () => {
-          const { data } = await supabase
-            .from('stock_movements')
-            .select('id, created_at, to_branch_id, status, type')
-            .eq('to_branch_id', branchId)
-            .eq('type', 'transfer')
-            .eq('status', 'in_transit');
-          setDebugMsg('branchId=' + branchId + ' found=' + (data?.length ?? 0) + ' ' + JSON.stringify(data?.map(d => d.created_at)));
-        }}
-        className="fixed top-8 left-0 right-0 bg-yellow-400 text-black text-center p-2 z-50 text-xs"
-      >
-        DEBUG CHECK
-      </button>
       {/* Header */}
       {!storefront && (
         <div className="bg-white border-b border-gray-200 px-6 py-4">

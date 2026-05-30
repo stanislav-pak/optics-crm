@@ -685,8 +685,6 @@ export async function createTransfer(
   quantity: number,
   employeeId: string
 ) {
-  console.log('createTransfer called', { fromBranchId, toBranchId, productId, quantity });
-
   // Получаем названия филиалов
   const { data: branches } = await supabase
     .from('branches')
@@ -702,9 +700,6 @@ export async function createTransfer(
     .eq('product_id', productId)
     .eq('branch_id', fromBranchId)
     .single();
-
-  console.log('current stock before transfer:', fromStock?.quantity);
-  console.log('new stock after transfer:', (fromStock?.quantity ?? 0) - quantity);
 
   if (!fromStock || fromStock.quantity < quantity) throw new Error('Недостаточно товара');
 

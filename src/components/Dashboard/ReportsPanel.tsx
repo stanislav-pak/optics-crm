@@ -149,8 +149,6 @@ function ReportsPanelInner() {
     setLoading(true);
     setLoadError(null);
     try {
-      console.log('[ReportsPanel] fetchAll start');
-
       // 1. Продажи
       let salesData: SaleRow[] = [];
       try {
@@ -166,7 +164,6 @@ function ReportsPanelInner() {
           console.error('[ReportsPanel] sales error:', res.error);
         } else {
           salesData = (res.data ?? []) as SaleRow[];
-          console.log('[ReportsPanel] sales loaded:', salesData.length);
         }
       } catch (e) { console.error('[ReportsPanel] sales fetch exception:', e); }
       setSales(salesData);
@@ -181,7 +178,6 @@ function ReportsPanelInner() {
           console.error('[ReportsPanel] chats error:', res.error);
         } else {
           chatsData = res.data ?? [];
-          console.log('[ReportsPanel] chats loaded:', chatsData.length);
         }
       } catch (e) { console.error('[ReportsPanel] chats fetch exception:', e); }
 
@@ -196,7 +192,6 @@ function ReportsPanelInner() {
           console.error('[ReportsPanel] stages error:', res.error);
         } else {
           stagesData = res.data ?? [];
-          console.log('[ReportsPanel] stages loaded:', stagesData.length);
         }
       } catch (e) { console.error('[ReportsPanel] stages fetch exception:', e); }
 
@@ -212,7 +207,6 @@ function ReportsPanelInner() {
         })));
       } catch (e) { console.error('[ReportsPanel] chats merge exception:', e); }
 
-      console.log('[ReportsPanel] fetchAll done');
     } catch (e) {
       console.error('[ReportsPanel] fetchAll outer exception:', e);
       setLoadError(e instanceof Error ? e.message : String(e));
