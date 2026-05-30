@@ -25,6 +25,7 @@ import LowStockModal from '../components/Inventory/LowStockModal';
 import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 import ReturnModal from '../components/Inventory/ReturnModal';
+import BarcodeScanner from '../components/Shared/BarcodeScanner';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
@@ -86,6 +87,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [mvDateTo, setMvDateTo] = useState('');
   const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showWriteoff, setShowWriteoff] = useState(false);
   const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
@@ -424,15 +426,25 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ТОВАРЫ */}
         {tab === 'products' && (
           <div className="space-y-3">
-            {/* Поиск — на всю ширину */}
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Поиск по названию, SKU, штрихкоду..."
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            {/* Поиск + кнопка сканера */}
+            <div className="flex gap-2 items-center w-full">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Поиск по названию, SKU, штрихкоду..."
+                  className="flex-1 w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => setShowScanner(true)}
+                className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-lg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h1M4 10h1M4 14h1M4 18h1M8 4v16M16 4v16M20 6h-1M20 10h-1M20 14h-1M20 18h-1" />
+                </svg>
+              </button>
             </div>
             {/* Кнопки — Экспорт и Добавить */}
             <div className="flex gap-2">
@@ -1796,6 +1808,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
 
+      {showScanner && (
+        <BarcodeScanner
+          onDetected={barcode => { setSearch(barcode); setShowScanner(false); }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
       {showAddProduct && (
         <AddProductModal
           branchId={branchId}
