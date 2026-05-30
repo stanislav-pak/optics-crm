@@ -40,20 +40,8 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if ('clearAppBadge' in self.navigator) self.navigator.clearAppBadge();
-  const data = event.notification.data || {};
-  const url = data.url || '/';
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      const existing = list.find(c => c.url.includes(self.location.origin));
-      if (existing) {
-        existing.focus();
-        existing.navigate(url);
-      } else {
-        clients.openWindow(url);
-      }
-    }),
-  );
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(clients.openWindow(url));
 });
 
 self.addEventListener('message', (event) => {
