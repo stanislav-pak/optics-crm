@@ -233,7 +233,7 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
             </div>
 
             {/* Список товаров */}
-            {filteredStock.length === 0 ? (
+            {productSearch.length > 0 && (filteredStock.length === 0 ? (
               <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
                 {stockItems.length === 0 ? 'Нет товаров на этом складе' : 'Ничего не найдено'}
               </div>
@@ -274,7 +274,7 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
                   );
                 })}
               </div>
-            )}
+            ))}
           </div>
 
           {/* Количество */}
