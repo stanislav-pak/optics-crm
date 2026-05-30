@@ -146,6 +146,12 @@ export default function TransferModal({ branchId, employeeId, role = 'admin', on
         quantity,
         employeeId
       );
+      await supabase.channel(`branch-notifications:${toBranchId}`)
+        .send({
+          type: 'broadcast',
+          event: 'incoming_transfer',
+          payload: { quantity, productName: selectedStock.product.name },
+        });
       onSuccess();
       onClose();
     } catch (e: any) {
