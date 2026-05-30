@@ -855,7 +855,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
         .from('stock_movements')
         .select('id', { count: 'exact' })
         .gte('created_at', new Date().toISOString().split('T')[0])
-        .eq('branch_id', branchId),
+        .or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`),
     ]);
 
     const stock = stockRes.data ?? [];
