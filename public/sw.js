@@ -2,9 +2,9 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Уведомление', body: '' };
+  let data = { title: 'Уведомление', body: '', url: '/' };
   try {
-    if (event.data) data = event.data.json();
+    if (event.data) data = { url: '/', ...event.data.json() };
   } catch (_) {}
 
   event.waitUntil(
@@ -23,7 +23,7 @@ self.addEventListener('push', (event) => {
         icon: '/apple-touch-icon-v2.png',
         badge: '/favicon-96x96.png',
         tag: `msg-${Date.now()}`,
-        data,
+        data: { url: data.url || '/' },
       });
 
       // 3. Сообщаем открытым вкладкам сыграть звук (foreground-случай, fire-and-forget)
@@ -41,14 +41,17 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if ('clearAppBadge' in self.navigator) self.navigator.clearAppBadge();
+  const data = event.notification.data || {};
+  const url = data.url || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
-        }
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const existing = list.find(c => c.url.includes(self.location.origin));
+      if (existing) {
+        existing.focus();
+        existing.navigate(url);
+      } else {
+        clients.openWindow(url);
       }
-      return clients.openWindow('/');
     }),
   );
 });
