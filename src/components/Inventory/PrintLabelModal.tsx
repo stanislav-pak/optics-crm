@@ -488,13 +488,21 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             const hasWifiPrinter = ip && ip !== '192.168.1.100';
 
             function handleUsbPrint() {
-              const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement | null;
-              if (!canvas) return;
-              const dataURL = canvas.toDataURL('image/png');
-              const w = window.open('', '_blank', 'width=400,height=300');
-              if (!w) return;
-              w.document.write('<html><head><style>*{margin:0;padding:0}body{display:flex;justify-content:center;align-items:center;min-height:100vh}</style></head><body><img src="' + dataURL + '" onload="window.print();window.close()"></body></html>');
-              w.document.close();
+              const printCanvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
+              if (!printCanvas) return;
+              printCanvas.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const w = window.open(url, '_blank');
+                if (w) {
+                  w.onload = () => {
+                    setTimeout(() => {
+                      w.print();
+                      URL.revokeObjectURL(url);
+                    }, 1000);
+                  };
+                }
+              }, 'image/png');
             }
 
             return (
