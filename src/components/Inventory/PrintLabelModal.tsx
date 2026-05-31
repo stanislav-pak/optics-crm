@@ -61,6 +61,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
   const [ipInput, setIpInput] = useState('');
   const [savingName, setSavingName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [usbToast, setUsbToast] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -411,15 +412,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             </div>
           </div>
 
-          {/* Стили для печати */}
-          <style>{`
-            @media print {
-              body > *:not(#print-label-canvas) { display: none !important; }
-              * { visibility: hidden !important; margin: 0 !important; padding: 0 !important; }
-              #print-label-canvas { visibility: visible !important; display: block !important; margin: 0 !important; padding: 0 !important; }
-              @page { margin: 0; padding: 0; }
-            }
-          `}</style>
 
         </div>
 
@@ -488,20 +480,15 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             const hasWifiPrinter = ip && ip !== '192.168.1.100';
 
             function handleUsbPrint() {
-              const printCanvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
-              if (!printCanvas) return;
-              printCanvas.toBlob((blob) => {
+              const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
+              if (!canvas) return;
+              canvas.toBlob((blob) => {
                 if (!blob) return;
                 const url = URL.createObjectURL(blob);
-                const w = window.open(url, '_blank');
-                if (w) {
-                  w.onload = () => {
-                    setTimeout(() => {
-                      w.print();
-                      URL.revokeObjectURL(url);
-                    }, 1000);
-                  };
-                }
+                window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                setUsbToast(true);
+                setTimeout(() => setUsbToast(false), 4000);
               }, 'image/png');
             }
 
@@ -564,17 +551,26 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                   </button>
                 )}
 
+                {/* Toast — USB */}
+                {usbToast && (
+                  <p className="text-center text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                    Изображение открыто в новой вкладке. Нажмите Ctrl+P для печати
+                  </p>
+                )}
+
                 {/* Подсказка */}
-                {isIOS && !hasWifiPrinter ? (
-                  <p className="text-center text-xs text-amber-500">
-                    Для печати с iPhone нужен WiFi принтер. Введите IP принтера выше.
-                  </p>
-                ) : (
-                  <p className="text-center text-xs text-gray-400">
-                    {hasWifiPrinter
-                      ? `Печать через WiFi: ${ip}`
-                      : 'Подключите принтер по USB и выберите в диалоге печати'}
-                  </p>
+                {!usbToast && (
+                  isIOS && !hasWifiPrinter ? (
+                    <p className="text-center text-xs text-amber-500">
+                      Для печати с iPhone нужен WiFi принтер. Введите IP принтера выше.
+                    </p>
+                  ) : (
+                    <p className="text-center text-xs text-gray-400">
+                      {hasWifiPrinter
+                        ? `Печать через WiFi: ${ip}`
+                        : 'Подключите принтер по USB и выберите в диалоге печати'}
+                    </p>
+                  )
                 )}
               </div>
             );
