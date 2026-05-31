@@ -482,10 +482,32 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             function handleUsbPrint() {
               const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
               if (!canvas) return;
-              const link = document.createElement('a');
-              link.download = `label-${Date.now()}.png`;
-              link.href = canvas.toDataURL('image/png');
-              link.click();
+
+              const dataURL = canvas.toDataURL('image/png');
+              const w = window.open('', '_blank');
+              if (!w) return;
+
+              w.document.write(`
+                <html>
+                <head>
+                <style>
+                  @page { size: 40mm 30mm; margin: 0; }
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body { width: 40mm; height: 30mm; overflow: hidden; }
+                  img { width: 40mm; height: 30mm; display: block; }
+                </style>
+                </head>
+                <body>
+                <img src="${dataURL}">
+                <script>
+                  window.onload = function() {
+                    setTimeout(function() { window.print(); }, 500);
+                  }
+                </script>
+                </body>
+                </html>
+              `);
+              w.document.close();
             }
 
             return (
