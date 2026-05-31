@@ -482,14 +482,10 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             function handleUsbPrint() {
               const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
               if (!canvas) return;
-              canvas.toBlob((blob) => {
-                if (!blob) return;
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
-                setUsbToast(true);
-                setTimeout(() => setUsbToast(false), 4000);
-              }, 'image/png');
+              const link = document.createElement('a');
+              link.download = `label-${Date.now()}.png`;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
             }
 
             return (
@@ -568,7 +564,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <p className="text-center text-xs text-gray-400">
                       {hasWifiPrinter
                         ? `Печать через WiFi: ${ip}`
-                        : 'Подключите принтер по USB и выберите в диалоге печати'}
+                        : 'Файл скачается → откройте → Ctrl+P → выберите Xprinter XP-235B'}
                     </p>
                   )
                 )}
