@@ -133,6 +133,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -499,13 +500,40 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             {/* Поиск + кнопка сканера */}
             <div className="flex gap-2 items-center w-full">
               <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
                   placeholder="Поиск по названию, SKU, штрихкоду..."
                   className="flex-1 w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {/* Дропдаун подсказок */}
+                {searchFocused && search.trim().length > 0 && (() => {
+                  const suggestions = filteredProducts.slice(0, 5);
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {suggestions.map(p => {
+                        const qty = stock.filter(s => s.product_id === p.id).reduce((sum, s) => sum + s.quantity, 0);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setSelectedProduct(p); setSearch(''); setSearchFocused(false); }}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0 text-left"
+                          >
+                            <span className="text-sm text-gray-900 truncate mr-3">{p.name}</span>
+                            <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
+                              {qty} {p.unit} · ₸{p.price.toLocaleString()}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
               <button
                 onClick={() => setShowScanner(true)}
