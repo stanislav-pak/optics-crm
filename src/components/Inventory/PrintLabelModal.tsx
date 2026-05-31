@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Pencil, Printer, Save, Trash2 } from 'lucide-react';
+import { X, Pencil, Printer, Save, Trash2, Wifi } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
 import type { Product } from '../../types';
 import { usePrinter } from '../../hooks/usePrinter';
@@ -246,6 +246,29 @@ export default function PrintLabelModal({ product, onClose }: Props) {
 
   const printerIp = getPrinterIp();
 
+  async function handleAndroidPrint() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], 'label.png', { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Этикетка' });
+        } catch {
+          // user cancelled — ignore
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'label.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }, 'image/png');
+  }
+
   return (
     <div data-modal="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60">
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92vh] flex flex-col">
@@ -391,22 +414,10 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           {/* Стили для печати */}
           <style>{`
             @media print {
-              body * { visibility: hidden !important; }
-              #print-label-canvas, #print-label-canvas * {
-                visibility: visible !important;
-              }
-              #print-label-canvas {
-                position: fixed !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              @page {
-                margin: 0;
-                padding: 0;
-              }
+              body > *:not(#print-label-canvas) { display: none !important; }
+              * { visibility: hidden !important; margin: 0 !important; padding: 0 !important; }
+              #print-label-canvas { visibility: visible !important; display: block !important; margin: 0 !important; padding: 0 !important; }
+              @page { margin: 0; padding: 0; }
             }
           `}</style>
 
@@ -473,7 +484,8 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             const ip = getPrinterIp();
             const isWifi = ip !== '192.168.1.100';
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
+                {/* Строка: Отмена + Печать */}
                 <div className="flex gap-3">
                   <button
                     onClick={onClose}
@@ -496,7 +508,10 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                           Печатаем...
                         </>
                       ) : (
-                        <>🖨️ Печать (WiFi){quantity > 1 ? ` (${quantity} шт)` : ''}</>
+                        <>
+                          <Wifi size={16} />
+                          Печать (WiFi){quantity > 1 ? ` (${quantity} шт)` : ''}
+                        </>
                       )}
                     </button>
                   ) : (
@@ -504,14 +519,29 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                       onClick={() => window.print()}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
                     >
-                      🖨️ Печать (USB){quantity > 1 ? ` (${quantity} шт)` : ''}
+                      <Printer size={16} />
+                      Печать (USB){quantity > 1 ? ` (${quantity} шт)` : ''}
                     </button>
                   )}
                 </div>
+
+                {/* Кнопка Android */}
+                <button
+                  onClick={handleAndroidPrint}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-white hover:bg-green-50 transition-colors"
+                  style={{ border: '1.5px solid #3ddc84', color: '#1a7a3e' }}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
+                    <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
+                  </svg>
+                  Печать (Android)
+                </button>
+
+                {/* Подсказка */}
                 <p className="text-center text-xs text-gray-400">
                   {isWifi
-                    ? `Печать через IP: ${ip}`
-                    : 'Подключите принтер по USB и выберите его в диалоге печати'}
+                    ? `Печать через WiFi: ${ip}`
+                    : 'Подключите принтер по USB и выберите в диалоге печати'}
                 </p>
               </div>
             );
