@@ -376,6 +376,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>
             <div className="flex justify-center bg-gray-50 rounded-xl p-4">
               <canvas
+                id="print-label-canvas"
                 ref={canvasRef}
                 width={canvasW}
                 height={canvasH}
@@ -386,6 +387,28 @@ export default function PrintLabelModal({ product, onClose }: Props) {
               <canvas ref={barcodeCanvasRef} style={{ display: 'none' }} />
             </div>
           </div>
+
+          {/* Стили для печати */}
+          <style>{`
+            @media print {
+              body * { visibility: hidden !important; }
+              #print-label-canvas, #print-label-canvas * {
+                visibility: visible !important;
+              }
+              #print-label-canvas {
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              @page {
+                margin: 0;
+                padding: 0;
+              }
+            }
+          `}</style>
 
         </div>
 
@@ -446,34 +469,53 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           )}
 
           {/* Кнопки */}
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handlePrint}
-              disabled={printing}
-              className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {printing ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Печатаем...
-                </>
-              ) : (
-                <>
-                  <Printer size={15} />
-                  Печать {quantity > 1 ? `(${quantity} шт)` : ''}
-                </>
-              )}
-            </button>
-          </div>
+          {(() => {
+            const ip = getPrinterIp();
+            const isWifi = ip !== '192.168.1.100';
+            return (
+              <div className="space-y-1.5">
+                <div className="flex gap-3">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    Отмена
+                  </button>
+                  {isWifi ? (
+                    <button
+                      onClick={handlePrint}
+                      disabled={printing}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {printing ? (
+                        <>
+                          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          Печатаем...
+                        </>
+                      ) : (
+                        <>🖨️ Печать (WiFi){quantity > 1 ? ` (${quantity} шт)` : ''}</>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => window.print()}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+                    >
+                      🖨️ Печать (USB){quantity > 1 ? ` (${quantity} шт)` : ''}
+                    </button>
+                  )}
+                </div>
+                <p className="text-center text-xs text-gray-400">
+                  {isWifi
+                    ? `Печать через IP: ${ip}`
+                    : 'Подключите принтер по USB и выберите его в диалоге печати'}
+                </p>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
