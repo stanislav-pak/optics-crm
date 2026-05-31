@@ -243,14 +243,14 @@ function AppContent() {
 
   const Sidebar = (
     <div className={`${isMobile ? 'w-full' : 'w-80 flex-shrink-0 border-r border-white/5'} flex flex-col`}>
-      <div className="px-4 py-3 bg-[#202c33] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+      <div className="px-4 py-3 bg-[#202c33] flex items-center justify-between overflow-hidden">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
             {employee.name[0].toUpperCase()}
           </div>
-          <div>
-            <p className="text-sm font-medium text-[#e9edef]">{employee.name}</p>
-            <p className="text-xs text-[#8696a0]">{ROLE_LABELS[employee.role] ?? employee.role}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[#e9edef] truncate">{employee.name}</p>
+            <p className="text-xs text-[#8696a0] truncate">{ROLE_LABELS[employee.role] ?? employee.role}</p>
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
