@@ -482,10 +482,24 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           {/* Кнопки */}
           {(() => {
             const ip = getPrinterIp();
-            const isWifi = ip !== '192.168.1.100';
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            const isMobile = isIOS || isAndroid;
+            const hasWifiPrinter = ip && ip !== '192.168.1.100';
+
+            function handleUsbPrint() {
+              const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement | null;
+              if (!canvas) return;
+              const dataURL = canvas.toDataURL('image/png');
+              const w = window.open('', '_blank', 'width=400,height=300');
+              if (!w) return;
+              w.document.write('<html><head><style>*{margin:0;padding:0}body{display:flex;justify-content:center;align-items:center;min-height:100vh}</style></head><body><img src="' + dataURL + '" onload="window.print();window.close()"></body></html>');
+              w.document.close();
+            }
+
             return (
               <div className="space-y-2">
-                {/* Строка: Отмена + Печать */}
+                {/* Строка: Отмена + Основная кнопка печати */}
                 <div className="flex gap-3">
                   <button
                     onClick={onClose}
@@ -493,7 +507,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                   >
                     Отмена
                   </button>
-                  {isWifi ? (
+
+                  {hasWifiPrinter ? (
+                    // WiFi принтер — на любой платформе
                     <button
                       onClick={handlePrint}
                       disabled={printing}
@@ -514,44 +530,44 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                         </>
                       )}
                     </button>
-                  ) : (
+                  ) : !isMobile ? (
+                    // Desktop без WiFi — USB через popup
                     <button
-                      onClick={() => {
-                        const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement | null;
-                        if (!canvas) return;
-                        const dataURL = canvas.toDataURL('image/png');
-                        const w = window.open('', '_blank');
-                        if (!w) return;
-                        w.document.write(`<html><head><style>* { margin: 0; padding: 0; } body { display: flex; justify-content: center; align-items: center; min-height: 100vh; } img { max-width: 100%; }</style></head><body><img src="${dataURL}"></body></html>`);
-                        w.document.close();
-                        setTimeout(() => w.print(), 500);
-                      }}
+                      onClick={handleUsbPrint}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
                     >
                       <Printer size={16} />
                       Печать (USB){quantity > 1 ? ` (${quantity} шт)` : ''}
                     </button>
-                  )}
+                  ) : null /* iOS без WiFi — кнопку скрываем */}
                 </div>
 
-                {/* Кнопка Android */}
-                <button
-                  onClick={handleAndroidPrint}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-white hover:bg-green-50 transition-colors"
-                  style={{ border: '1.5px solid #3ddc84', color: '#1a7a3e' }}
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
-                    <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
-                  </svg>
-                  Печать (Android)
-                </button>
+                {/* Кнопка Android — только на Android */}
+                {isAndroid && (
+                  <button
+                    onClick={handleAndroidPrint}
+                    className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-white hover:bg-green-50 transition-colors"
+                    style={{ border: '1.5px solid #3ddc84', color: '#1a7a3e' }}
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
+                      <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
+                    </svg>
+                    Печать (Android)
+                  </button>
+                )}
 
                 {/* Подсказка */}
-                <p className="text-center text-xs text-gray-400">
-                  {isWifi
-                    ? `Печать через WiFi: ${ip}`
-                    : 'Подключите принтер по USB и выберите в диалоге печати'}
-                </p>
+                {isIOS && !hasWifiPrinter ? (
+                  <p className="text-center text-xs text-amber-500">
+                    Для печати с iPhone нужен WiFi принтер. Введите IP принтера выше.
+                  </p>
+                ) : (
+                  <p className="text-center text-xs text-gray-400">
+                    {hasWifiPrinter
+                      ? `Печать через WiFi: ${ip}`
+                      : 'Подключите принтер по USB и выберите в диалоге печати'}
+                  </p>
+                )}
               </div>
             );
           })()}
