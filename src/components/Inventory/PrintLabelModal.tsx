@@ -112,59 +112,92 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     ctx.strokeRect(0.5, 0.5, canvasW - 1, canvasH - 1);
 
     const padding = 6;
-    let y = padding;
-    const enabledFields = fields.filter(f => f.enabled && f.key !== 'barcode');
+    const maxW = canvasW - padding * 2;
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
 
-    // Barcode height
-    const barcodeH = showBarcode ? Math.min(28, canvasH * 0.38) : 0;
-    const textAreaH = canvasH - barcodeH - padding * 2;
-    const lineH = enabledFields.length > 0 ? Math.min(14, textAreaH / enabledFields.length) : 14;
+    // Separate name field, barcode, and rest of fields
+    const nameField = fields.find(f => f.key === 'name' && f.enabled);
+    const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
 
-    // Draw text fields
-    for (const field of enabledFields) {
-      const val = fieldValue(field.key, product, field.customText);
-      if (!val) continue;
-
-      const isName = field.key === 'name';
-      const isPrice = field.key === 'price_sale' || field.key === 'price_purchase';
-
-      ctx.font = `${isName ? 'bold ' : ''}${isPrice ? 'bold ' : ''}${Math.max(7, lineH - 2)}px sans-serif`;
-      ctx.fillStyle = isPrice ? '#1d4ed8' : '#111827';
+    // Helper: draw centered text, returns actual line height used
+    const drawCentered = (text: string, y: number, font: string, color: string): number => {
+      ctx.font = font;
+      ctx.fillStyle = color;
       ctx.textBaseline = 'top';
-
       // Truncate if too wide
-      let text = val;
-      const maxW = canvasW - padding * 2;
-      while (ctx.measureText(text).width > maxW && text.length > 3) {
-        text = text.slice(0, -1);
-      }
-      if (text !== val) text += '…';
+      let t = text;
+      while (ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -1);
+      if (t !== text) t += '…';
+      const x = (canvasW - ctx.measureText(t).width) / 2;
+      ctx.fillText(t, x, y);
+      return parseInt(font);
+    };
 
-      ctx.fillText(text, padding, y);
-      y += lineH;
+    // --- Measure all elements to calculate total height and spacing ---
+    const nameFontSize  = Math.min(10, Math.max(7, canvasH * 0.13));
+    const otherFontSize = Math.min(8,  Math.max(6, canvasH * 0.10));
+    const barcodeH      = showBarcode ? Math.min(30, canvasH * 0.40) : 0;
+    const nameH         = nameField ? nameFontSize + 2 : 0;
+    const otherH        = otherFields.reduce((acc, f) => {
+      const val = fieldValue(f.key, product, f.customText);
+      return val ? acc + otherFontSize + 2 : acc;
+    }, 0);
+
+    const totalContentH = nameH + (nameH && barcodeH ? 0 : 0) + barcodeH + otherH;
+    const freeSpace     = canvasH - padding * 2 - totalContentH;
+    // Gaps: after name, after barcode
+    const gapCount      = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
+    const gap           = gapCount > 0 ? Math.max(3, freeSpace / (gapCount + 1)) : 0;
+
+    let y = padding + (gapCount > 0 ? gap : freeSpace / 2);
+
+    // 1. Name (bold, centered)
+    if (nameField) {
+      const val = fieldValue('name', product, nameField.customText);
+      if (val) {
+        drawCentered(val, y, `bold ${nameFontSize}px sans-serif`, '#111827');
+        y += nameFontSize + 2 + gap;
+      }
     }
 
-    // Draw barcode
+    // 2. Barcode (centered)
     if (showBarcode && barcodeCanvasRef.current) {
       try {
+        const barsH = Math.max(8, barcodeH - 12);
         JsBarcode(barcodeCanvasRef.current, product.barcode!, {
           format: 'CODE128',
           width: 1.2,
-          height: barcodeH - 12,
+          height: barsH,
           displayValue: true,
           fontSize: 7,
           margin: 2,
           background: '#ffffff',
           lineColor: '#000000',
         });
-        const bw = Math.min(canvasW - padding * 2, barcodeCanvasRef.current.width);
-        const bx = (canvasW - bw) / 2;
-        const by = canvasH - barcodeH - padding + 2;
-        ctx.drawImage(barcodeCanvasRef.current, bx, by, bw, barcodeH);
+        const srcW = barcodeCanvasRef.current.width;
+        const srcH = barcodeCanvasRef.current.height;
+        const scale = Math.min(1, maxW / srcW);
+        const dw = srcW * scale;
+        const dh = srcH * scale;
+        const bx = (canvasW - dw) / 2;
+        ctx.drawImage(barcodeCanvasRef.current, bx, y, dw, dh);
+        y += dh + gap;
       } catch {
         // invalid barcode value — skip
       }
+    }
+
+    // 3. Other fields (each centered)
+    for (const field of otherFields) {
+      const val = fieldValue(field.key, product, field.customText);
+      if (!val) continue;
+      const isPrice = field.key === 'price_sale' || field.key === 'price_purchase';
+      drawCentered(
+        val, y,
+        `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`,
+        isPrice ? '#1d4ed8' : '#374151',
+      );
+      y += otherFontSize + 2;
     }
   }, [fields, size, product, canvasW, canvasH]);
 
