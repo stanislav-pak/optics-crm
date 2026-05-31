@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Pencil, Trash2 } from 'lucide-react';
+import { X, Pencil, Trash2, Printer } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import type { Product } from '../../types';
+import PrintLabelModal from './PrintLabelModal';
 
 interface PurchaseHistoryItem {
   id: string;
@@ -25,6 +26,7 @@ interface Props {
 export default function ProductDetailModal({ product, stock, branchId, onClose, onEdit, onDelete }: Props) {
   const [history, setHistory] = useState<PurchaseHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [showPrintLabel, setShowPrintLabel] = useState(false);
 
   const isLow = stock <= product.min_stock;
 
@@ -132,7 +134,21 @@ export default function ProductDetailModal({ product, stock, branchId, onClose, 
                 <Row label="Бренд" value={(product.brand as any).name} />
               )}
               {product.sku && <Row label="Артикул" value={product.sku} mono />}
-              {product.barcode && <Row label="Штрихкод" value={product.barcode} mono />}
+              {product.barcode && (
+                <div className="flex items-center justify-between px-4 py-2.5 gap-3">
+                  <span className="text-xs text-gray-500 flex-shrink-0">Штрихкод</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono text-gray-900">{product.barcode}</span>
+                    <button
+                      onClick={() => setShowPrintLabel(true)}
+                      className="text-blue-500 hover:text-blue-700 flex-shrink-0"
+                      title="Печать этикетки"
+                    >
+                      <Printer size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
               <Row
                 label="Цена закупки"
                 value={product.cost_price > 0 ? `₸${product.cost_price.toLocaleString()}` : '—'}
@@ -210,6 +226,9 @@ export default function ProductDetailModal({ product, stock, branchId, onClose, 
           </button>
         </div>
       </div>
+      {showPrintLabel && (
+        <PrintLabelModal product={product} onClose={() => setShowPrintLabel(false)} />
+      )}
     </div>
   );
 }
