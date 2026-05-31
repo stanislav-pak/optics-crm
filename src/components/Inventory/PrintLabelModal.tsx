@@ -516,7 +516,16 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     </button>
                   ) : (
                     <button
-                      onClick={() => window.print()}
+                      onClick={() => {
+                        const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement | null;
+                        if (!canvas) return;
+                        const dataURL = canvas.toDataURL('image/png');
+                        const w = window.open('', '_blank');
+                        if (!w) return;
+                        w.document.write(`<html><head><style>* { margin: 0; padding: 0; } body { display: flex; justify-content: center; align-items: center; min-height: 100vh; } img { max-width: 100%; }</style></head><body><img src="${dataURL}"></body></html>`);
+                        w.document.close();
+                        setTimeout(() => w.print(), 500);
+                      }}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
                     >
                       <Printer size={16} />
