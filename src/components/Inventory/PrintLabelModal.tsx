@@ -11,7 +11,6 @@ interface Props {
   onClose: () => void;
 }
 
-// ✅ Добавлен 40x30 — реальный размер XP-235B
 type LabelSize = '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
@@ -43,8 +42,8 @@ function fieldValue(key: string, product: Product, customText?: string): string 
   switch (key) {
     case 'name':           return product.name;
     case 'barcode':        return product.barcode ?? '';
-    case 'price_sale':     return `₸${product.price.toLocaleString()}`;
-    case 'price_purchase': return product.cost_price > 0 ? `₸${product.cost_price.toLocaleString()}` : '';
+    case 'price_sale':     return `\u20B8${product.price.toLocaleString()}`;
+    case 'price_purchase': return product.cost_price > 0 ? `\u20B8${product.cost_price.toLocaleString()}` : '';
     case 'sku':            return product.sku ?? '';
     case 'brand':          return brandName;
     case 'category':       return categoryName;
@@ -54,14 +53,13 @@ function fieldValue(key: string, product: Product, customText?: string): string 
 }
 
 export default function PrintLabelModal({ product, onClose }: Props) {
-  const [fields,       setFields]       = useState<LabelField[]>(() => getDefaultFields(product));
-  // ✅ Дефолт 40x30 — реальный размер
-  const [size,         setSize]         = useState<LabelSize>('40x30');
-  const [quantity,     setQuantity]     = useState(1);
-  const [editingIp,    setEditingIp]    = useState(false);
-  const [ipInput,      setIpInput]      = useState('');
-  const [savingName,   setSavingName]   = useState('');
-  const [showSaveInput,setShowSaveInput]= useState(false);
+  const [fields,        setFields]        = useState<LabelField[]>(() => getDefaultFields(product));
+  const [size,          setSize]          = useState<LabelSize>('40x30');
+  const [quantity,      setQuantity]      = useState(1);
+  const [editingIp,     setEditingIp]     = useState(false);
+  const [ipInput,       setIpInput]       = useState('');
+  const [savingName,    setSavingName]    = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
 
   const canvasRef        = useRef<HTMLCanvasElement>(null);
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,7 +73,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
-  // Swipe to close
   useEffect(() => {
     const start = { x: 0, y: 0 };
     const onStart = (e: TouchEvent) => { start.x = e.touches[0].clientX; start.y = e.touches[0].clientY; };
@@ -92,7 +89,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     };
   }, []);
 
-  // Render preview
   const renderPreview = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -101,26 +97,23 @@ export default function PrintLabelModal({ product, onClose }: Props) {
 
     canvas.width  = canvasW;
     canvas.height = canvasH;
-
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasW, canvasH);
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth   = 1;
     ctx.strokeRect(0.5, 0.5, canvasW - 1, canvasH - 1);
 
-    const padding   = 6;
-    const maxW      = canvasW - padding * 2;
+    const padding     = 6;
+    const maxW        = canvasW - padding * 2;
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField   = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
 
-    const drawCentered = (text: string, y: number, font: string, color: string): number => {
-      ctx.font         = font;
-      ctx.fillStyle    = color;
-      ctx.textBaseline = 'top';
+    const drawCentered = (text: string, y: number, font: string, color: string) => {
+      ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
       let t = text;
       while (ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -1);
-      if (t !== text) t += '…';
+      if (t !== text) t += '\u2026';
       ctx.fillText(t, (canvasW - ctx.measureText(t).width) / 2, y);
       return parseInt(font);
     };
@@ -133,7 +126,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       const val = fieldValue(f.key, product, f.customText);
       return val ? acc + otherFontSize + 2 : acc;
     }, 0);
-
     const totalContentH = nameH + barcodeH + otherH;
     const freeSpace     = canvasH - padding * 2 - totalContentH;
     const gapCount      = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
@@ -143,30 +135,20 @@ export default function PrintLabelModal({ product, onClose }: Props) {
 
     if (nameField) {
       const val = fieldValue('name', product, nameField.customText);
-      if (val) {
-        drawCentered(val, y, `bold ${nameFontSize}px sans-serif`, '#111827');
-        y += nameFontSize + 2 + gap;
-      }
+      if (val) { drawCentered(val, y, `bold ${nameFontSize}px sans-serif`, '#111827'); y += nameFontSize + 2 + gap; }
     }
-
     if (showBarcode && barcodeCanvasRef.current) {
       try {
-        const barsH = Math.max(8, barcodeH - 12);
         JsBarcode(barcodeCanvasRef.current, product.barcode!, {
-          format: 'CODE128', width: 1.2, height: barsH,
-          displayValue: true, fontSize: 7, margin: 2,
-          background: '#ffffff', lineColor: '#000000',
+          format: 'CODE128', width: 1.2, height: Math.max(8, barcodeH - 12),
+          displayValue: true, fontSize: 7, margin: 2, background: '#ffffff', lineColor: '#000000',
         });
-        const srcW  = barcodeCanvasRef.current.width;
-        const srcH  = barcodeCanvasRef.current.height;
+        const srcW = barcodeCanvasRef.current.width, srcH = barcodeCanvasRef.current.height;
         const scale = Math.min(1, maxW / srcW);
-        const dw    = srcW * scale;
-        const dh    = srcH * scale;
-        ctx.drawImage(barcodeCanvasRef.current, (canvasW - dw) / 2, y, dw, dh);
-        y += dh + gap;
+        ctx.drawImage(barcodeCanvasRef.current, (canvasW - srcW * scale) / 2, y, srcW * scale, srcH * scale);
+        y += srcH * scale + gap;
       } catch { /* invalid barcode */ }
     }
-
     for (const field of otherFields) {
       const val = fieldValue(field.key, product, field.customText);
       if (!val) continue;
@@ -188,62 +170,59 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     if (id === '__default__') { setFields(getDefaultFields(product)); return; }
     const tpl = templates.find(t => t.id === id);
     if (!tpl) return;
-    setFields(tpl.fields);
-    setSize(tpl.size);
+    setFields(tpl.fields); setSize(tpl.size as LabelSize);
   }
   async function handleSaveTemplate() {
     if (!savingName.trim()) return;
     await saveTemplate(savingName.trim(), fields, size);
-    setSavingName('');
-    setShowSaveInput(false);
+    setSavingName(''); setShowSaveInput(false);
   }
 
-  async function handlePrint() {
+  async function handleWifiPrint() {
     const activeFields = fields.filter(f => f.enabled).map(f => ({
       key: f.key, label: f.label, value: fieldValue(f.key, product, f.customText),
     }));
     await printLabel({ name: product.name, barcode: product.barcode, price: product.price, fields: activeFields, size, quantity });
   }
 
-  // ✅ ИСПРАВЛЕНО: iframe вместо window.open — Chrome больше не зависает
-    function handleUsbPrint() {
+  function handleUsbPrint() {
     const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
     if (!canvas) return;
     const [mmW, mmH] = currentSize.mm;
-    // toBlob — асинхронный, не блокирует поток
     canvas.toBlob((blob) => {
       if (!blob) return;
-      const blobUrl = URL.createObjectURL(blob);
-      const labels = Array(quantity)
-        .fill(`<img src="${blobUrl}" style="width:${mmW}mm;height:${mmH}mm;display:block;page-break-after:always;">`)
-        .join('');
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:none;opacity:0;';
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument!;
-      doc.open();
-      doc.write(`<!DOCTYPE html>
-<html>
-<head>
-<style>
-  @page { size: ${mmW}mm ${mmH}mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: ${mmW}mm; background: white; }
-  img:last-child { page-break-after: avoid; }
-</style>
-</head>
-<body>${labels}</body>
-</html>`);
-    doc.close();
-
-    // Ждём загрузки изображения в iframe, потом печатаем
-          setTimeout(() => {
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          if (document.body.contains(iframe)) document.body.removeChild(iframe);
-          URL.revokeObjectURL(blobUrl);
-        }, 2000);
-      }, 500);
+      blob.arrayBuffer().then((buf) => {
+        const dpm = Math.round(203 * 39.3701);
+        const type = new Uint8Array([112, 72, 89, 115]);
+        const data = new Uint8Array(9);
+        const dv = new DataView(data.buffer);
+        dv.setUint32(0, dpm); dv.setUint32(4, dpm); data[8] = 1;
+        const forCRC = new Uint8Array(13);
+        forCRC.set(type); forCRC.set(data, 4);
+        const tbl = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let c = i;
+          for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+          tbl[i] = c;
+        }
+        let crc = 0xffffffff;
+        for (const b of forCRC) crc = (tbl[(crc ^ b) & 0xff] ^ (crc >>> 8));
+        crc = ((crc ^ 0xffffffff) >>> 0);
+        const chunk = new Uint8Array(4 + 4 + 9 + 4);
+        const cv = new DataView(chunk.buffer);
+        cv.setUint32(0, 9); chunk.set(type, 4); chunk.set(data, 8); cv.setUint32(21, crc);
+        const png = new Uint8Array(buf);
+        const pos = 33;
+        const result = new Uint8Array(png.length + chunk.length);
+        result.set(png.slice(0, pos)); result.set(chunk, pos); result.set(png.slice(pos), pos + chunk.length);
+        const out = new Blob([result], { type: 'image/png' });
+        const url = URL.createObjectURL(out);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `label_${mmW}x${mmH}mm.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
     }, 'image/png');
   }
 
@@ -269,8 +248,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
   return (
     <div data-modal="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60">
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92vh] flex flex-col">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Printer size={18} className="text-blue-600" />
@@ -280,42 +257,25 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-
-          {/* Шаблон */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Шаблон</label>
             <div className="flex gap-2">
-              <select
-                onChange={e => applyTemplate(e.target.value)}
-                defaultValue="__default__"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select onChange={e => applyTemplate(e.target.value)} defaultValue="__default__"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="__default__">Стандарт</option>
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <button
-                type="button"
-                onClick={() => setShowSaveInput(v => !v)}
-                className="flex items-center gap-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-                title="Сохранить шаблон"
-              >
+              <button type="button" onClick={() => setShowSaveInput(v => !v)}
+                className="flex items-center gap-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
                 <Save size={14} />
               </button>
             </div>
             {showSaveInput && (
               <div className="flex gap-2 mt-2">
-                <input
-                  value={savingName}
-                  onChange={e => setSavingName(e.target.value)}
-                  placeholder="Название шаблона"
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveTemplate}
-                  disabled={!savingName.trim()}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
-                >
+                <input value={savingName} onChange={e => setSavingName(e.target.value)} placeholder="Название шаблона"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button type="button" onClick={handleSaveTemplate} disabled={!savingName.trim()}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
                   Сохранить
                 </button>
               </div>
@@ -334,19 +294,14 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             )}
           </div>
 
-          {/* Поля */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">Поля этикетки</label>
             <div className="space-y-2">
               {fields.map(f => (
                 <div key={f.key}>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={f.enabled}
-                      onChange={() => toggleField(f.key)}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
+                    <input type="checkbox" checked={f.enabled} onChange={() => toggleField(f.key)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                     <span className="text-sm text-gray-700 flex-1">{f.label}</span>
                     {f.key !== 'custom' && (
                       <span className="text-xs text-gray-400 truncate max-w-[120px]">
@@ -355,89 +310,57 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     )}
                   </label>
                   {f.key === 'custom' && f.enabled && (
-                    <input
-                      value={f.customText ?? ''}
-                      onChange={e => setCustomText('custom', e.target.value)}
+                    <input value={f.customText ?? ''} onChange={e => setCustomText('custom', e.target.value)}
                       placeholder="Введите текст..."
-                      className="mt-1 ml-7 w-[calc(100%-1.75rem)] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                      className="mt-1 ml-7 w-[calc(100%-1.75rem)] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Размер */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">Размер этикетки</label>
             <div className="grid grid-cols-2 gap-2">
               {SIZES.map(s => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSize(s.id)}
+                <button key={s.id} type="button" onClick={() => setSize(s.id)}
                   className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    size === s.id
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  {s.label}
-                  {s.id === '40x30' && <span className="ml-1 text-xs opacity-70">(XP-235B)</span>}
+                    size === s.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}>
+                  {s.label}{s.id === '40x30' ? ' (XP-235B)' : ''}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Предпросмотр */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>
             <div className="flex justify-center bg-gray-50 rounded-xl p-4">
-              <canvas
-                id="print-label-canvas"
-                ref={canvasRef}
-                width={canvasW}
-                height={canvasH}
-                className="shadow-sm rounded"
-                style={{ imageRendering: 'pixelated', maxWidth: '100%' }}
-              />
+              <canvas id="print-label-canvas" ref={canvasRef} width={canvasW} height={canvasH}
+                className="shadow-sm rounded" style={{ imageRendering: 'pixelated', maxWidth: '100%' }} />
               <canvas ref={barcodeCanvasRef} style={{ display: 'none' }} />
             </div>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 space-y-3">
-
-          {/* Количество + IP */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500">Копий:</span>
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
-                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200"
-                >−</button>
+                <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
+                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">−</button>
                 <span className="px-4 py-1.5 text-sm font-medium text-gray-900">{quantity}</span>
-                <button
-                  type="button"
-                  onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(10, q + 1)); }}
-                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200"
-                >+</button>
+                <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(10, q + 1)); }}
+                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
               </div>
             </div>
-
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
               {editingIp ? (
-                <input
-                  value={ipInput}
-                  onChange={e => setIpInput(e.target.value)}
+                <input value={ipInput} onChange={e => setIpInput(e.target.value)}
                   onBlur={() => { savePrinterIp(ipInput); setEditingIp(false); }}
                   onKeyDown={e => { if (e.key === 'Enter') { savePrinterIp(ipInput); setEditingIp(false); } }}
-                  autoFocus
-                  className="w-32 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
+                  autoFocus className="w-32 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
               ) : (
                 <>
                   <span>IP: {printerIp}</span>
@@ -449,77 +372,52 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             </div>
           </div>
 
-          {error && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-          )}
+          {error && <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
-          {/* Кнопки */}
           {(() => {
-            const ip          = getPrinterIp();
-            const isIOS       = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isAndroid   = /Android/.test(navigator.userAgent);
-            const isMobile    = isIOS || isAndroid;
-            const hasWifi     = ip && ip !== '192.168.1.100';
-
+            const ip        = getPrinterIp();
+            const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            const isMobile  = isIOS || isAndroid;
+            const hasWifi   = ip && ip !== '192.168.1.100';
             return (
               <div className="space-y-2">
                 <div className="flex gap-3">
-                  <button
-                    onClick={onClose}
-                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-                  >
+                  <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                     Отмена
                   </button>
-
                   {hasWifi ? (
-                    <button
-                      onClick={handlePrint}
-                      disabled={printing}
-                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
+                    <button onClick={handleWifiPrint} disabled={printing}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
                       {printing ? (
-                        <>
-                          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                          </svg>
-                          Печатаем...
-                        </>
+                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>Печатаем...</>
                       ) : (
-                        <><Wifi size={16} />Печать (WiFi){quantity > 1 ? ` ×${quantity}` : ''}</>
+                        <><Wifi size={16} />WiFi{quantity > 1 ? ` x${quantity}` : ''}</>
                       )}
                     </button>
                   ) : !isMobile ? (
-                    // ✅ Desktop USB — теперь через iframe, Chrome не зависает
-                    <button
-                      onClick={handleUsbPrint}
-                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
-                    >
+                    <button onClick={handleUsbPrint}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
                       <Printer size={16} />
-                      Печать (USB){quantity > 1 ? ` ×${quantity}` : ''}
+                      Скачать PNG{quantity > 1 ? ` x${quantity}` : ''}
                     </button>
                   ) : null}
                 </div>
-
                 {isAndroid && (
-                  <button
-                    onClick={handleAndroidPrint}
+                  <button onClick={handleAndroidPrint}
                     className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 bg-white hover:bg-green-50 transition-colors"
-                    style={{ border: '1.5px solid #3ddc84', color: '#1a7a3e' }}
-                  >
+                    style={{ border: '1.5px solid #3ddc84', color: '#1a7a3e' }}>
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
                       <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
                     </svg>
                     Печать (Android)
                   </button>
                 )}
-
                 <p className="text-center text-xs text-gray-400">
-                  {hasWifi
-                    ? `WiFi принтер: ${ip}`
-                    : isIOS
-                    ? 'Для iPhone нужен WiFi принтер — введите IP выше'
-                    : 'Откроется диалог печати → выберите Xprinter XP-235B'}
+                  {hasWifi ? `WiFi: ${ip}` : isIOS ? 'Для iPhone нужен WiFi принтер' : 'Скачается PNG → ПКМ → Напечатать → XP-235B → Фактический размер'}
                 </p>
               </div>
             );
