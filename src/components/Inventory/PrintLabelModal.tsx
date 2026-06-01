@@ -190,13 +190,13 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     const ctx = printCanvas.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, pW, pH);
-    const padding = 4 * SCALE;
+    const padding = 2 * SCALE;
     const maxW = pW - padding * 2;
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
     const nameFontSize  = Math.min(16 * SCALE, Math.max(10 * SCALE, pH * 0.18));
-    const otherFontSize = Math.min(13 * SCALE, Math.max(9  * SCALE, pH * 0.14));
+    const otherFontSize = Math.min(15 * SCALE, Math.max(11 * SCALE, pH * 0.16));
     const barcodeH      = showBarcode ? Math.min(30 * SCALE, pH * 0.42) : 0;
     const nameH         = nameField ? nameFontSize + 2 * SCALE : 0;
     const otherH        = otherFields.reduce((acc, f) => {
@@ -205,7 +205,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     }, 0);
     const gapCount  = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
     const freeSpace = pH - padding * 2 - nameH - barcodeH - otherH;
-    const gap       = gapCount > 0 ? Math.max(2 * SCALE, freeSpace / (gapCount + 1)) : 0;
+    const gap       = gapCount > 0 ? Math.max(1 * SCALE, freeSpace / (gapCount + 2)) : 0;
     const drawC = (text: string, y: number, font: string, color: string) => {
       ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
       let t = text;
