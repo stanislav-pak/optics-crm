@@ -1,4 +1,4 @@
-п»ї// src/types/index.ts
+// src/types/index.ts
 
 export type UserRole = 'manager' | 'branch_admin' | 'admin';
 
@@ -220,7 +220,7 @@ export interface DealStats {
 }
 
 // ============================================
-// РЎРљР›РђР” / INVENTORY
+// СКЛАД / INVENTORY
 // ============================================
 
 export interface ProductCategory {
@@ -249,7 +249,7 @@ export interface Product {
   category_id?: string;
   brand_id?: string;
   price: number;
-  cost_price: number;
+  cost_price: number;`n  unit?: string;
   min_stock: number;
   unit: string;
   attributes: ProductAttributes;
@@ -263,21 +263,21 @@ export interface Product {
   stock?: Stock[];
 }
 
-// РђС‚СЂРёР±СѓС‚С‹ РґР»СЏ СЂР°Р·РЅС‹С… С‚РёРїРѕРІ С‚РѕРІР°СЂРѕРІ
+// Атрибуты для разных типов товаров
 export interface ProductAttributes {
-  // Р›РёРЅР·С‹
-  sphere?: number;       // РґРёРѕРїС‚СЂРёРё
-  cylinder?: number;     // С†РёР»РёРЅРґСЂ
-  axis?: number;         // РѕСЃСЊ
-  diameter?: number;     // РґРёР°РјРµС‚СЂ
-  base_curve?: number;   // Р±Р°Р·РѕРІР°СЏ РєСЂРёРІРёР·РЅР°
-  // РћРїСЂР°РІС‹/РѕС‡РєРё
+  // Линзы
+  sphere?: number;       // диоптрии
+  cylinder?: number;     // цилиндр
+  axis?: number;         // ось
+  diameter?: number;     // диаметр
+  base_curve?: number;   // базовая кривизна
+  // Оправы/очки
   color?: string;
   size?: string;
   material?: string;
   frame_type?: 'full' | 'half' | 'rimless';
   gender?: 'male' | 'female' | 'unisex' | 'kids';
-  // РћР±С‰РµРµ
+  // Общее
   [key: string]: string | number | undefined;
 }
 
@@ -353,7 +353,7 @@ export interface PurchaseOrderItem {
   purchase_order_id: string;
   product_id: string;
   quantity: number;
-  cost_price: number;
+  cost_price: number;`n  unit?: string;
   created_at: string;
   // Relations
   product?: Product;

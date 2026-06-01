@@ -5,11 +5,14 @@ import type { Product, Supplier, Branch } from '../../types';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
+const DEFAULT_UNITS = ['шт', 'пара', 'коробка', 'упаковка', 'компл'];
+
 interface OrderItem {
   product_id: string;
   product_name: string;
   quantity: number;
   cost_price: number;
+  unit: string;
 }
 
 interface InitialData {
@@ -39,16 +42,16 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  // Кастомная единица: ключ — индекс позиции
+  const [customUnits, setCustomUnits] = useState<Record<number, string>>({});
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.from('suppliers').select('*').order('name').then(({ data }) => setSuppliers(data ?? []));
-    // Загружаем филиалы для селекта
     supabase.from('branches').select('id, name, is_warehouse').order('name').then(({ data }) => {
       if (!data) return;
       const sorted = [...data].sort((a, b) => (b.is_warehouse ? 1 : 0) - (a.is_warehouse ? 1 : 0));
       setBranches(sorted);
-      // Для admin/branch_admin — по умолчанию Склад
       if (role !== 'manager') {
         const warehouse = sorted.find(b => b.is_warehouse);
         if (warehouse) setReceivingBranchId(warehouse.id);
@@ -59,7 +62,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     );
   }, [branchId]);
 
-  // Предзаполнение из initialData после загрузки продуктов
   useEffect(() => {
     if (!initialData || products.length === 0) return;
     if (initialData.supplier_id) setSupplierId(initialData.supplier_id);
@@ -67,19 +69,15 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       const mapped: OrderItem[] = initialData.items.flatMap(i => {
         const p = products.find(pr => pr.id === i.product_id);
         if (!p) return [];
-        return [{ product_id: i.product_id, product_name: p.name, quantity: i.quantity, cost_price: i.cost_price }];
+        return [{ product_id: i.product_id, product_name: p.name, quantity: i.quantity, cost_price: i.cost_price, unit: p.unit ?? 'шт' }];
       });
       if (mapped.length > 0) setItems(mapped);
     }
   }, [products]);
 
-  // Свайп вправо — закрыть модал
   useEffect(() => {
     const startX = { x: 0, y: 0 };
-    const onStart = (e: TouchEvent) => {
-      startX.x = e.touches[0].clientX;
-      startX.y = e.touches[0].clientY;
-    };
+    const onStart = (e: TouchEvent) => { startX.x = e.touches[0].clientX; startX.y = e.touches[0].clientY; };
     const onEnd = (e: TouchEvent) => {
       const dx = e.changedTouches[0].clientX - startX.x;
       const dy = Math.abs(e.changedTouches[0].clientY - startX.y);
@@ -93,12 +91,9 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     };
   }, []);
 
-  // Закрыть дропдаун при клике вне
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowSearch(false);
-      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSearch(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -116,20 +111,11 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       setItems(prev => {
         const existing = prev.findIndex(i => i.product_id === product.id);
         if (existing >= 0) {
-          return prev.map((item, idx) =>
-            idx === existing ? { ...item, quantity: item.quantity + 1 } : item
-          );
+          return prev.map((item, idx) => idx === existing ? { ...item, quantity: item.quantity + 1 } : item);
         }
-        return [...prev, {
-          product_id: product.id,
-          product_name: product.name,
-          quantity: 1,
-          cost_price: product.cost_price ?? 0,
-        }];
+        return [...prev, { product_id: product.id, product_name: product.name, quantity: 1, cost_price: product.cost_price ?? 0, unit: product.unit ?? 'шт' }];
       });
-    } catch {
-      // товар не найден по штрихкоду
-    }
+    } catch { /* не найден */ }
   };
 
   const addItem = (product: Product) => {
@@ -139,17 +125,23 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       product_name: product.name,
       quantity: 1,
       cost_price: product.cost_price ?? 0,
+      unit: product.unit ?? 'шт',
     }]);
     setSearch(product.name);
     setShowSearch(false);
   };
 
-  const updateItem = (idx: number, field: 'quantity' | 'cost_price', value: number) => {
+  const updateItem = (idx: number, field: 'quantity' | 'cost_price' | 'unit', value: number | string) => {
     setItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
   };
 
   const removeItem = (idx: number) => {
     setItems(prev => prev.filter((_, i) => i !== idx));
+    setCustomUnits(prev => {
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
   };
 
   const total = items.reduce((sum, i) => sum + i.quantity * i.cost_price, 0);
@@ -158,29 +150,27 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     if (items.length === 0) return;
     setLoading(true);
     try {
-      const orderData = {
-        supplier_id: supplierId || undefined,
-        branch_id: receivingBranchId,
-        status: 'received' as const,
-        total,
-        notes: notes || undefined,
-        created_by: employeeId,
-        received_at: new Date(date).toISOString(),
-      };
       await createPurchaseOrder(
-        orderData,
+        {
+          supplier_id: supplierId || undefined,
+          branch_id: receivingBranchId,
+          status: 'received' as const,
+          total,
+          notes: notes || undefined,
+          created_by: employeeId,
+          received_at: new Date(date).toISOString(),
+        },
         items.map(i => ({
           product_id: i.product_id,
           quantity: i.quantity,
           cost_price: i.cost_price,
+          unit: i.unit,
         }))
       );
       onSuccess();
       onClose();
     } catch (e: any) {
-      console.error('Ошибка создания прихода:', e);
-      const msg = e?.message || e?.error_description || JSON.stringify(e);
-      alert('Ошибка: ' + msg);
+      alert('Ошибка: ' + (e?.message || JSON.stringify(e)));
     } finally {
       setLoading(false);
     }
@@ -193,14 +183,12 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Приходная накладная</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
-          {/* Шапка накладной */}
+          {/* Шапка */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Филиал получатель</label>
             <select
@@ -210,12 +198,11 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:bg-gray-50"
             >
               {branches.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.is_warehouse ? '🏭 ' : ''}{b.name}
-                </option>
+                <option key={b.id} value={b.id}>{b.is_warehouse ? '🏭 ' : ''}{b.name}</option>
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Поставщик</label>
             <select
@@ -224,89 +211,115 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">— без поставщика —</option>
-              {suppliers.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
+
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Дата прихода</label>
             <div className="relative w-full">
               <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 pointer-events-none">
-                {date
-                  ? new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : 'Выберите дату'}
+                {date ? new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Выберите дату'}
               </div>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-              />
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
             </div>
           </div>
 
-          {/* Список позиций */}
+          {/* Позиции */}
           <div className="space-y-2">
-            {items.map((item, idx) => (
-              <div key={idx} className="border border-gray-200 rounded-xl p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-medium text-gray-900 flex-1">{item.product_name}</span>
-                  <button
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); removeItem(idx); }}
-                    className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Количество</label>
-                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                      <button
-                        type="button"
-                        onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', Math.max(1, item.quantity - 1)); }}
-                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-r border-gray-200 flex-shrink-0"
-                      >−</button>
+            {items.map((item, idx) => {
+              const isCustom = !DEFAULT_UNITS.includes(item.unit);
+              return (
+                <div key={idx} className="border border-gray-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium text-gray-900 flex-1">{item.product_name}</span>
+                    <button type="button" onMouseDown={e => { e.preventDefault(); removeItem(idx); }} className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Количество */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Количество</label>
+                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                        <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', Math.max(1, item.quantity - 1)); }} className="px-2 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">−</button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={item.quantity === 0 ? '' : String(item.quantity)}
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            updateItem(idx, 'quantity', val === '' ? 0 : parseInt(val));
+                          }}
+                          onBlur={() => { if (item.quantity < 1) updateItem(idx, 'quantity', 1); }}
+                          className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0 w-full"
+                        />
+                        <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }} className="px-2 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
+                      </div>
+                    </div>
+
+                    {/* Единица измерения */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Единица</label>
+                      {isCustom ? (
+                        <div className="flex gap-1">
+                          <input
+                            autoFocus
+                            value={item.unit}
+                            onChange={e => updateItem(idx, 'unit', e.target.value)}
+                            placeholder="напр. рулон"
+                            className="flex-1 min-w-0 border border-blue-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateItem(idx, 'unit', 'шт')}
+                            className="text-gray-400 hover:text-gray-600 px-1"
+                            title="Сбросить"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={item.unit}
+                          onChange={e => {
+                            if (e.target.value === '__custom__') {
+                              updateItem(idx, 'unit', '');
+                            } else {
+                              updateItem(idx, 'unit', e.target.value);
+                            }
+                          }}
+                          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          <option value="__custom__">+ свой</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Цена */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>
                       <input
-                        type="text"
-                        inputMode="numeric"
-                        value={item.quantity === 0 ? '' : String(item.quantity)}
-                        onChange={e => {
-                          const val = e.target.value.replace(/[^0-9]/g, '');
-                          updateItem(idx, 'quantity', val === '' ? 0 : parseInt(val));
-                        }}
-                        onBlur={() => { if (item.quantity < 1) updateItem(idx, 'quantity', 1); }}
-                        placeholder=""
-                        className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0"
+                        type="number"
+                        min="0"
+                        value={item.cost_price === 0 ? '' : item.cost_price}
+                        onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <button
-                        type="button"
-                        onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
-                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 text-lg font-medium border-l border-gray-200 flex-shrink-0"
-                      >+</button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={item.cost_price === 0 ? '' : item.cost_price}
-                      onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
-                      placeholder="0"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+
+                  <div className="flex justify-end">
+                    <span className="text-sm font-semibold text-gray-700">
+                      Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
+                    </span>
                   </div>
                 </div>
-                <div className="flex justify-end">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {items.length === 0 && (
               <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl">
@@ -322,7 +335,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             )}
           </div>
 
-          {/* Поиск и добавление товара */}
+          {/* Поиск товара */}
           <div ref={searchRef} className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
             <div className="flex gap-2">
@@ -340,7 +353,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                 type="button"
                 onMouseDown={e => { e.preventDefault(); setShowScanner(true); }}
                 className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
-                title="Сканировать штрихкод"
               >
                 <QrCode size={18} />
               </button>
@@ -382,16 +394,12 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
         </div>
 
         {showScanner && (
-          <BarcodeScanner
-            onDetected={handleBarcodeDetected}
-            onClose={() => setShowScanner(false)}
-          />
+          <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
         )}
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
             Отмена
           </button>
           <button
