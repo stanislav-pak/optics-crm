@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, type ElementType } from 'react';
 import { supabase } from '../../services/supabase';
 import {
   AlertTriangle, Trash2, RotateCcw, Tag, TrendingDown,
-  CheckCircle, Eye, RefreshCw, ShieldAlert,
+  CheckCircle, Eye, RefreshCw, ShieldAlert, Banknote,
 } from 'lucide-react';
 
-type WatchlistEventType = 'writeoff' | 'return' | 'discount' | 'below_cost' | 'transfer_discrepancy';
+type WatchlistEventType = 'writeoff' | 'return' | 'discount' | 'below_cost' | 'transfer_discrepancy' | 'cash_discrepancy';
 
 interface WatchlistEvent {
   id: string;
@@ -33,6 +33,7 @@ const EVENT_CONFIG: Record<WatchlistEventType, { label: string; icon: ElementTyp
   discount:              { label: 'Скидка >10%',   icon: Tag,           bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
   below_cost:            { label: 'Ниже себест.',  icon: TrendingDown,  bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
   transfer_discrepancy:  { label: 'Расхождение',   icon: AlertTriangle, bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500' },
+  cash_discrepancy:      { label: 'Касса',         icon: Banknote,      bg: 'bg-rose-100',   text: 'text-rose-700',   dot: 'bg-rose-500'   },
 };
 
 const FILTERS = [
@@ -43,6 +44,7 @@ const FILTERS = [
   { value: 'discount',              label: 'Скидки' },
   { value: 'below_cost',            label: 'Ниже с/с' },
   { value: 'transfer_discrepancy',  label: 'Расхождения' },
+  { value: 'cash_discrepancy',      label: 'Касса' },
 ];
 
 function formatAmount(amount: number): string {

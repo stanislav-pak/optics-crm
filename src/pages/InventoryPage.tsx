@@ -26,6 +26,7 @@ import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 import ReturnModal from '../components/Inventory/ReturnModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
+import CashSessionCard from '../components/Inventory/CashSessionCard';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
@@ -963,6 +964,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             </div>
           );
         })()}
+
+        {storefront && (
+          <div className="mb-4">
+            <CashSessionCard branchId={branchId} employeeId={employeeId} />
+          </div>
+        )}
 
         {/* ПРОДАЖИ */}
         {(tab === 'sales' || storefront) && (() => {
