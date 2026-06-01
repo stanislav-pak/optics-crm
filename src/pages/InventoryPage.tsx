@@ -154,7 +154,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   useEffect(() => {
     if (role === 'admin') {
       supabase.from('branches').select('*').order('name').then(({ data }) => {
-        if (data) setAllBranches(data.filter(b => b.name !== 'Склад'));
+        if (data) setAllBranches(data);
       });
     }
   }, [role]);
