@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type ElementType } from 'react';
 import { supabase } from '../../services/supabase';
+import AnomalyDashboard from './AnomalyDashboard';
 import {
   AlertTriangle, Trash2, RotateCcw, Tag, TrendingDown,
   CheckCircle, Eye, RefreshCw, ShieldAlert, Banknote,
@@ -66,6 +67,7 @@ function formatTime(ts: string): string {
 export function WatchlistPanel() {
   const [events, setEvents] = useState<WatchlistEvent[]>([]);
   const [filter, setFilter] = useState('unreviewed');
+  const [mode, setMode] = useState<'feed' | 'analytics'>('feed');
   const [loading, setLoading] = useState(true);
   const [unreviewedCount, setUnreviewedCount] = useState(0);
 
@@ -120,6 +122,16 @@ export function WatchlistPanel() {
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-5 h-5 text-gray-600" />
           <h2 className="font-semibold text-gray-900 text-base">На заметке</h2>
+          <div className="flex items-center gap-1 ml-3 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setMode('feed')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${mode === 'feed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              Лента
+            </button>
+            <button onClick={() => setMode('analytics')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${mode === 'analytics' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              Аналитика
+            </button>
+          </div>
           {unreviewedCount > 0 && (
             <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
               {unreviewedCount}
@@ -138,6 +150,8 @@ export function WatchlistPanel() {
         </div>
       </div>
 
+      {mode === 'feed' && (
+        <>
       <div className="bg-white border-b border-gray-200 px-3 py-2 flex gap-1.5 overflow-x-auto flex-shrink-0 scrollbar-none">
         {FILTERS.map((opt) => {
           const count = opt.value === 'unreviewed' ? events.filter((e) => !e.is_reviewed).length
@@ -225,6 +239,10 @@ export function WatchlistPanel() {
           <span>Всего: {events.length}</span>
         </div>
       )}
+        </>
+      )}
+
+      {mode === 'analytics' && <AnomalyDashboard />}
     </div>
   );
 }
