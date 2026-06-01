@@ -1,0 +1,93 @@
+{
+  "name": "Evolution - Outgoing Messages",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { instance, phone, content, message_type, message_id } = $input.item.json;\n\nreturn [{\n  json: {\n    evolution_url: `http://82.25.58.66:8080/message/sendText/${instance}`,\n    message_id,\n    body: {\n      number: phone,\n      options: { delay: 1000, presence: 'composing' },\n      textMessage: { text: content }\n    }\n  }\n}];"
+      },
+      "id": "b1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Build Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolution_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "newline_evo_2024" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "b1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Send via Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://ygvsnecgmoiwlkzkerhu.supabase.co/rest/v1/messages?id=eq.={{ $('Build Request').item.json.message_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "apikey",        "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ waba_message_id: $json.key?.id ?? null }) }}",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Update waba_message_id",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0005-0005-0005-000000000005",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook":       { "main": [[{ "node": "Build Request",       "type": "main", "index": 0 }]] },
+    "Build Request": { "main": [[{ "node": "Send via Evolution",  "type": "main", "index": 0 }]] },
+    "Send via Evolution": { "main": [[{ "node": "Update waba_message_id", "type": "main", "index": 0 }]] },
+    "Update waba_message_id": { "main": [[{ "node": "Respond",   "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

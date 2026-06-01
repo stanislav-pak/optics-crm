@@ -57,7 +57,6 @@ function AppContent() {
     });
   }, []);
 
-  // Звук при входящем push-уведомлении (foreground: приложение открыто)
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     const handler = (event: MessageEvent) => {
@@ -69,7 +68,6 @@ function AppContent() {
     return () => navigator.serviceWorker.removeEventListener('message', handler);
   }, []);
 
-  // Счётчик ожидающих задач для менеджера
   useEffect(() => {
     if (!employee || employee.role !== 'manager') return;
     let prevCount = 0;
@@ -79,7 +77,6 @@ function AppContent() {
         .eq('employee_id', employee.id)
         .eq('confirmation_status', 'pending');
       const newCount = count ?? 0;
-      // Звук только когда новые задачи появились
       if (newCount > prevCount) playNotificationSound();
       prevCount = newCount;
       setPendingTasksCount(newCount);
@@ -87,18 +84,8 @@ function AppContent() {
     fetchPending();
     const channel = supabase
       .channel(`pending-tasks-badge-${employee.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'tasks',
-        filter: `employee_id=eq.${employee.id}`,
-      }, fetchPending)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tasks',
-        filter: `employee_id=eq.${employee.id}`,
-      }, fetchPending)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks', filter: `employee_id=eq.${employee.id}` }, fetchPending)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `employee_id=eq.${employee.id}` }, fetchPending)
       .subscribe();
     window.addEventListener('tasks-updated', fetchPending);
     return () => {
@@ -107,7 +94,6 @@ function AppContent() {
     };
   }, [employee?.id]);
 
-  // Проверяем pending transfers сразу после загрузки employee
   useEffect(() => {
     if (!employee?.branch_id) return;
     const lastViewed = localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString();
@@ -121,7 +107,6 @@ function AppContent() {
       .then(({ count }) => setHasPendingTransfers((count ?? 0) > 0));
   }, [employee?.branch_id]);
 
-  // Открываем нужный раздел по параметру ?view= из URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
@@ -229,6 +214,9 @@ function AppContent() {
   const isAdminBtnActive = (view: string) =>
     adminView === view && (!isMobile || mobileView === 'main');
 
+  const isManagerBtnActive = (view: string) =>
+    mobileView === view && !activeChat;
+
   const MobilePageHeader = ({ title }: { title: string }) => (
     <div className="flex items-center gap-3 px-4 py-3 bg-[#202c33] border-b border-white/10 flex-shrink-0">
       <button onClick={handleBackToList}
@@ -298,6 +286,45 @@ function AppContent() {
               )}
             </>
           )}
+
+          {/* Кнопки навигации менеджера на десктопе */}
+          {isManager && !isMobile && (
+            <>
+              <button onClick={() => { setMobileView('tasks'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Задачи">
+                <div className="relative">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                  {pendingTasksCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+                      {pendingTasksCount > 99 ? '99+' : pendingTasksCount}
+                    </span>
+                  )}
+                </div>
+              </button>
+              <button onClick={() => { setMobileView('manager-crm'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('manager-crm') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="CRM">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+              </button>
+              <button onClick={() => { setMobileView('shop'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Магазин">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              </button>
+              <button onClick={() => { setMobileView('inventory'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Склад">
+                <div className="relative">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                  {hasPendingTransfers && mobileView !== 'inventory' && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </div>
+              </button>
+            </>
+          )}
+
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Выйти">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
@@ -389,6 +416,43 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Dashboard" />}
           <AdminDashboard onChatSelect={handleChatSelect} activeChatId={activeChat?.id} />
         </div>
+
+      ) : isManager && !isMobile && !activeChat && mobileView === 'tasks' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <TasksPanel onBack={() => setMobileView('list')} />
+        </div>
+      ) : isManager && !isMobile && !activeChat && mobileView === 'manager-crm' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ManagerCRMPanel
+            onBack={() => setMobileView('list')}
+            employeeId={employee.id}
+            onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); }}
+          />
+        </div>
+      ) : isManager && !isMobile && !activeChat && mobileView === 'inventory' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+            <InventoryPage
+              branchId={employee?.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              onPendingTransfersChange={setHasPendingTransfers}
+            />
+          </div>
+        </div>
+      ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+            <InventoryPage
+              branchId={employee?.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              defaultTab="sales"
+              storefront={true}
+            />
+          </div>
+        </div>
+
       ) : activeChat ? (
         <>
           <div className="flex-1 flex flex-col overflow-hidden">

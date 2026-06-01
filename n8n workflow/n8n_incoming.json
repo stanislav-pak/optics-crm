@@ -1,0 +1,70 @@
+{
+  "name": "Evolution - Incoming Messages",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-incoming",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body ?? $input.item.json;\n\nconst event = body.event;\nconst instance = body.instance;\nconst data = body.data;\n\n// Только messages.upsert\nif (event !== 'messages.upsert') return [];\n\nconst key = data?.key ?? {};\nconst message = data?.message ?? {};\n\n// Игнорировать свои и групповые\nif (key.fromMe === true) return [];\nif (!key.remoteJid || key.remoteJid.endsWith('@g.us')) return [];\n\n// Номер без суффикса\nconst phone = key.remoteJid.replace(/@s\\.whatsapp\\.net$/, '').replace(/@c\\.us$/, '');\n\n// Тип и контент\nconst msgType = data.messageType ?? 'conversation';\nlet messageType = 'text';\nlet content = '';\nlet mediaUrl = null;\n\nif (msgType === 'conversation' || msgType === 'extendedTextMessage') {\n  messageType = 'text';\n  content = message.conversation ?? message.extendedTextMessage?.text ?? '';\n} else if (msgType === 'imageMessage') {\n  messageType = 'image';\n  content = message.imageMessage?.caption ?? '[Фото]';\n  mediaUrl = message.imageMessage?.url ?? null;\n} else if (msgType === 'audioMessage') {\n  messageType = 'audio';\n  content = '[Голосовое сообщение]';\n  mediaUrl = message.audioMessage?.url ?? null;\n} else if (msgType === 'documentMessage') {\n  messageType = 'file';\n  content = message.documentMessage?.fileName ?? '[Файл]';\n  mediaUrl = message.documentMessage?.url ?? null;\n} else if (msgType === 'videoMessage') {\n  messageType = 'video';\n  content = message.videoMessage?.caption ?? '[Видео]';\n  mediaUrl = message.videoMessage?.url ?? null;\n} else if (msgType === 'locationMessage') {\n  messageType = 'location';\n  const loc = message.locationMessage;\n  content = `[Геолокация: ${loc?.degreesLatitude},${loc?.degreesLongitude}]`;\n} else if (msgType === 'contactMessage') {\n  messageType = 'contact';\n  content = message.contactMessage?.displayName ?? '[Контакт]';\n} else {\n  content = `[${msgType}]`;\n}\n\nreturn [{\n  json: {\n    instance,\n    from_phone: phone,\n    push_name: data.pushName ?? null,\n    message_id: key.id,\n    message_type: messageType,\n    content,\n    media_url: mediaUrl,\n    timestamp: data.messageTimestamp ?? Math.floor(Date.now() / 1000)\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ygvsnecgmoiwlkzkerhu.supabase.co/functions/v1/handle-incoming-message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "apikey",        "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook":       { "main": [[{ "node": "Parse Message",    "type": "main", "index": 0 }]] },
+    "Parse Message": { "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]] },
+    "Save to Supabase": { "main": [[{ "node": "Respond",       "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}
