@@ -11,9 +11,10 @@ interface Props {
   onClose: () => void;
 }
 
-type LabelSize = '40x30' | '40x25' | '50x30' | '58x40';
+type LabelSize = '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
+  { id: '28x20', label: '28×20 мм', mm: [28, 20] },
   { id: '40x30', label: '40×30 мм', mm: [40, 30] },
   { id: '40x25', label: '40×25 мм', mm: [40, 25] },
   { id: '50x30', label: '50×30 мм', mm: [50, 30] },
@@ -54,7 +55,7 @@ function fieldValue(key: string, product: Product, customText?: string): string 
 
 export default function PrintLabelModal({ product, onClose }: Props) {
   const [fields,        setFields]        = useState<LabelField[]>(() => getDefaultFields(product));
-  const [size,          setSize]          = useState<LabelSize>('40x30');
+  const [size,          setSize]          = useState<LabelSize>('28x20');
   const [quantity,      setQuantity]      = useState(1);
   const [editingIp,     setEditingIp]     = useState(false);
   const [ipInput,       setIpInput]       = useState('');
@@ -375,7 +376,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                   className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
                     size === s.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                   }`}>
-                  {s.label}{s.id === '40x30' ? ' (XP-235B)' : ''}
+                  {s.label}{s.id === '28x20' ? ' (XP-237B)' : ''}
                 </button>
               ))}
             </div>
