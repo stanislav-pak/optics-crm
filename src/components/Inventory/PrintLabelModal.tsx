@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Pencil, Printer, Save, Trash2, Wifi } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
 import type { Product } from '../../types';
@@ -14,10 +14,10 @@ interface Props {
 type LabelSize = '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
-  { id: '40x30', label: '40×30 мм', mm: [40, 30] },
-  { id: '40x25', label: '40×25 мм', mm: [40, 25] },
-  { id: '50x30', label: '50×30 мм', mm: [50, 30] },
-  { id: '58x40', label: '58×40 мм', mm: [58, 40] },
+  { id: '40x30', label: '40Г—30 РјРј', mm: [40, 30] },
+  { id: '40x25', label: '40Г—25 РјРј', mm: [40, 25] },
+  { id: '50x30', label: '50Г—30 РјРј', mm: [50, 30] },
+  { id: '58x40', label: '58Г—40 РјРј', mm: [58, 40] },
 ];
 
 const MM_TO_PX = 8;
@@ -25,14 +25,14 @@ const MM_TO_PX = 8;
 function getDefaultFields(product: Product): LabelField[] {
   const brandName = (product.brand as any)?.name ?? '';
   return [
-    { key: 'name',           label: 'Название',        enabled: true,  customText: undefined },
-    { key: 'barcode',        label: 'Штрихкод',        enabled: !!product.barcode },
-    { key: 'price_sale',     label: 'Цена продажи',    enabled: true  },
-    { key: 'price_purchase', label: 'Цена закупки',    enabled: false },
-    { key: 'sku',            label: 'Артикул',         enabled: !!product.sku },
-    { key: 'brand',          label: 'Бренд',           enabled: !!brandName },
-    { key: 'category',       label: 'Категория',       enabled: false },
-    { key: 'custom',         label: 'Свой текст',      enabled: false, customText: '' },
+    { key: 'name',           label: 'РќР°Р·РІР°РЅРёРµ',        enabled: true,  customText: undefined },
+    { key: 'barcode',        label: 'РЁС‚СЂРёС…РєРѕРґ',        enabled: !!product.barcode },
+    { key: 'price_sale',     label: 'Р¦РµРЅР° РїСЂРѕРґР°Р¶Рё',    enabled: true  },
+    { key: 'price_purchase', label: 'Р¦РµРЅР° Р·Р°РєСѓРїРєРё',    enabled: false },
+    { key: 'sku',            label: 'РђСЂС‚РёРєСѓР»',         enabled: !!product.sku },
+    { key: 'brand',          label: 'Р‘СЂРµРЅРґ',           enabled: !!brandName },
+    { key: 'category',       label: 'РљР°С‚РµРіРѕСЂРёСЏ',       enabled: false },
+    { key: 'custom',         label: 'РЎРІРѕР№ С‚РµРєСЃС‚',      enabled: false, customText: '' },
   ];
 }
 
@@ -210,7 +210,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         crc = ((crc ^ 0xffffffff) >>> 0);
         const chunk = new Uint8Array(4 + 4 + 9 + 4);
         const cv = new DataView(chunk.buffer);
-        cv.setUint32(0, 9); chunk.set(type, 4); chunk.set(data, 8); cv.setUint32(21, crc);
+        cv.setUint32(0, 9); chunk.set(type, 4); chunk.set(data, 8); cv.setUint32(17, crc);
         const png = new Uint8Array(buf);
         const pos = 33;
         const result = new Uint8Array(png.length + chunk.length);
@@ -233,7 +233,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       if (!blob) return;
       const file = new File([blob], 'label.png', { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: 'Этикетка' }); } catch { /* cancelled */ }
+        try { await navigator.share({ files: [file], title: 'Р­С‚РёРєРµС‚РєР°' }); } catch { /* cancelled */ }
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -251,18 +251,18 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Printer size={18} className="text-blue-600" />
-            <h2 className="text-base font-semibold text-gray-900">Печать этикетки</h2>
+            <h2 className="text-base font-semibold text-gray-900">РџРµС‡Р°С‚СЊ СЌС‚РёРєРµС‚РєРё</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Шаблон</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">РЁР°Р±Р»РѕРЅ</label>
             <div className="flex gap-2">
               <select onChange={e => applyTemplate(e.target.value)} defaultValue="__default__"
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="__default__">Стандарт</option>
+                <option value="__default__">РЎС‚Р°РЅРґР°СЂС‚</option>
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <button type="button" onClick={() => setShowSaveInput(v => !v)}
@@ -272,11 +272,11 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             </div>
             {showSaveInput && (
               <div className="flex gap-2 mt-2">
-                <input value={savingName} onChange={e => setSavingName(e.target.value)} placeholder="Название шаблона"
+                <input value={savingName} onChange={e => setSavingName(e.target.value)} placeholder="РќР°Р·РІР°РЅРёРµ С€Р°Р±Р»РѕРЅР°"
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <button type="button" onClick={handleSaveTemplate} disabled={!savingName.trim()}
                   className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-                  Сохранить
+                  РЎРѕС…СЂР°РЅРёС‚СЊ
                 </button>
               </div>
             )}
@@ -284,7 +284,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
               <div className="mt-2 space-y-1">
                 {templates.map(t => (
                   <div key={t.id} className="flex items-center justify-between text-xs text-gray-500 px-1">
-                    <span>{t.name} · {t.size} мм</span>
+                    <span>{t.name} В· {t.size} РјРј</span>
                     <button onClick={() => deleteTemplate(t.id)} className="text-red-400 hover:text-red-600">
                       <Trash2 size={12} />
                     </button>
@@ -295,7 +295,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">Поля этикетки</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">РџРѕР»СЏ СЌС‚РёРєРµС‚РєРё</label>
             <div className="space-y-2">
               {fields.map(f => (
                 <div key={f.key}>
@@ -305,13 +305,13 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <span className="text-sm text-gray-700 flex-1">{f.label}</span>
                     {f.key !== 'custom' && (
                       <span className="text-xs text-gray-400 truncate max-w-[120px]">
-                        {fieldValue(f.key, product) || '—'}
+                        {fieldValue(f.key, product) || 'вЂ”'}
                       </span>
                     )}
                   </label>
                   {f.key === 'custom' && f.enabled && (
                     <input value={f.customText ?? ''} onChange={e => setCustomText('custom', e.target.value)}
-                      placeholder="Введите текст..."
+                      placeholder="Р’РІРµРґРёС‚Рµ С‚РµРєСЃС‚..."
                       className="mt-1 ml-7 w-[calc(100%-1.75rem)] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   )}
                 </div>
@@ -320,7 +320,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">Размер этикетки</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Р Р°Р·РјРµСЂ СЌС‚РёРєРµС‚РєРё</label>
             <div className="grid grid-cols-2 gap-2">
               {SIZES.map(s => (
                 <button key={s.id} type="button" onClick={() => setSize(s.id)}
@@ -334,7 +334,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ</label>
             <div className="flex justify-center bg-gray-50 rounded-xl p-4">
               <canvas id="print-label-canvas" ref={canvasRef} width={canvasW} height={canvasH}
                 className="shadow-sm rounded" style={{ imageRendering: 'pixelated', maxWidth: '100%' }} />
@@ -346,10 +346,10 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         <div className="px-5 py-4 border-t border-gray-100 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">Копий:</span>
+              <span className="text-sm text-gray-500">РљРѕРїРёР№:</span>
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
-                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">−</button>
+                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">в€’</button>
                 <span className="px-4 py-1.5 text-sm font-medium text-gray-900">{quantity}</span>
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(10, q + 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
@@ -384,7 +384,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
               <div className="space-y-2">
                 <div className="flex gap-3">
                   <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-                    Отмена
+                    РћС‚РјРµРЅР°
                   </button>
                   {hasWifi ? (
                     <button onClick={handleWifiPrint} disabled={printing}
@@ -393,7 +393,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                         <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                        </svg>Печатаем...</>
+                        </svg>РџРµС‡Р°С‚Р°РµРј...</>
                       ) : (
                         <><Wifi size={16} />WiFi{quantity > 1 ? ` x${quantity}` : ''}</>
                       )}
@@ -402,7 +402,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <button onClick={handleUsbPrint}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
                       <Printer size={16} />
-                      Скачать PNG{quantity > 1 ? ` x${quantity}` : ''}
+                      РЎРєР°С‡Р°С‚СЊ PNG{quantity > 1 ? ` x${quantity}` : ''}
                     </button>
                   ) : null}
                 </div>
@@ -413,11 +413,11 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
                       <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
                     </svg>
-                    Печать (Android)
+                    РџРµС‡Р°С‚СЊ (Android)
                   </button>
                 )}
                 <p className="text-center text-xs text-gray-400">
-                  {hasWifi ? `WiFi: ${ip}` : isIOS ? 'Для iPhone нужен WiFi принтер' : 'Скачается PNG → ПКМ → Напечатать → XP-235B → Фактический размер'}
+                  {hasWifi ? `WiFi: ${ip}` : isIOS ? 'Р”Р»СЏ iPhone РЅСѓР¶РµРЅ WiFi РїСЂРёРЅС‚РµСЂ' : 'РЎРєР°С‡Р°РµС‚СЃСЏ PNG в†’ РџРљРњ в†’ РќР°РїРµС‡Р°С‚Р°С‚СЊ в†’ XP-235B в†’ Р¤Р°РєС‚РёС‡РµСЃРєРёР№ СЂР°Р·РјРµСЂ'}
                 </p>
               </div>
             );
