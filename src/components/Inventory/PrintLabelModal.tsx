@@ -195,9 +195,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
-    const nameFontSize  = Math.min(10 * SCALE, Math.max(7 * SCALE, pH * 0.13));
-    const otherFontSize = Math.min(8  * SCALE, Math.max(6 * SCALE, pH * 0.10));
-    const barcodeH      = showBarcode ? Math.min(38 * SCALE, pH * 0.50) : 0;
+    const nameFontSize  = Math.min(16 * SCALE, Math.max(10 * SCALE, pH * 0.18));
+    const otherFontSize = Math.min(13 * SCALE, Math.max(9  * SCALE, pH * 0.14));
+    const barcodeH      = showBarcode ? Math.min(30 * SCALE, pH * 0.42) : 0;
     const nameH         = nameField ? nameFontSize + 2 * SCALE : 0;
     const otherH        = otherFields.reduce((acc, f) => {
       const val = fieldValue(f.key, product, f.customText);
