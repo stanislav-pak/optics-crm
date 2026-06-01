@@ -206,26 +206,23 @@ export default function PrintLabelModal({ product, onClose }: Props) {
   }
 
   // ✅ ИСПРАВЛЕНО: iframe вместо window.open — Chrome больше не зависает
-  function handleUsbPrint() {
+    function handleUsbPrint() {
     const canvas = document.getElementById('print-label-canvas') as HTMLCanvasElement;
     if (!canvas) return;
-
-    const dataURL = canvas.toDataURL('image/png');
     const [mmW, mmH] = currentSize.mm;
-
-    // Повторяем изображение quantity раз
-    const labels = Array(quantity)
-      .fill(`<img src="${dataURL}" style="width:${mmW}mm;height:${mmH}mm;display:block;page-break-after:always;">`)
-      .join('');
-
-    // Создаём скрытый iframe — не блокирует вкладку
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:none;opacity:0;';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument!;
-    doc.open();
-    doc.write(`<!DOCTYPE html>
+    // toBlob — асинхронный, не блокирует поток
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const blobUrl = URL.createObjectURL(blob);
+      const labels = Array(quantity)
+        .fill(`<img src="${blobUrl}" style="width:${mmW}mm;height:${mmH}mm;display:block;page-break-after:always;">`)
+        .join('');
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:none;opacity:0;';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument!;
+      doc.open();
+      doc.write(`<!DOCTYPE html>
 <html>
 <head>
 <style>
@@ -240,15 +237,14 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     doc.close();
 
     // Ждём загрузки изображения в iframe, потом печатаем
-    iframe.onload = () => {
-      setTimeout(() => {
+          setTimeout(() => {
         iframe.contentWindow?.print();
-        // Удаляем iframe через секунду после печати
         setTimeout(() => {
           if (document.body.contains(iframe)) document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
         }, 2000);
-      }, 300);
-    };
+      }, 500);
+    }, 'image/png');
   }
 
   async function handleAndroidPrint() {
