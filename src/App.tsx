@@ -244,12 +244,12 @@ function AppContent() {
             <p className="text-xs text-[#8696a0] truncate">{ROLE_LABELS[employee.role] ?? employee.role}</p>
           </div>
         </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className={`${isMobile ? 'grid grid-cols-4' : 'flex items-center'} gap-0.5 flex-shrink-0`}>
           {isAdmin && (
             <>
               <button onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('dashboard') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                style={{ display: isMobile ? 'none' : 'inline-flex' }} title="Dashboard">
+                title="Dashboard">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
               </button>
               <button onClick={() => { setAdminView('tasks'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
