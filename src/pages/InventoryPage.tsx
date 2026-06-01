@@ -75,6 +75,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   );
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
+  const [activeBranchId, setActiveBranchId] = useState(branchId);
+  const [allBranches, setAllBranches] = useState<{ id: string; name: string }[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<Stock[]>([]);
@@ -148,6 +150,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
 
+  useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+
+  useEffect(() => {
+    if (role === 'admin') {
+      supabase.from('branches').select('*').order('name').then(({ data }) => {
+        if (data) setAllBranches(data.filter(b => b.name !== 'Склад'));
+      });
+    }
+  }, [role]);
+
   // Загружаем филиалы один раз при монтировании
   useEffect(() => {
     supabase.from('branches').select('id, name, is_warehouse').order('name').then(({ data }) => {
@@ -165,12 +177,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   useEffect(() => {
     loadAll();
-  }, [branchId]);
+  }, [activeBranchId]);
 
   // Принудительный рефреш ревизий при переключении на вкладку
   useEffect(() => {
     if (tab === 'revisions') {
-      getRevisions(branchId).then(setRevisions).catch(e => console.error('getRevisions refresh:', e));
+      getRevisions(activeBranchId).then(setRevisions).catch(e => console.error('getRevisions refresh:', e));
     }
   }, [tab]);
 
@@ -185,7 +197,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Polling: проверка новых входящих перемещений каждые 15 секунд
   useEffect(() => {
-    if (!branchId) return;
+    if (!activeBranchId) return;
 
     const audioCtx = { current: null as AudioContext | null };
 
@@ -209,7 +221,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       const { data } = await supabase
         .from('stock_movements')
         .select('id')
-        .eq('to_branch_id', branchId)
+        .eq('to_branch_id', activeBranchId)
         .eq('type', 'transfer')
         .eq('status', 'in_transit')
         .gt('created_at', lastTransferCheckRef.current);
@@ -223,11 +235,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
     const interval = setInterval(checkNewTransfers, 15000);
     return () => clearInterval(interval);
-  }, [branchId]);
+  }, [activeBranchId]);
 
   async function loadAll() {
     // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
-    const scopeId = role === 'admin' ? undefined : branchId;
+    const scopeId = role === 'admin' ? undefined : activeBranchId;
     setLoading(true);
 
     try { const s = await getInventoryStats(scopeId); setStats(s); }
@@ -236,7 +248,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       const p = role === 'admin'
         ? await getProducts(undefined)
-        : await getProductsFromStock(branchId);
+        : await getProductsFromStock(activeBranchId);
       setProducts(p);
     }
     catch (e) { console.error('getProducts error:', e); }
@@ -247,7 +259,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try { const al = await getLowStockAlerts(scopeId); setAlerts(al); }
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
-    try { const mv = await getStockMovements(role === 'admin' ? undefined : branchId); setMovements(mv); }
+    try { const mv = await getStockMovements(role === 'admin' ? undefined : activeBranchId); setMovements(mv); }
     catch (e) { console.error('getStockMovements error:', e); }
 
     try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }
@@ -277,7 +289,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
     // Входящие перемещения (in_transit) — всегда по конкретному branchId (не scopeId)
     try {
-      const incoming = await getIncomingTransfers(branchId);
+      const incoming = await getIncomingTransfers(activeBranchId);
       setIncomingTransfers(incoming);
     } catch (e) {
       console.error('getIncomingTransfers error:', e);
@@ -296,7 +308,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         .eq('type', 'transfer')
         .eq('status', 'completed')
         .order('created_at', { ascending: false });
-      if (role !== 'admin') q = q.eq('to_branch_id', branchId);
+      if (role !== 'admin') q = q.eq('to_branch_id', activeBranchId);
       const { data: ct } = await q;
       setCompletedTransfers(ct ?? []);
     } catch (e) {
@@ -307,11 +319,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Быстрые перезагрузки отдельных срезов данных
   async function loadSales() {
-    const scopeId = role === 'admin' ? undefined : branchId;
+    const scopeId = role === 'admin' ? undefined : activeBranchId;
     try {
       const [sa, mv] = await Promise.all([
         getSales(scopeId),
-        getStockMovements(role === 'admin' ? undefined : branchId),
+        getStockMovements(role === 'admin' ? undefined : activeBranchId),
       ]);
       setSales(sa);
       setMovements(mv);
@@ -320,13 +332,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }
 
   async function loadStats() {
-    const scopeId = role === 'admin' ? undefined : branchId;
+    const scopeId = role === 'admin' ? undefined : activeBranchId;
     try { const s = await getInventoryStats(scopeId); setStats(s); }
     catch (e) { console.error('loadStats error:', e); }
   }
 
   async function loadStock() {
-    const scopeId = role === 'admin' ? undefined : branchId;
+    const scopeId = role === 'admin' ? undefined : activeBranchId;
     try {
       const [st, al] = await Promise.all([
         getStock(scopeId),
@@ -401,6 +413,24 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {role === 'admin' && allBranches.length > 0 && (
+        <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0">
+          {allBranches.map(b => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => setActiveBranchId(b.id)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                activeBranchId === b.id
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {b.name}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Header */}
       {!storefront && (
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -659,7 +689,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             if (role !== 'admin') {
               const mb = (m as any).branch_id;
               const mtb = (m as any).to_branch_id;
-              if (mb !== branchId && mtb !== branchId) return false;
+              if (mb !== activeBranchId && mtb !== activeBranchId) return false;
             }
 
             // Фильтр по типу
@@ -977,7 +1007,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
         {storefront && (
           <div className="mb-4">
-            <CashSessionCard branchId={branchId} employeeId={employeeId} />
+            <CashSessionCard branchId={activeBranchId} employeeId={employeeId} />
           </div>
         )}
 
@@ -1231,7 +1261,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             if (m.type !== 'writeoff') return false;
             // для не-админа — только свой филиал
             if (role !== 'admin') {
-              if ((m as any).branch_id !== branchId) return false;
+              if ((m as any).branch_id !== activeBranchId) return false;
             }
             return true;
           });
@@ -1393,7 +1423,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
           const allReturns = movements.filter(m => {
             if (m.type !== 'return') return false;
-            if (role !== 'admin' && (m as any).branch_id !== branchId) return false;
+            if (role !== 'admin' && (m as any).branch_id !== activeBranchId) return false;
             return true;
           });
 
@@ -1857,7 +1887,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <ProductDetailModal
           product={selectedProduct}
           stock={stock.find(s => s.product_id === selectedProduct.id)?.quantity ?? 0}
-          branchId={branchId}
+          branchId={activeBranchId}
           onClose={() => setSelectedProduct(null)}
           onEdit={() => { setEditingProduct(selectedProduct); setSelectedProduct(null); }}
           onDelete={async () => {
@@ -1869,7 +1899,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showTransfer && (
         <TransferModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           role={role}
           onClose={() => setShowTransfer(false)}
@@ -1879,7 +1909,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showWriteoff && (
         <WriteoffModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           role={role}
           onClose={() => setShowWriteoff(false)}
@@ -1905,7 +1935,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showIncomingTransfers && (
         <IncomingTransfersModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowIncomingTransfers(false)}
           onUpdated={() => { loadAll(); }}
@@ -1939,7 +1969,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       )}
       {showAddProduct && (
         <AddProductModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowAddProduct(false)}
           onSuccess={loadAll}
@@ -1947,7 +1977,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       )}
       {showAddPurchase && (
         <AddPurchaseModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           role={role}
           onClose={() => { setShowAddPurchase(false); setRepeatPurchaseData(undefined); }}
@@ -2176,7 +2206,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showAddSale && (
         <AddSaleModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowAddSale(false)}
           onSuccess={loadAll}
@@ -2189,7 +2219,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       {showLowStock && (
         <LowStockModal
           alerts={alerts}
-          branchId={role === 'admin' ? undefined : branchId}
+          branchId={role === 'admin' ? undefined : activeBranchId}
           onClose={() => setShowLowStock(false)}
         />
       )}
@@ -2202,7 +2232,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
       {showRevision && (
         <RevisionModal
-          branchId={branchId}
+          branchId={activeBranchId}
           employeeId={employeeId}
           existingRevisionId={continueRevisionId}
           onClose={() => { setShowRevision(false); setContinueRevisionId(undefined); }}
