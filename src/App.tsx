@@ -7,6 +7,8 @@ import { ChatWindow } from './components/Chat/ChatWindow';
 import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
+import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
+import { ShieldAlert } from 'lucide-react';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { ManagerCRMPanel } from './components/CRM/ManagerCRMPanel';
@@ -44,7 +46,8 @@ function AppContent() {
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings' | 'watchlist'>('dashboard');
+  const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop'>('list');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -152,7 +155,7 @@ function AppContent() {
         const view = mobileViewRef.current;
         if (view === 'inventory' || view === 'shop' || (view === 'main' && adminViewRef.current === 'inventory')) {
           setMobileView('list');
-        } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings'].includes(adminViewRef.current)) {
+        } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings', 'watchlist'].includes(adminViewRef.current)) {
           setActiveChat(null);
           setMobileView('list');
           setAdminView('dashboard');
@@ -284,6 +287,20 @@ function AppContent() {
                   </svg>
                 </button>
               )}
+              {employee.role === 'admin' && (
+                <button
+                  onClick={() => { setAdminView('watchlist'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                  className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 relative ${isAdminBtnActive('watchlist') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  title="На заметке"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  {watchlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                      {watchlistCount > 9 ? '9+' : watchlistCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </>
           )}
 
@@ -380,7 +397,12 @@ function AppContent() {
 
   const MainArea = (
     <div className="flex-1 flex overflow-hidden">
-      {isAdmin && adminView === 'settings' ? (
+      {isAdmin && adminView === 'watchlist' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="На заметке" />}
+          <WatchlistPanel />
+        </div>
+      ) : isAdmin && adminView === 'settings' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Настройки" />}
           <AutoArchiveSettings onBack={handleBackToList} />
