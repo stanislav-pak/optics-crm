@@ -223,7 +223,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         const bc = document.createElement('canvas');
         JsBarcode(bc, product.barcode, {
           format: 'CODE128', width: 3 * SCALE, height: Math.max(22 * SCALE, barcodeH - 8 * SCALE),
-          displayValue: true, fontSize: 16 * SCALE, margin: 3 * SCALE, background: '#ffffff', lineColor: '#000000',
+          displayValue: true, fontSize: 32 * SCALE, margin: 3 * SCALE, background: '#ffffff', lineColor: '#000000',
         });
         const sc = Math.min(1, maxW / bc.width);
         ctx.drawImage(bc, (pW - bc.width * sc) / 2, y, bc.width * sc, bc.height * sc);
