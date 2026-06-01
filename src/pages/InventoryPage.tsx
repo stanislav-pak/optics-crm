@@ -396,6 +396,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     );
   }
 
+  const hasActiveRevision = revisions.some(r => r.status === 'in_progress');
+  const overviewBlocked = role === 'manager' && hasActiveRevision;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -416,10 +419,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-1 mt-3 pb-1">
-            {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => (
+            {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => {
+              const isOverviewBlocked = t.key === 'overview' && overviewBlocked;
+              return (
               <button
                 key={t.key}
+                disabled={isOverviewBlocked}
+                title={isOverviewBlocked ? 'Остатки недоступны во время ревизии' : undefined}
                 onClick={() => {
+                  if (isOverviewBlocked) return;
                   setTab(t.key);
                   if (t.key === 'movements') {
                     const now = new Date().toISOString();
@@ -430,6 +438,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   }
                 }}
                 className={`relative px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
+                  isOverviewBlocked ? 'opacity-40 cursor-not-allowed' :
                   tab === t.key
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -440,7 +449,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </button>
-            ))}
+              );
+            })}
           </div>
 
         </div>
@@ -1699,13 +1709,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     });
                     xlsxExport(rows, `ревизии_${xlsxDate()}.xlsx`);
                   }} />
-                  <button
-                    onClick={() => setShowRevision(true)}
-                    className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700"
-                  >
-                    <QrCode size={16} />
-                    Начать ревизию
-                  </button>
+                  {role !== 'manager' && (
+                    <button
+                      onClick={() => setShowRevision(true)}
+                      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700"
+                    >
+                      <QrCode size={16} />
+                      Начать ревизию
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2195,6 +2207,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           existingRevisionId={continueRevisionId}
           onClose={() => { setShowRevision(false); setContinueRevisionId(undefined); }}
           onSuccess={async () => { await loadAll(); setContinueRevisionId(undefined); }}
+          role={role}
         />
       )}
 

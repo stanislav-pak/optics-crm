@@ -11,9 +11,10 @@ interface Props {
   existingRevisionId?: string;
   onClose: () => void;
   onSuccess: () => void;
+  role?: 'manager' | 'branch_admin' | 'admin';
 }
 
-export default function RevisionModal({ branchId, employeeId, existingRevisionId, onClose, onSuccess }: Props) {
+export default function RevisionModal({ branchId, employeeId, existingRevisionId, onClose, onSuccess, role = 'manager' }: Props) {
   const [revision, setRevision] = useState<Revision | null>(null);
   const [items, setItems] = useState<(RevisionItem & { product?: Product })[]>([]);
   const [showScanner, setShowScanner] = useState(false);
@@ -154,9 +155,11 @@ export default function RevisionModal({ branchId, employeeId, existingRevisionId
         <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
             <span>Подсчитано: {counted}/{items.length}</span>
-            <span className={withDiff > 0 ? 'text-red-500' : 'text-green-500'}>
-              Расхождений: {withDiff}
-            </span>
+            {role === 'admin' && (
+              <span className={withDiff > 0 ? 'text-red-500' : 'text-green-500'}>
+                Расхождений: {withDiff}
+              </span>
+            )}
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2">
             <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
@@ -200,9 +203,11 @@ export default function RevisionModal({ branchId, employeeId, existingRevisionId
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{(item.product as any)?.name}</p>
-                    <p className="text-xs text-gray-400">Ожидается: {item.expected_qty} {(item.product as any)?.unit}</p>
+                    {role === 'admin' && (
+                      <p className="text-xs text-gray-400">Ожидается: {item.expected_qty} {(item.product as any)?.unit}</p>
+                    )}
                   </div>
-                  {isCounted && (
+                  {isCounted && role === 'admin' && (
                     <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
                       diff === 0 ? 'bg-green-100 text-green-600' :
                       diff > 0 ? 'bg-blue-100 text-blue-600' :
