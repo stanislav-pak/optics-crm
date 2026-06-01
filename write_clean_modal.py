@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import os
+
+path = 'src/components/Inventory/PrintLabelModal.tsx'
+
+content = r"""import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Pencil, Printer, Save, Trash2, Wifi } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
 import type { Product } from '../../types';
@@ -472,3 +476,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     </div>
   );
 }
+"""
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print("Done! File written with clean UTF-8 encoding, 4x resolution")
