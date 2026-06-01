@@ -122,7 +122,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [retProductSearch, setRetProductSearch] = useState('');
   const [retExpanded, setRetExpanded] = useState<Set<string>>(new Set());
   // Фильтры ревизий
-  const [rvFilterBranch, setRvFilterBranch] = useState('');
   const [rvFilterStatus, setRvFilterStatus] = useState('all');
   const [rvDateFilter, setRvDateFilter] = useState('all');
   const [rvDateFrom, setRvDateFrom] = useState('');
@@ -1669,7 +1668,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
           const filteredRevisions = revisions.filter(r => {
-            if (role === 'admin' && rvFilterBranch && (r as any).branch_id !== rvFilterBranch) return false;
+            if ((r as any).branch_id !== activeBranchId) return false;
             if (rvFilterStatus !== 'all' && r.status !== rvFilterStatus) return false;
             const rDate = r.created_at.split('T')[0];
             if (rvDateFilter === 'today' && rDate !== todayStr) return false;
@@ -1688,10 +1687,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             return true;
           });
 
-          const hasFilters = !!(rvFilterBranch || rvFilterStatus !== 'all' || rvDateFilter !== 'all' || rvProductSearch);
+          const hasFilters = !!(rvFilterStatus !== 'all' || rvDateFilter !== 'all' || rvProductSearch);
 
           const resetFilters = () => {
-            setRvFilterBranch(''); setRvFilterStatus('all');
+            setRvFilterStatus('all');
             setRvDateFilter('all'); setRvDateFrom(''); setRvDateTo('');
             setRvProductSearch('');
           };
@@ -1754,24 +1753,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               {/* Фильтры */}
               <div className="space-y-3">
 
-                {/* Филиал + Статус */}
-                <div className={role === 'admin' ? 'flex gap-2' : ''}>
-                  {role === 'admin' && (
-                    <select
-                      value={rvFilterBranch}
-                      onChange={e => setRvFilterBranch(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-                    >
-                      <option value="">Все филиалы</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.is_warehouse ? '🏭 ' : ''}{b.name}</option>
-                      ))}
-                    </select>
-                  )}
+                {/* Статус */}
+                <div>
                   <select
                     value={rvFilterStatus}
                     onChange={e => setRvFilterStatus(e.target.value)}
-                    className={`${role === 'admin' ? 'flex-1' : 'w-full'} border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white`}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                   >
                     {statusOptions.map(o => (
                       <option key={o.value} value={o.value}>{o.label}</option>
