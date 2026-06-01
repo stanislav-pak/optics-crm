@@ -14,10 +14,10 @@ interface Props {
 type LabelSize = '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
-  { id: '40x30', label: '40\u00d730 \u043c\u043c', mm: [40, 30] },
-  { id: '40x25', label: '40\u00d725 \u043c\u043c', mm: [40, 25] },
-  { id: '50x30', label: '50\u00d730 \u043c\u043c', mm: [50, 30] },
-  { id: '58x40', label: '58\u00d740 \u043c\u043c', mm: [58, 40] },
+  { id: '40x30', label: '40×30 мм', mm: [40, 30] },
+  { id: '40x25', label: '40×25 мм', mm: [40, 25] },
+  { id: '50x30', label: '50×30 мм', mm: [50, 30] },
+  { id: '58x40', label: '58×40 мм', mm: [58, 40] },
 ];
 
 const MM_TO_PX = 8;
@@ -25,14 +25,14 @@ const MM_TO_PX = 8;
 function getDefaultFields(product: Product): LabelField[] {
   const brandName = (product.brand as any)?.name ?? '';
   return [
-    { key: 'name',           label: '\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435',        enabled: true,  customText: undefined },
-    { key: 'barcode',        label: '\u0428\u0442\u0440\u0438\u0445\u043a\u043e\u0434',        enabled: !!product.barcode },
-    { key: 'price_sale',     label: '\u0426\u0435\u043d\u0430 \u043f\u0440\u043e\u0434\u0430\u0436\u0438',    enabled: true  },
-    { key: 'price_purchase', label: '\u0426\u0435\u043d\u0430 \u0437\u0430\u043a\u0443\u043f\u043a\u0438',    enabled: false },
-    { key: 'sku',            label: '\u0410\u0440\u0442\u0438\u043a\u0443\u043b',         enabled: !!product.sku },
-    { key: 'brand',          label: '\u0411\u0440\u0435\u043d\u0434',           enabled: !!brandName },
-    { key: 'category',       label: '\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f',       enabled: false },
-    { key: 'custom',         label: '\u0421\u0432\u043e\u0439 \u0442\u0435\u043a\u0441\u0442',      enabled: false, customText: '' },
+    { key: 'name',           label: 'Название',     enabled: true,  customText: undefined },
+    { key: 'barcode',        label: 'Штрихкод',     enabled: !!product.barcode },
+    { key: 'price_sale',     label: 'Цена продажи', enabled: true  },
+    { key: 'price_purchase', label: 'Цена закупки', enabled: false },
+    { key: 'sku',            label: 'Артикул',        enabled: !!product.sku },
+    { key: 'brand',          label: 'Бренд',          enabled: !!brandName },
+    { key: 'category',       label: 'Категория',      enabled: false },
+    { key: 'custom',         label: 'Свой текст',     enabled: false, customText: '' },
   ];
 }
 
@@ -42,8 +42,8 @@ function fieldValue(key: string, product: Product, customText?: string): string 
   switch (key) {
     case 'name':           return product.name;
     case 'barcode':        return product.barcode ?? '';
-    case 'price_sale':     return `\u20b8${product.price.toLocaleString()}`;
-    case 'price_purchase': return product.cost_price > 0 ? `\u20b8${product.cost_price.toLocaleString()}` : '';
+    case 'price_sale':     return `₸${product.price.toLocaleString()}`;
+    case 'price_purchase': return product.cost_price > 0 ? `₸${product.cost_price.toLocaleString()}` : '';
     case 'sku':            return product.sku ?? '';
     case 'brand':          return brandName;
     case 'category':       return categoryName;
@@ -110,7 +110,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
       let t = text;
       while (ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -1);
-      if (t !== text) t += '\u2026';
+      if (t !== text) t += '...';
       ctx.fillText(t, (canvasW - ctx.measureText(t).width) / 2, y);
     };
     const nameFontSize  = Math.min(10, Math.max(7, canvasH * 0.13));
@@ -205,17 +205,17 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     const gapCount  = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
     const freeSpace = pH - padding * 2 - nameH - barcodeH - otherH;
     const gap       = gapCount > 0 ? Math.max(2 * SCALE, freeSpace / (gapCount + 1)) : 0;
-    const drawCentered = (text: string, y: number, font: string, color: string) => {
+    const drawC = (text: string, y: number, font: string, color: string) => {
       ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
       let t = text;
       while (ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -1);
-      if (t !== text) t += '\u2026';
+      if (t !== text) t += '...';
       ctx.fillText(t, (pW - ctx.measureText(t).width) / 2, y);
     };
     let y = padding + (gapCount > 0 ? gap : freeSpace / 2);
     if (nameField) {
       const val = fieldValue('name', product, nameField.customText);
-      if (val) { drawCentered(val, y, `bold ${nameFontSize}px sans-serif`, '#111827'); y += nameFontSize + 2 * SCALE + gap; }
+      if (val) { drawC(val, y, `bold ${nameFontSize}px sans-serif`, '#111827'); y += nameFontSize + 2 * SCALE + gap; }
     }
     if (showBarcode && product.barcode) {
       try {
@@ -233,7 +233,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       const val = fieldValue(field.key, product, field.customText);
       if (!val) continue;
       const isPrice = field.key === 'price_sale' || field.key === 'price_purchase';
-      drawCentered(val, y, `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`, isPrice ? '#1d4ed8' : '#374151');
+      drawC(val, y, `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`, isPrice ? '#1d4ed8' : '#374151');
       y += otherFontSize + 2 * SCALE;
     }
     printCanvas.toBlob((blob) => {
@@ -280,7 +280,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       if (!blob) return;
       const file = new File([blob], 'label.png', { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: '\u042d\u0442\u0438\u043a\u0435\u0442\u043a\u0430' }); } catch { /* cancelled */ }
+        try { await navigator.share({ files: [file], title: 'Этикетка' }); } catch { /* cancelled */ }
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -298,18 +298,18 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Printer size={18} className="text-blue-600" />
-            <h2 className="text-base font-semibold text-gray-900">\u041f\u0435\u0447\u0430\u0442\u044c \u044d\u0442\u0438\u043a\u0435\u0442\u043a\u0438</h2>
+            <h2 className="text-base font-semibold text-gray-900">Печать этикетки</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">\u0428\u0430\u0431\u043b\u043e\u043d</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Шаблон</label>
             <div className="flex gap-2">
               <select onChange={e => applyTemplate(e.target.value)} defaultValue="__default__"
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="__default__">\u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442</option>
+                <option value="__default__">Стандарт</option>
                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <button type="button" onClick={() => setShowSaveInput(v => !v)}
@@ -319,11 +319,12 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             </div>
             {showSaveInput && (
               <div className="flex gap-2 mt-2">
-                <input value={savingName} onChange={e => setSavingName(e.target.value)} placeholder="\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0448\u0430\u0431\u043b\u043e\u043d\u0430"
+                <input value={savingName} onChange={e => setSavingName(e.target.value)}
+                  placeholder="Название шаблона"
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <button type="button" onClick={handleSaveTemplate} disabled={!savingName.trim()}
                   className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-                  \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c
+                  Сохранить
                 </button>
               </div>
             )}
@@ -331,7 +332,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
               <div className="mt-2 space-y-1">
                 {templates.map(t => (
                   <div key={t.id} className="flex items-center justify-between text-xs text-gray-500 px-1">
-                    <span>{t.name} \u00b7 {t.size} \u043c\u043c</span>
+                    <span>{t.name} &middot; {t.size} мм</span>
                     <button onClick={() => deleteTemplate(t.id)} className="text-red-400 hover:text-red-600">
                       <Trash2 size={12} />
                     </button>
@@ -342,7 +343,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">\u041f\u043e\u043b\u044f \u044d\u0442\u0438\u043a\u0435\u0442\u043a\u0438</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Поля этикетки</label>
             <div className="space-y-2">
               {fields.map(f => (
                 <div key={f.key}>
@@ -352,13 +353,13 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <span className="text-sm text-gray-700 flex-1">{f.label}</span>
                     {f.key !== 'custom' && (
                       <span className="text-xs text-gray-400 truncate max-w-[120px]">
-                        {fieldValue(f.key, product) || '\u2014'}
+                        {fieldValue(f.key, product) || '—'}
                       </span>
                     )}
                   </label>
                   {f.key === 'custom' && f.enabled && (
                     <input value={f.customText ?? ''} onChange={e => setCustomText('custom', e.target.value)}
-                      placeholder="\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0442\u0435\u043a\u0441\u0442..."
+                      placeholder="Введите текст..."
                       className="mt-1 ml-7 w-[calc(100%-1.75rem)] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   )}
                 </div>
@@ -367,7 +368,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">\u0420\u0430\u0437\u043c\u0435\u0440 \u044d\u0442\u0438\u043a\u0435\u0442\u043a\u0438</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Размер этикетки</label>
             <div className="grid grid-cols-2 gap-2">
               {SIZES.map(s => (
                 <button key={s.id} type="button" onClick={() => setSize(s.id)}
@@ -381,7 +382,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">\u041f\u0440\u0435\u0434\u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440</label>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>
             <div className="flex justify-center bg-gray-50 rounded-xl p-4">
               <canvas id="print-label-canvas" ref={canvasRef} width={canvasW} height={canvasH}
                 className="shadow-sm rounded" style={{ imageRendering: 'pixelated', maxWidth: '100%' }} />
@@ -393,10 +394,10 @@ export default function PrintLabelModal({ product, onClose }: Props) {
         <div className="px-5 py-4 border-t border-gray-100 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">\u041a\u043e\u043f\u0438\u0439:</span>
+              <span className="text-sm text-gray-500">Копий:</span>
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
-                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">\u2212</button>
+                  className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">-</button>
                 <span className="px-4 py-1.5 text-sm font-medium text-gray-900">{quantity}</span>
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(10, q + 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
@@ -429,25 +430,18 @@ export default function PrintLabelModal({ product, onClose }: Props) {
               <div className="space-y-2">
                 <div className="flex gap-3">
                   <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
-                    \u041e\u0442\u043c\u0435\u043d\u0430
+                    Отмена
                   </button>
                   {hasWifi ? (
                     <button onClick={handleWifiPrint} disabled={printing}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {printing ? (
-                        <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                        </svg>WiFi...</>
-                      ) : (
-                        <><Wifi size={16} />WiFi{quantity > 1 ? ` x${quantity}` : ''}</>
-                      )}
+                      {printing ? 'WiFi...' : <><Wifi size={16} />WiFi{quantity > 1 ? ` x${quantity}` : ''}</>}
                     </button>
                   ) : !isMobile ? (
                     <button onClick={handleUsbPrint}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
                       <Printer size={16} />
-                      \u0421\u043a\u0430\u0447\u0430\u0442\u044c PNG{quantity > 1 ? ` x${quantity}` : ''}
+                      Скачать PNG{quantity > 1 ? ` x${quantity}` : ''}
                     </button>
                   ) : null}
                 </div>
@@ -458,11 +452,11 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="#3ddc84">
                       <path d="M17.523 15.34a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-11.046 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M17.7 9H6.3C5.03 9 4 10.03 4 11.3v5.4C4 17.97 5.03 19 6.3 19h.7v2.5a1.5 1.5 0 0 0 3 0V19h4v2.5a1.5 1.5 0 0 0 3 0V19h.7c1.27 0 2.3-1.03 2.3-2.3V11.3C20 10.03 18.97 9 17.7 9M7.5 6.5a.5.5 0 0 1-.5-.5c0-2.76 2.24-5 5-5s5 2.24 5 5a.5.5 0 0 1-1 0c0-2.21-1.79-4-4-4S8.5 4.29 8.5 6.5a.5.5 0 0 1-.5.5m-2.06-1.94 1.5-2.6a.5.5 0 0 1 .87.5l-1.5 2.6a.5.5 0 0 1-.87-.5m10.5-2.6 1.5 2.6a.5.5 0 0 1-.87.5l-1.5-2.6a.5.5 0 0 1 .87-.5"/>
                     </svg>
-                    \u041f\u0435\u0447\u0430\u0442\u044c (Android)
+                    Печать (Android)
                   </button>
                 )}
                 <p className="text-center text-xs text-gray-400">
-                  {hasWifi ? `WiFi: ${ip}` : isIOS ? '\u0414\u043b\u044f iPhone \u043d\u0443\u0436\u0435\u043d WiFi \u043f\u0440\u0438\u043d\u0442\u0435\u0440' : 'PNG \u2192 Paint \u2192 \u041f\u0435\u0447\u0430\u0442\u044c \u2192 \u0410\u043b\u044c\u0431\u043e\u043c\u043d\u0430\u044f, 0 \u043f\u043e\u043b\u044f, \u0423\u043c\u0435\u0441\u0442\u0438\u0442\u044c 1\u00d71'}
+                  {hasWifi ? `WiFi: ${ip}` : isIOS ? 'Для iPhone нужен WiFi принтер' : 'PNG → Paint → Печать → Альбомная, 0 поля, Уместить 1x1'}
                 </p>
               </div>
             );
