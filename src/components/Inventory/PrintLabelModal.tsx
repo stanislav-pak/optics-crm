@@ -221,9 +221,17 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     if (showBarcode && product.barcode) {
       try {
         const bc = document.createElement('canvas');
+        // EAN-13 для 13-значных, CODE128 для остальных
+        const barcodeFormat = /^\d{13}$/.test(product.barcode) ? 'EAN13' : 'CODE128';
         JsBarcode(bc, product.barcode, {
-          format: 'CODE128', width: 3 * SCALE, height: Math.max(22 * SCALE, barcodeH - 8 * SCALE),
-          displayValue: true, fontSize: 32 * SCALE, margin: 3 * SCALE, background: '#ffffff', lineColor: '#000000',
+          format: barcodeFormat,
+          width: 3 * SCALE,
+          height: Math.max(20 * SCALE, barcodeH - 12 * SCALE),
+          displayValue: true,
+          fontSize: 28 * SCALE,
+          margin: 12 * SCALE,
+          background: '#ffffff',
+          lineColor: '#000000',
         });
         const sc = Math.min(1, maxW / bc.width);
         ctx.drawImage(bc, (pW - bc.width * sc) / 2, y, bc.width * sc, bc.height * sc);
