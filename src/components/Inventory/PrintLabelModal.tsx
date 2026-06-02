@@ -32,7 +32,7 @@ function getDefaultFields(product: Product): LabelField[] {
     { key: 'price_purchase', label: 'Цена закупки', enabled: false },
     { key: 'sku',            label: 'Артикул',        enabled: !!product.sku },
     { key: 'brand',          label: 'Бренд',          enabled: !!brandName },
-    { key: 'category',       label: 'Категория',      enabled: false },
+    { key: 'category',       label: 'Категория',      enabled: true },
     { key: 'custom',         label: 'Свой текст',     enabled: false, customText: '' },
   ];
 }
