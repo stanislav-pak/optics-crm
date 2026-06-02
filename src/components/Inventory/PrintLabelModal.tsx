@@ -115,9 +115,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       if (t !== text) t += '...';
       ctx.fillText(t, (canvasW - ctx.measureText(t).width) / 2, y);
     };
-    const nameFontSize  = Math.min(14, Math.max(7, canvasH * 0.14));
-    const otherFontSize = Math.min(10, Math.max(6, canvasH * 0.10));
-    const barcodeH      = showBarcode ? Math.min(36, canvasH * 0.36) : 0;
+    const nameFontSize  = Math.min(13, Math.max(7, canvasH * 0.13));
+    const otherFontSize = Math.min(12, Math.max(6, canvasH * 0.12));
+    const barcodeH      = showBarcode ? Math.min(28, canvasH * 0.28) : 0;
     const nameH         = nameField ? nameFontSize + 2 : 0;
     const otherH        = otherFields.reduce((acc, f) => {
       const val = fieldValue(f.key, product, f.customText);
@@ -196,9 +196,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
-    const nameFontSize  = Math.min(22 * SCALE, Math.max(8 * SCALE, pH * 0.14));
-    const otherFontSize = Math.min(16 * SCALE, Math.max(7 * SCALE, pH * 0.10));
-    const barcodeH      = showBarcode ? Math.min(30 * SCALE, pH * 0.35) : 0;
+    const nameFontSize  = Math.min(20 * SCALE, Math.max(8 * SCALE, pH * 0.13));
+    const otherFontSize = Math.min(18 * SCALE, Math.max(7 * SCALE, pH * 0.12));
+    const barcodeH      = showBarcode ? Math.min(26 * SCALE, pH * 0.28) : 0;
     const nameH         = nameField ? nameFontSize + 2 * SCALE : 0;
     const otherH        = otherFields.reduce((acc, f) => {
       const val = fieldValue(f.key, product, f.customText);
