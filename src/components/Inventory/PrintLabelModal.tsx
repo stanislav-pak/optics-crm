@@ -125,7 +125,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     }, 0);
     const gapCount  = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
     const freeSpace = canvasH - padding * 2 - nameH - barcodeH - otherH;
-    const gap       = gapCount > 0 ? Math.max(3, freeSpace / (gapCount + 1)) : 0;
+    const gap       = gapCount > 0 ? Math.min(8, Math.max(2, freeSpace / (gapCount + 1))) : 0;
     let y = padding + (gapCount > 0 ? gap : freeSpace / 2);
     if (nameField) {
       const val = fieldValue('name', product, nameField.customText);
@@ -206,7 +206,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     }, 0);
     const gapCount  = (nameH ? 1 : 0) + (barcodeH ? 1 : 0);
     const freeSpace = pH - padding * 2 - nameH - barcodeH - otherH;
-    const gap       = gapCount > 0 ? Math.max(1 * SCALE, freeSpace / (gapCount + 2)) : 0;
+    const gap       = gapCount > 0 ? Math.min(8 * SCALE, Math.max(1 * SCALE, freeSpace / (gapCount + 2))) : 0;
     const drawC = (text: string, y: number, font: string, color: string) => {
       ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
       let t = text;
