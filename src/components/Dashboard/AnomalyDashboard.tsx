@@ -47,6 +47,8 @@ export default function AnomalyDashboard() {
   const [managers, setManagers] = useState<ManagerStats[]>([]);
   const [offHourSales, setOffHourSales] = useState<OffHourSale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [eventDetails, setEventDetails] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     load();
@@ -60,7 +62,7 @@ export default function AnomalyDashboard() {
     // Аномалии по менеджерам из watchlist_events
     const { data: events } = await supabase
       .from('watchlist_events')
-      .select('type, employee_id, employee:employees(id, name, branch:branches(name))')
+      .select('*, employee:employees(id, name, branch:branches(name)), product:products(id, name)')
       .gte('created_at', since)
       .in('type', ['writeoff', 'return', 'discount', 'below_cost', 'transfer_discrepancy']);
 
@@ -86,6 +88,14 @@ export default function AnomalyDashboard() {
 
     const sorted = Object.values(map).sort((a, b) => b.total - a.total);
     setManagers(sorted);
+
+    const details: Record<string, any[]> = {};
+    (events || []).forEach((e: any) => {
+      if (!e.employee_id) return;
+      if (!details[e.employee_id]) details[e.employee_id] = [];
+      details[e.employee_id].push(e);
+    });
+    setEventDetails(details);
 
     // Продажи вне рабочего времени
     const { data: sales } = await supabase
@@ -143,7 +153,11 @@ export default function AnomalyDashboard() {
         ) : (
           <div className="space-y-2">
             {managers.map((m, i) => (
-              <div key={m.employee_id} className="bg-white border border-gray-200 rounded-xl p-3">
+              <div
+                key={m.employee_id}
+                onClick={() => setExpandedId(expandedId === m.employee_id ? null : m.employee_id)}
+                className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <span className="text-xs font-bold text-gray-400 mr-2">#{i + 1}</span>
@@ -161,30 +175,49 @@ export default function AnomalyDashboard() {
                 <div className="flex gap-3 flex-wrap">
                   {m.writeoff > 0 && (
                     <span className="flex items-center gap-1 text-xs text-red-600">
-                      <Trash2 className="w-3 h-3" /> {m.writeoff} сп.
+                      <Trash2 className="w-3 h-3" /> {m.writeoff} списаний
                     </span>
                   )}
                   {m.return > 0 && (
                     <span className="flex items-center gap-1 text-xs text-orange-600">
-                      <RotateCcw className="w-3 h-3" /> {m.return} возвр.
+                      <RotateCcw className="w-3 h-3" /> {m.return} возвратов
                     </span>
                   )}
                   {m.discount > 0 && (
                     <span className="flex items-center gap-1 text-xs text-yellow-600">
-                      <Tag className="w-3 h-3" /> {m.discount} скид.
+                      <Tag className="w-3 h-3" /> {m.discount} скидок
                     </span>
                   )}
                   {m.below_cost > 0 && (
                     <span className="flex items-center gap-1 text-xs text-purple-600">
-                      <TrendingDown className="w-3 h-3" /> {m.below_cost} ниже с/с
+                      <TrendingDown className="w-3 h-3" /> {m.below_cost} ниже себест.
                     </span>
                   )}
                   {m.transfer_discrepancy > 0 && (
                     <span className="flex items-center gap-1 text-xs text-orange-600">
-                      <AlertTriangle className="w-3 h-3" /> {m.transfer_discrepancy} расх.
+                      <AlertTriangle className="w-3 h-3" /> {m.transfer_discrepancy} расхождений
                     </span>
                   )}
                 </div>
+                {expandedId === m.employee_id && eventDetails[m.employee_id] && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-2">
+                    {eventDetails[m.employee_id].map((e: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-xs gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-700 font-medium truncate">{e.product?.name || 'Без товара'}</p>
+                          <p className="text-gray-400">
+                            {new Date(e.created_at).toLocaleDateString('ru-RU')} · {String((new Date(e.created_at).getUTCHours() + 5) % 24).padStart(2, '0')}:{String(new Date(e.created_at).getUTCMinutes()).padStart(2, '0')}
+                          </p>
+                        </div>
+                        {e.amount > 0 && (
+                          <span className="font-semibold text-gray-900 flex-shrink-0">
+                            {new Intl.NumberFormat('ru-KZ', { style: 'currency', currency: 'KZT', maximumFractionDigits: 0 }).format(e.amount)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -124,24 +124,23 @@ export function WatchlistPanel() {
           <h2 className="font-semibold text-gray-900 text-base">На заметке</h2>
           <div className="flex items-center gap-1 ml-3 bg-gray-100 rounded-lg p-0.5">
             <button onClick={() => setMode('feed')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${mode === 'feed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
-              Лента
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center ${mode === 'feed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              Лента {unreviewedCount > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-[9px] font-bold px-1 rounded-full">
+                  {unreviewedCount}
+                </span>
+              )}
             </button>
             <button onClick={() => setMode('analytics')}
               className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${mode === 'analytics' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
               Аналитика
             </button>
           </div>
-          {unreviewedCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-              {unreviewedCount}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           {unreviewedCount > 0 && (
-            <button onClick={markAllReviewed} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-50">
-              <CheckCircle className="w-3.5 h-3.5" /> Все просмотрены
+            <button onClick={markAllReviewed} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600" title="Все просмотрены">
+              <CheckCircle className="w-4 h-4" />
             </button>
           )}
           <button onClick={fetchEvents} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
