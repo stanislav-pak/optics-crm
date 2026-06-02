@@ -38,7 +38,8 @@ function getDefaultFields(product: Product): LabelField[] {
 }
 
 function fieldValue(key: string, product: Product, customText?: string): string {
-  const categoryName = (product.category as any)?.name ?? '';
+  const cat = product.category as any;
+  const categoryName = Array.isArray(cat) ? (cat[0]?.name ?? '') : (cat?.name ?? '');
   const brandName    = (product.brand as any)?.name ?? '';
   switch (key) {
     case 'name':           return product.name;
