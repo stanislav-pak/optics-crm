@@ -115,9 +115,9 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       if (t !== text) t += '...';
       ctx.fillText(t, (canvasW - ctx.measureText(t).width) / 2, y);
     };
-    const nameFontSize  = Math.min(18, Math.max(7, canvasH * 0.18));
-    const otherFontSize = Math.min(14, Math.max(6, canvasH * 0.14));
-    const barcodeH      = showBarcode ? Math.min(50, canvasH * 0.52) : 0;
+    const nameFontSize  = Math.min(14, Math.max(7, canvasH * 0.14));
+    const otherFontSize = Math.min(10, Math.max(6, canvasH * 0.10));
+    const barcodeH      = showBarcode ? Math.min(36, canvasH * 0.36) : 0;
     const nameH         = nameField ? nameFontSize + 2 : 0;
     const otherH        = otherFields.reduce((acc, f) => {
       const val = fieldValue(f.key, product, f.customText);
@@ -191,14 +191,14 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     const ctx = printCanvas.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, pW, pH);
-    const padding = 2 * SCALE;
+    const padding = 5 * SCALE;
     const maxW = pW - padding * 2;
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
-    const nameFontSize  = Math.min(32 * SCALE, Math.max(10 * SCALE, pH * 0.20));
-    const otherFontSize = Math.min(24 * SCALE, Math.max(8  * SCALE, pH * 0.15));
-    const barcodeH      = showBarcode ? Math.min(55 * SCALE, pH * 0.52) : 0;
+    const nameFontSize  = Math.min(22 * SCALE, Math.max(8 * SCALE, pH * 0.14));
+    const otherFontSize = Math.min(16 * SCALE, Math.max(7 * SCALE, pH * 0.10));
+    const barcodeH      = showBarcode ? Math.min(30 * SCALE, pH * 0.35) : 0;
     const nameH         = nameField ? nameFontSize + 2 * SCALE : 0;
     const otherH        = otherFields.reduce((acc, f) => {
       const val = fieldValue(f.key, product, f.customText);
