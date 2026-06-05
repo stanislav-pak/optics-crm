@@ -220,7 +220,7 @@ export interface DealStats {
 }
 
 // ============================================
-// СКЛАД / INVENTORY
+// пїЅпїЅпїЅпїЅпїЅ / INVENTORY
 // ============================================
 
 export interface ProductCategory {
@@ -263,21 +263,21 @@ export interface Product {
   stock?: Stock[];
 }
 
-// Атрибуты для разных типов товаров
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 export interface ProductAttributes {
-  // Линзы
-  sphere?: number;       // диоптрии
-  cylinder?: number;     // цилиндр
-  axis?: number;         // ось
-  diameter?: number;     // диаметр
-  base_curve?: number;   // базовая кривизна
-  // Оправы/очки
+  // пїЅпїЅпїЅпїЅпїЅ
+  sphere?: number;       // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+  cylinder?: number;     // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+  axis?: number;         // пїЅпїЅпїЅ
+  diameter?: number;     // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+  base_curve?: number;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+  // пїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅ
   color?: string;
   size?: string;
   material?: string;
   frame_type?: 'full' | 'half' | 'rimless';
   gender?: 'male' | 'female' | 'unisex' | 'kids';
-  // Общее
+  // пїЅпїЅпїЅпїЅпїЅ
   [key: string]: string | number | undefined;
 }
 
@@ -435,5 +435,43 @@ export interface InventoryStats {
   low_stock_count: number;
   total_value: number;
   movements_today: number;
+}
+
+// ============================================
+// РњРђРЎРўР•Р РЎРљРђРЇ / WORKSHOP
+// ============================================
+
+export interface Service {
+  id: string;
+  branch_id: string | null; // null = РѕР±С‰Р°СЏ СѓСЃР»СѓРіР° РґР»СЏ РІСЃРµС… С„РёР»РёР°Р»РѕРІ
+  name: string;
+  description?: string;
+  price: number;
+  duration_minutes?: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type ServiceOrderStatus = 'new' | 'in_progress' | 'ready' | 'done' | 'cancelled';
+
+export interface ServiceOrder {
+  id: string;
+  branch_id: string;
+  client_name: string;
+  client_phone?: string;
+  employee_id: string;
+  service_id?: string;
+  service_name: string;
+  status: ServiceOrderStatus;
+  price: number;
+  prepayment: number;
+  notes?: string;
+  estimated_ready_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  // relations
+  employee?: Employee;
+  service?: Service;
 }
 

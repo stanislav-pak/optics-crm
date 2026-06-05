@@ -8,7 +8,7 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Wrench } from 'lucide-react';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { ManagerCRMPanel } from './components/CRM/ManagerCRMPanel';
@@ -17,6 +17,7 @@ import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import InventoryPage from './pages/InventoryPage';
+import WorkshopPage from './pages/WorkshopPage';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
@@ -46,9 +47,9 @@ function AppContent() {
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'settings' | 'watchlist'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -153,7 +154,7 @@ function AppContent() {
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
-        if (view === 'inventory' || view === 'shop' || (view === 'main' && adminViewRef.current === 'inventory')) {
+        if (view === 'inventory' || view === 'shop' || view === 'workshop' || (view === 'main' && (adminViewRef.current === 'inventory' || adminViewRef.current === 'workshop'))) {
           setMobileView('list');
         } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings', 'watchlist'].includes(adminViewRef.current)) {
           setActiveChat(null);
@@ -272,6 +273,11 @@ function AppContent() {
                 title="Склад">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </button>
+              <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Мастерская">
+                <Wrench className="w-3.5 h-3.5" />
+              </button>
               <button onClick={() => setShowImport(true)}
                 className="px-1 py-1 rounded-lg transition-colors flex-shrink-0 text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -339,6 +345,11 @@ function AppContent() {
                   )}
                 </div>
               </button>
+              <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Мастерская">
+                <Wrench className="w-3.5 h-3.5" />
+              </button>
             </>
           )}
 
@@ -383,6 +394,13 @@ function AppContent() {
             title="Склад"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+          </button>
+          <button
+            onClick={() => { setAdminView('workshop'); setActiveChat(null); setMobileView('workshop'); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('workshop') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
+            title="Мастерская"
+          >
+            <Wrench className="w-5 h-5" />
           </button>
           {employee.role === 'admin' && (
             <button
@@ -455,6 +473,11 @@ function AppContent() {
               <span className="text-[10px] font-medium">Склад</span>
             </div>
           </button>
+          <button onClick={() => navigateTo('workshop')}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+            <Wrench className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Мастерская</span>
+          </button>
         </div>
       )}
     </div>
@@ -477,6 +500,17 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Склад" />}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <InventoryPage
+              branchId={employee?.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+            />
+          </div>
+        </div>
+      ) : isAdmin && adminView === 'workshop' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Мастерская" />}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <WorkshopPage
               branchId={employee?.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
@@ -539,6 +573,16 @@ function AppContent() {
             />
           </div>
         </div>
+      ) : isManager && !isMobile && !activeChat && mobileView === 'workshop' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+            <WorkshopPage
+              branchId={employee?.branch_id}
+              employeeId={employee.id}
+              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+            />
+          </div>
+        </div>
 
       ) : activeChat ? (
         <>
@@ -590,6 +634,18 @@ function AppContent() {
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                   defaultTab="sales"
                   storefront={true}
+                />
+              </div>
+            </div>
+          )}
+          {mobileView === 'workshop' && (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <MobilePageHeader title="Мастерская" />
+              <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                <WorkshopPage
+                  branchId={employee?.branch_id}
+                  employeeId={employee.id}
+                  role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 />
               </div>
             </div>
