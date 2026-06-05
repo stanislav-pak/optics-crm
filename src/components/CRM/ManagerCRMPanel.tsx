@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { CRMSidebar } from './CRMSidebar';
+import { formatPhone } from '@/utils/formatters';
 import type { Chat } from '../../types';
 
 // Метки и цвета берём из deal_stages.current_stage (не clients.status)
@@ -127,7 +128,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
             <p className="text-sm font-semibold text-[#e9edef] truncate">
               {selectedChat.client?.name || selectedChat.client?.phone}
             </p>
-            <p className="text-xs text-[#8696a0]">{selectedChat.client?.phone}</p>
+            <p className="text-xs text-[#8696a0]">{selectedChat.client?.phone ? formatPhone(selectedChat.client.phone) : ''}</p>
           </div>
           {onOpenChat && (
             <button
@@ -278,7 +279,7 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
                         <p className="text-sm font-medium text-[#e9edef] truncate">
                           {chat.client?.name || chat.client?.phone || 'Неизвестный'}
                         </p>
-                        <p className="text-xs text-[#8696a0]">{chat.client?.phone}</p>
+                        <p className="text-xs text-[#8696a0]">{chat.client?.phone ? formatPhone(chat.client.phone) : ''}</p>
                       </div>
                       {(() => {
                         const stage = stageMap[chat.id] ?? 'new';

@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { useChats } from '../../hooks/useChats';
 import { AuthContext } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
+import { formatPhone } from '@/utils/formatters';
 import type { Chat, ChatListFilters } from '../../types';
 
 const CLIENT_STATUS_RU: Record<string, string> = {
@@ -111,7 +112,7 @@ function ChatItem({ chat, isActive, onClick, dealAmount, stageLabel }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <span className="font-medium text-[#e9edef] text-sm truncate">
-            {client?.name || client?.phone || 'Неизвестный'}
+            {client?.name || (client?.phone ? formatPhone(client.phone) : null) || 'Неизвестный'}
           </span>
           <span className="text-xs text-[#8696a0] flex-shrink-0 ml-2">{formatTime(chat.last_message_at)}</span>
         </div>

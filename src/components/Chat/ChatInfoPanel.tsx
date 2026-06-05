@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { formatPhone } from '@/utils/formatters';
 import type { Chat, Message, Employee, Branch } from '../../types';
 
 interface Props {
@@ -221,7 +222,7 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
               <div className="flex items-center justify-between py-2.5 border-t border-white/5">
                 <div>
                   <p className="text-[10px] text-[#8696a0] mb-0.5">Телефон</p>
-                  <p className="text-sm text-[#e9edef]">{client.phone}</p>
+                  <p className="text-sm text-[#e9edef]">{formatPhone(client.phone)}</p>
                 </div>
                 <a href={`tel:${client.phone}`}
                   className="flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">

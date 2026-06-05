@@ -72,28 +72,28 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     const name = newServiceName.trim();
     if (!name) return;
     setCreatingService(true);
-    try {
-      const created = await createService({
-        name,
-        price: newServicePrice,
-        branch_id: null,
-        is_active: true,
-      });
-      const updated = [...localServices, created].sort((a, b) =>
-        a.name.localeCompare(b.name, 'ru')
-      );
-      setLocalServices(updated);
-      setServiceId(created.id);
-      setServiceName(created.name);
-      if (created.price > 0) setPrice(String(created.price));
-      setShowCreateService(false);
-      setNewServiceName('');
-      setNewServicePrice(0);
-    } catch (e: unknown) {
-      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setCreatingService(false);
+    const result = await createService({
+      name,
+      price: newServicePrice,
+      branch_id: null,
+      is_active: true,
+    });
+    setCreatingService(false);
+    if (result.error) {
+      alert('Не удалось создать услугу: ' + (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)));
+      return;
     }
+    const created = result.data!;
+    const updated = [...localServices, created].sort((a, b) =>
+      a.name.localeCompare(b.name, 'ru')
+    );
+    setLocalServices(updated);
+    setServiceId(created.id);
+    setServiceName(created.name);
+    if (created.price > 0) setPrice(String(created.price));
+    setShowCreateService(false);
+    setNewServiceName('');
+    setNewServicePrice(0);
   }
 
   async function handleSubmit() {

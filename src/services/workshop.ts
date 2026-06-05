@@ -68,14 +68,14 @@ export async function updateServiceOrderStatus(
 
 export async function createService(
   data: Omit<Service, 'id' | 'created_at'>
-): Promise<Service> {
+): Promise<{ data: Service | null; error: string | null }> {
   const { data: service, error } = await supabase
     .from('services')
     .insert(data)
     .select()
     .single();
-  if (error) throw error;
-  return service as Service;
+  if (error) return { data: null, error: error.message ?? 'Ошибка создания услуги' };
+  return { data: service as Service, error: null };
 }
 
 export async function updateService(

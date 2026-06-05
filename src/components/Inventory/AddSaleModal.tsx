@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check } from 'lucide-react';
 import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
+import { formatPhone } from '@/utils/formatters';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
 import type { Product, Client } from '../../types';
@@ -356,8 +357,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                         className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between ${clientId === c.id ? 'bg-green-50' : ''}`}
                       >
                         <div className="min-w-0">
-                          <p className="text-sm text-gray-900 truncate">{c.name || c.phone}</p>
-                          {c.name && <p className="text-xs text-gray-400">{c.phone}</p>}
+                          <p className="text-sm text-gray-900 truncate">{c.name || (c.phone && formatPhone(c.phone))}</p>
+                          {c.name && <p className="text-xs text-gray-400">{formatPhone(c.phone)}</p>}
                         </div>
                         {clientId === c.id && <Check size={14} className="text-green-600 flex-shrink-0 ml-2" />}
                       </button>
@@ -414,9 +415,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50"
                           >
-                            <p className="text-sm text-gray-900">{s.name || s.phone}</p>
+                            <p className="text-sm text-gray-900">{s.name || (s.phone && formatPhone(s.phone))}</p>
                             <p className="text-xs text-gray-400">
-                              {s.name ? s.phone : ''}
+                              {s.name ? formatPhone(s.phone) : ''}
                               {s.name && s.branch?.name ? ' · ' : ''}
                               {s.branch?.name ?? ''}
                             </p>
@@ -430,7 +431,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                   <input
                     type="tel"
                     value={newClientPhone}
-                    onChange={e => setNewClientPhone(e.target.value)}
+                    onChange={e => setNewClientPhone(formatPhone(e.target.value))}
                     placeholder="Телефон *"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
