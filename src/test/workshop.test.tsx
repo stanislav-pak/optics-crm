@@ -172,4 +172,24 @@ describe('workshop сервисные функции', () => {
       expect.objectContaining({ status: 'in_progress' })
     )
   })
+
+  // ──────────────────────────────────────────────
+  // 6. fetchServiceOrders(null) — режим admin «Все»
+  // ──────────────────────────────────────────────
+
+  it('fetchServiceOrders(null) не фильтрует по branch_id', async () => {
+    const { supabase } = await import('@/services/supabase')
+    const fromSpy = vi.mocked(supabase.from)
+
+    fetchServiceOrders(null).catch(() => {})
+
+    expect(fromSpy).toHaveBeenCalledWith('service_orders')
+
+    // eq('branch_id', ...) не должен вызываться при null
+    const queryObj = fromSpy.mock.results[0]?.value as {
+      eq: ReturnType<typeof vi.fn>
+    } | undefined
+    const eqCalls: unknown[][] = queryObj?.eq?.mock.calls ?? []
+    expect(eqCalls.some(call => call[0] === 'branch_id')).toBe(false)
+  })
 })

@@ -511,7 +511,7 @@ function AppContent() {
           {isMobile && <MobilePageHeader title="Мастерская" />}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <WorkshopPage
-              branchId={employee?.branch_id}
+              branchId={null}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
             />
@@ -643,7 +643,7 @@ function AppContent() {
               <MobilePageHeader title="Мастерская" />
               <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
                 <WorkshopPage
-                  branchId={employee?.branch_id}
+                  branchId={isAdmin ? null : employee.branch_id}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 />

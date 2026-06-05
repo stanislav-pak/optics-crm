@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState } from 'react';
 import { supabase } from '../../services/supabase';
 
 interface SignupFormProps {
@@ -12,29 +12,26 @@ interface Branch {
 
 const ADMIN_CODE = import.meta.env.VITE_ADMIN_CODE;
 
+// Захардкоженный список филиалов (Склад UUID a215f402-… исключён, порядок фиксирован)
+const BRANCHES: Branch[] = [
+  { id: 'ff42784a-5de9-458e-baf6-1ca3c8d0b79f', name: 'Жандосова' },
+  { id: '1b9d7882-be86-4559-832b-14817dfcaaa3', name: 'Гум' },
+  { id: '67138bd7-d688-47cf-a9c9-51cf800712ad', name: 'Абая 34' },
+  { id: '1104bc27-07bb-4930-93b2-19a2d92b71c9', name: 'Мастерская' },
+  { id: '30c0cd70-5f43-4201-9f6e-4d67d9aafc2f', name: 'Kaspi' },
+];
+
 export function SignupForm({ onBack }: SignupFormProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const isAdmin = adminCode === ADMIN_CODE;
-
-  useEffect(() => {
-    supabase
-      .from('branches')
-      .select('id, name')
-      .neq('name', 'Склад')
-      .order('name')
-      .then(({ data }) => {
-        if (data) setBranches(data);
-      });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +188,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
                 className="w-full bg-[#2a3942] text-[#d1d7db] rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none"
               >
                 <option value="" disabled className="text-[#8696a0]">Выберите филиал</option>
-                {branches.map((b) => (
+                {BRANCHES.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>

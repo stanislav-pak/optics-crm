@@ -7,20 +7,30 @@ import AddServiceOrderModal from '../components/Workshop/AddServiceOrderModal';
 import ServiceOrderCard from '../components/Workshop/ServiceOrderCard';
 
 interface WorkshopPageProps {
-  branchId: string;
+  branchId: string | null; // null передаётся для admin (режим «Все»)
   employeeId: string;
   role: 'manager' | 'branch_admin' | 'admin';
 }
 
 type StatusFilter = 'all' | ServiceOrderStatus;
 
+// Фиксированный список филиалов для admin-переключателя.
+// UUID Склада (a215f402-…) намеренно отсутствует.
+const ADMIN_BRANCHES = [
+  { id: 'ff42784a-5de9-458e-baf6-1ca3c8d0b79f', name: 'Жандосова' },
+  { id: '1b9d7882-be86-4559-832b-14817dfcaaa3', name: 'Гум' },
+  { id: '67138bd7-d688-47cf-a9c9-51cf800712ad', name: 'Абая 34' },
+  { id: '1104bc27-07bb-4930-93b2-19a2d92b71c9', name: 'Мастерская' },
+  { id: '30c0cd70-5f43-4201-9f6e-4d67d9aafc2f', name: 'Kaspi' },
+] as const;
+
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'all',        label: 'Все' },
-  { value: 'new',        label: 'Новые' },
-  { value: 'in_progress',label: 'В работе' },
-  { value: 'ready',      label: 'Готовы' },
-  { value: 'done',       label: 'Выданы' },
-  { value: 'cancelled',  label: 'Отменены' },
+  { value: 'all',         label: 'Все' },
+  { value: 'new',         label: 'Новые' },
+  { value: 'in_progress', label: 'В работе' },
+  { value: 'ready',       label: 'Готовы' },
+  { value: 'done',        label: 'Выданы' },
+  { value: 'cancelled',   label: 'Отменены' },
 ];
 
 export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPageProps) {
@@ -29,42 +39,44 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [activeBranchId, setActiveBranchId] = useState(branchId);
-  const [allBranches, setAllBranches] = useState<{ id: string; name: string }[]>([]);
+  // Для admin: null = «Все филиалы», string = конкретный филиал
+  // Для manager/branch_admin: всегда branchId из props
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
 
-  useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+  // Синхронизируем с props (напр. если admin переключил филиал снаружи)
+  useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
 
-  useEffect(() => {
-    if (role === 'admin') {
-      supabase.from('branches').select('id, name').order('name').then(({ data }) => {
-        if (data) setAllBranches(data);
-      });
-    }
-  }, [role]);
-
+  // Перезагружаем данные при смене выбранного филиала
   useEffect(() => {
     loadAll();
-  }, [activeBranchId]);
+  }, [selectedBranch]);
 
   // Realtime-подписка на заказы мастерской
   useEffect(() => {
+    const channelName = selectedBranch
+      ? `workshop-orders-${selectedBranch}`
+      : 'workshop-orders-all';
+
     const channel = supabase
-      .channel(`workshop-orders-${activeBranchId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${activeBranchId}` },
+        selectedBranch !== null
+          ? { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${selectedBranch}` }
+          : { event: '*', schema: 'public', table: 'service_orders' },
         () => { loadOrders(); }
       )
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
-  }, [activeBranchId]);
+  }, [selectedBranch]);
 
   async function loadAll() {
     setLoading(true);
     try {
       const [ord, svc] = await Promise.all([
-        fetchServiceOrders(activeBranchId),
-        fetchServices(activeBranchId),
+        fetchServiceOrders(selectedBranch),
+        fetchServices(selectedBranch),
       ]);
       setOrders(ord);
       setServices(svc);
@@ -76,7 +88,7 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
 
   async function loadOrders() {
     try {
-      const ord = await fetchServiceOrders(activeBranchId);
+      const ord = await fetchServiceOrders(selectedBranch);
       setOrders(ord);
     } catch (e) {
       console.error('WorkshopPage loadOrders:', e);
@@ -90,6 +102,14 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
     } catch (e) {
       console.error('handleStatusChange:', e);
     }
+  }
+
+  function handleNewOrder() {
+    if (role === 'admin' && selectedBranch === null) {
+      alert('Выберите конкретный филиал для добавления заказа');
+      return;
+    }
+    setShowAddModal(true);
   }
 
   const filteredOrders = statusFilter === 'all'
@@ -107,16 +127,28 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Branch switcher для admin */}
-      {role === 'admin' && allBranches.length > 0 && (
+      {/* Переключатель филиалов — только для admin */}
+      {role === 'admin' && (
         <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0">
-          {allBranches.map(b => (
+          {/* Кнопка «Все» */}
+          <button
+            type="button"
+            onClick={() => setSelectedBranch(null)}
+            className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              selectedBranch === null
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Все
+          </button>
+          {ADMIN_BRANCHES.map(b => (
             <button
               key={b.id}
               type="button"
-              onClick={() => setActiveBranchId(b.id)}
+              onClick={() => setSelectedBranch(b.id)}
               className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                activeBranchId === b.id
+                selectedBranch === b.id
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
@@ -132,8 +164,12 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold text-gray-900">Мастерская</h1>
           <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700 active:bg-purple-800"
+            onClick={handleNewOrder}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              role === 'admin' && selectedBranch === null
+                ? 'bg-gray-200 text-gray-400 cursor-default'
+                : 'bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800'
+            }`}
           >
             <Plus size={16} />
             Новый заказ
@@ -143,7 +179,9 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
         {/* Фильтр по статусу */}
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {STATUS_FILTERS.map(f => {
-            const count = f.value !== 'all' ? orders.filter(o => o.status === f.value).length : orders.length;
+            const count = f.value !== 'all'
+              ? orders.filter(o => o.status === f.value).length
+              : orders.length;
             return (
               <button
                 key={f.value}
@@ -174,7 +212,9 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
             <p className="text-sm font-medium text-gray-700">Заказов нет</p>
             <p className="text-xs text-gray-400 mt-1">
               {statusFilter === 'all'
-                ? 'Нажмите «+ Новый заказ» чтобы добавить'
+                ? role === 'admin' && selectedBranch === null
+                  ? 'Выберите филиал и нажмите «+ Новый заказ»'
+                  : 'Нажмите «+ Новый заказ» чтобы добавить'
                 : `Нет заказов со статусом «${STATUS_FILTERS.find(f => f.value === statusFilter)?.label}»`}
             </p>
           </div>
@@ -189,9 +229,10 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
         )}
       </div>
 
-      {showAddModal && (
+      {/* Модал создания заказа — открывается только если выбран конкретный филиал */}
+      {showAddModal && selectedBranch !== null && (
         <AddServiceOrderModal
-          branchId={activeBranchId}
+          branchId={selectedBranch}
           employeeId={employeeId}
           services={services}
           onClose={() => setShowAddModal(false)}

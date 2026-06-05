@@ -1,26 +1,38 @@
 import { supabase } from './supabase';
 import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
 
-export async function fetchServices(branchId: string): Promise<Service[]> {
-  const { data, error } = await supabase
+// Если branchId === null — загружаем все активные услуги (branch_id IS NULL + все филиалы).
+// Если branchId — строка — загружаем общие + для конкретного филиала.
+export async function fetchServices(branchId: string | null): Promise<Service[]> {
+  let query = supabase
     .from('services')
     .select('*')
     .eq('is_active', true)
-    .or(`branch_id.is.null,branch_id.eq.${branchId}`)
     .order('name');
+
+  if (branchId !== null) {
+    query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data as Service[];
 }
 
+// Если branchId === null — возвращаем заказы всех филиалов (для admin-режима "Все").
+// Если branchId — строка — фильтруем по филиалу.
 export async function fetchServiceOrders(
-  branchId: string,
+  branchId: string | null,
   filters?: { status?: ServiceOrderStatus }
 ): Promise<ServiceOrder[]> {
   let query = supabase
     .from('service_orders')
     .select('*, employee:employees(id, name), service:services(id, name)')
-    .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
+
+  if (branchId !== null) {
+    query = query.eq('branch_id', branchId);
+  }
 
   if (filters?.status) {
     query = query.eq('status', filters.status);
