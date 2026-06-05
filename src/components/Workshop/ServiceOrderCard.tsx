@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ServiceOrder, ServiceOrderStatus } from '../../types';
 
 interface StatusConfig {
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function ServiceOrderCard({ order, onStatusChange }: Props) {
+  const [showConfirm, setShowConfirm] = useState(false);
   const config = STATUS_CONFIG[order.status];
   const remaining = order.price - order.prepayment;
 
@@ -100,7 +102,13 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
           )}
           {config.next && (
             <button
-              onClick={() => onStatusChange(order.id, config.next!)}
+              onClick={() => {
+                if (config.next === 'done') {
+                  setShowConfirm(true);
+                } else {
+                  onStatusChange(order.id, config.next!);
+                }
+              }}
               className="text-[11px] px-2.5 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors font-medium"
             >
               {config.nextLabel}
@@ -108,6 +116,40 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
           )}
         </div>
       </div>
+
+      {/* Диалог подтверждения выдачи */}
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          data-modal="true"
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <h3 className="text-base font-semibold text-gray-900">Подтвердите выдачу</h3>
+            <p className="text-sm text-gray-600">
+              {remaining > 0
+                ? `Получена оплата ₸${remaining.toLocaleString()} от ${order.client_name}. Выдать заказ?`
+                : `Заказ полностью оплачен. Выдать ${order.client_name}?`}
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  onStatusChange(order.id, 'done');
+                }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+              >
+                {remaining > 0 ? 'Выдать и закрыть' : 'Выдать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
