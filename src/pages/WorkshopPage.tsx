@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { fetchServices, fetchServiceOrders, updateServiceOrderStatus } from '../services/workshop';
 import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
 import AddServiceOrderModal from '../components/Workshop/AddServiceOrderModal';
 import ServiceOrderCard from '../components/Workshop/ServiceOrderCard';
+import ServicesManager from '../components/Workshop/ServicesManager';
 
 interface WorkshopPageProps {
   branchId: string | null; // null передаётся для admin (режим «Все»)
@@ -39,6 +40,7 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showServicesManager, setShowServicesManager] = useState(false);
   // Для admin: null = «Все филиалы», string = конкретный филиал
   // Для manager/branch_admin: всегда branchId из props
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
@@ -92,6 +94,15 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
       setOrders(ord);
     } catch (e) {
       console.error('WorkshopPage loadOrders:', e);
+    }
+  }
+
+  async function loadServices() {
+    try {
+      const svc = await fetchServices(selectedBranch);
+      setServices(svc);
+    } catch (e) {
+      console.error('WorkshopPage loadServices:', e);
     }
   }
 
@@ -163,17 +174,28 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold text-gray-900">Мастерская</h1>
-          <button
-            onClick={handleNewOrder}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              role === 'admin' && selectedBranch === null
-                ? 'bg-gray-200 text-gray-400 cursor-default'
-                : 'bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800'
-            }`}
-          >
-            <Plus size={16} />
-            Новый заказ
-          </button>
+          <div className="flex items-center gap-2">
+            {role === 'admin' && (
+              <button
+                onClick={() => setShowServicesManager(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <Settings size={15} />
+                Услуги
+              </button>
+            )}
+            <button
+              onClick={handleNewOrder}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                role === 'admin' && selectedBranch === null
+                  ? 'bg-gray-200 text-gray-400 cursor-default'
+                  : 'bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800'
+              }`}
+            >
+              <Plus size={16} />
+              Новый заказ
+            </button>
+          </div>
         </div>
 
         {/* Фильтр по статусу */}
@@ -240,6 +262,14 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
             setShowAddModal(false);
             loadAll();
           }}
+        />
+      )}
+
+      {/* Управление справочником услуг — только для admin */}
+      {showServicesManager && (
+        <ServicesManager
+          onClose={() => setShowServicesManager(false)}
+          onServicesUpdated={loadServices}
         />
       )}
     </div>

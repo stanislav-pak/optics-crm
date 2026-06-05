@@ -77,3 +77,14 @@ export async function createService(
   if (error) throw error;
   return service as Service;
 }
+
+export async function updateService(
+  id: string,
+  data: Partial<Pick<Service, 'name' | 'price' | 'duration_minutes' | 'is_active'>>
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('services')
+    .update(data)
+    .eq('id', id);
+  return { error: error?.message ?? null };
+}
