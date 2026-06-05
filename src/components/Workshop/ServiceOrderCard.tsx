@@ -64,7 +64,7 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
           <span className="text-gray-500">
             Цена: <span className="font-semibold text-gray-800">₸{order.price.toLocaleString()}</span>
           </span>
-          {order.prepayment > 0 && (
+          {order.status !== 'done' && order.prepayment > 0 && (
             <span className="text-gray-500">
               Предоплата: <span className="font-medium text-green-600">₸{order.prepayment.toLocaleString()}</span>
             </span>

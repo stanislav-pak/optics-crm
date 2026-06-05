@@ -11,6 +11,7 @@ interface WorkshopPageProps {
   branchId: string | null; // null передаётся для admin (режим «Все»)
   employeeId: string;
   role: 'manager' | 'branch_admin' | 'admin';
+  onBack?: () => void;
 }
 
 type StatusFilter = 'all' | ServiceOrderStatus;
@@ -34,7 +35,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled',   label: 'Отменены' },
 ];
 
-export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPageProps) {
+export default function WorkshopPage({ branchId, employeeId, role, onBack }: WorkshopPageProps) {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +73,25 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
 
     return () => { supabase.removeChannel(channel); };
   }, [selectedBranch]);
+
+  // Свайп вправо → вызов onBack (когда WorkshopPage встроен внутри InventoryPage)
+  useEffect(() => {
+    if (!onBack) return;
+    const start = { x: 0, y: 0 };
+    const onStart = (e: TouchEvent) => { start.x = e.touches[0].clientX; start.y = e.touches[0].clientY; };
+    const onEnd = (e: TouchEvent) => {
+      if (document.querySelector('[data-modal="true"]')) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = Math.abs(e.changedTouches[0].clientY - start.y);
+      if (dx > 60 && dy < 80) onBack();
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend', onEnd);
+    };
+  }, [onBack]);
 
   async function loadAll() {
     setLoading(true);
@@ -177,7 +197,19 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold text-gray-900">Мастерская</h1>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <h1 className="text-xl font-semibold text-gray-900">Мастерская</h1>
+          </div>
           <div className="flex items-center gap-2">
             {role === 'admin' && (
               <button

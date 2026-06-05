@@ -77,6 +77,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [activeBranchId, setActiveBranchId] = useState(branchId);
+  const [prevActiveBranchId, setPrevActiveBranchId] = useState(branchId);
   const [allBranches, setAllBranches] = useState<{ id: string; name: string }[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -151,6 +152,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+
+  // Запоминаем предыдущий филиал перед переходом в Мастерскую
+  const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+  useEffect(() => {
+    if (activeBranchId !== WORKSHOP_BRANCH_ID) {
+      setPrevActiveBranchId(activeBranchId);
+    }
+  }, [activeBranchId]);
 
   useEffect(() => {
     if (role === 'admin') {
@@ -415,7 +424,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     return (
       <div className="min-h-screen bg-gray-50">
         {allBranches.length > 0 && (
-          <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0">
+          <div className="bg-white border-b border-gray-200 px-4 py-2 flex flex-wrap gap-2">
             {allBranches.map(b => (
               <button
                 key={b.id}
@@ -432,7 +441,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             ))}
           </div>
         )}
-        <WorkshopPage branchId={null} employeeId={employeeId} role="admin" />
+        <WorkshopPage branchId={null} employeeId={employeeId} role="admin" onBack={() => setActiveBranchId(prevActiveBranchId)} />
       </div>
     );
   }
@@ -440,7 +449,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   return (
     <div className="min-h-screen bg-gray-50">
       {role === 'admin' && allBranches.length > 0 && (
-        <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0">
+        <div className="bg-white border-b border-gray-200 px-4 py-2 flex flex-wrap gap-2">
           {allBranches.map(b => (
             <button
               key={b.id}
