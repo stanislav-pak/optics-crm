@@ -273,11 +273,13 @@ function AppContent() {
                 title="Склад">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </button>
+              {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Мастерская">
                 <Wrench className="w-3.5 h-3.5" />
               </button>
+              )}
               <button onClick={() => setShowImport(true)}
                 className="px-1 py-1 rounded-lg transition-colors flex-shrink-0 text-[#8696a0] hover:text-[#e9edef]" title="Импорт Excel">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -345,11 +347,13 @@ function AppContent() {
                   )}
                 </div>
               </button>
+              {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
               <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Мастерская">
                 <Wrench className="w-3.5 h-3.5" />
               </button>
+              )}
             </>
           )}
 
@@ -395,6 +399,7 @@ function AppContent() {
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
           </button>
+          {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
           <button
             onClick={() => { setAdminView('workshop'); setActiveChat(null); setMobileView('workshop'); }}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('workshop') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
@@ -402,6 +407,7 @@ function AppContent() {
           >
             <Wrench className="w-5 h-5" />
           </button>
+          )}
           {employee.role === 'admin' && (
             <button
               onClick={() => { setAdminView('settings'); setActiveChat(null); setMobileView('main'); }}
@@ -473,11 +479,13 @@ function AppContent() {
               <span className="text-[10px] font-medium">Склад</span>
             </div>
           </button>
+          {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
           <button onClick={() => navigateTo('workshop')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <Wrench className="w-5 h-5" />
             <span className="text-[10px] font-medium">Мастерская</span>
           </button>
+          )}
         </div>
       )}
     </div>

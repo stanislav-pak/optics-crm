@@ -27,6 +27,7 @@ import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 import ReturnModal from '../components/Inventory/ReturnModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
 import CashSessionCard from '../components/Inventory/CashSessionCard';
+import WorkshopPage from './WorkshopPage';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
@@ -409,6 +410,32 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   const hasActiveRevision = revisions.some(r => r.status === 'in_progress');
   const overviewBlocked = role === 'manager' && hasActiveRevision;
+
+  if (role === 'admin' && activeBranchId === '1104bc27-07bb-4930-93b2-19a2d92b71c9') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {allBranches.length > 0 && (
+          <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0">
+            {allBranches.map(b => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setActiveBranchId(b.id)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  activeBranchId === b.id
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <WorkshopPage branchId={null} employeeId={employeeId} role="admin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
