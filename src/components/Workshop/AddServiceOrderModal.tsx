@@ -75,7 +75,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     const result = await createService({
       name,
       price: newServicePrice,
-      branch_id: null,
+      branch_id: branchId ?? null,
       is_active: true,
     });
     setCreatingService(false);
