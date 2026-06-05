@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
-import { createServiceOrder } from '../../services/workshop';
+import { createServiceOrder, createService } from '../../services/workshop';
+import { formatPhone } from '@/utils/formatters';
 import type { Service } from '../../types';
 
 interface Props {
@@ -22,6 +23,15 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   const [estimatedReadyAt, setEstimatedReadyAt] = useState('');
   const [loading, setLoading] = useState(false);
   const [showServiceList, setShowServiceList] = useState(false);
+
+  // Локальная копия списка услуг — пополняется при создании новой
+  const [localServices, setLocalServices] = useState<Service[]>(services);
+
+  // Inline-форма создания новой услуги
+  const [showCreateService, setShowCreateService] = useState(false);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServicePrice, setNewServicePrice] = useState(0);
+  const [creatingService, setCreatingService] = useState(false);
 
   // Свайп для закрытия
   useEffect(() => {
@@ -50,6 +60,42 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     setShowServiceList(false);
   }
 
+  function cancelCreate() {
+    setShowCreateService(false);
+    setNewServiceName('');
+    setNewServicePrice(0);
+    setServiceId('');
+    setServiceName('');
+  }
+
+  async function handleCreateService() {
+    const name = newServiceName.trim();
+    if (!name) return;
+    setCreatingService(true);
+    try {
+      const created = await createService({
+        name,
+        price: newServicePrice,
+        branch_id: null,
+        is_active: true,
+      });
+      const updated = [...localServices, created].sort((a, b) =>
+        a.name.localeCompare(b.name, 'ru')
+      );
+      setLocalServices(updated);
+      setServiceId(created.id);
+      setServiceName(created.name);
+      if (created.price > 0) setPrice(String(created.price));
+      setShowCreateService(false);
+      setNewServiceName('');
+      setNewServicePrice(0);
+    } catch (e: unknown) {
+      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setCreatingService(false);
+    }
+  }
+
   async function handleSubmit() {
     const finalServiceName = serviceName.trim();
     if (!clientName.trim() || !finalServiceName) return;
@@ -76,7 +122,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     }
   }
 
-  const selectedService = services.find(s => s.id === serviceId);
+  const selectedService = localServices.find(s => s.id === serviceId);
   const canSubmit = !loading && clientName.trim().length > 0 && (serviceName.trim().length > 0 || serviceId.length > 0);
 
   return (
@@ -113,7 +159,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
             <input
               type="tel"
               value={clientPhone}
-              onChange={e => setClientPhone(e.target.value)}
+              onChange={e => setClientPhone(formatPhone(e.target.value))}
               placeholder="+7 777 000 00 00"
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
@@ -126,7 +172,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
             </label>
             <button
               type="button"
-              onClick={() => setShowServiceList(v => !v)}
+              onClick={() => { setShowServiceList(v => !v); setShowCreateService(false); }}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <span className={selectedService ? 'text-gray-900' : 'text-gray-400'}>
@@ -137,6 +183,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
 
             {showServiceList && (
               <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                {/* Сброс выбора */}
                 <button
                   onMouseDown={e => {
                     e.preventDefault();
@@ -148,7 +195,9 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                 >
                   — не выбрано —
                 </button>
-                {services.filter(s => s.is_active).map(svc => (
+
+                {/* Список активных услуг */}
+                {localServices.filter(s => s.is_active).map(svc => (
                   <button
                     key={svc.id}
                     onMouseDown={e => { e.preventDefault(); handleServiceSelect(svc); }}
@@ -160,18 +209,63 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                     )}
                   </button>
                 ))}
+
+                {/* Создать новую услугу */}
+                <button
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    setServiceId('');
+                    setServiceName('');
+                    setShowServiceList(false);
+                    setShowCreateService(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-purple-600 font-medium hover:bg-purple-50 border-t border-gray-100"
+                >
+                  + Создать услугу
+                </button>
               </div>
             )}
 
-            {/* Ручной ввод если услуга не выбрана из списка */}
-            {!selectedService && (
-              <input
-                type="text"
-                value={serviceName}
-                onChange={e => setServiceName(e.target.value)}
-                placeholder="Или введите название вручную..."
-                className="mt-2 w-full border border-dashed border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-600"
-              />
+            {/* Inline-форма создания новой услуги */}
+            {showCreateService && (
+              <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
+                <input
+                  type="text"
+                  value={newServiceName}
+                  onChange={e => setNewServiceName(e.target.value)}
+                  placeholder="Название услуги"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  autoFocus
+                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={newServicePrice || ''}
+                    onChange={e => setNewServicePrice(parseFloat(e.target.value) || 0)}
+                    placeholder="Цена (₸)"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-6 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">₸</span>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={cancelCreate}
+                    className="flex-1 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateService}
+                    disabled={creatingService || !newServiceName.trim()}
+                    className="flex-1 py-2 rounded-lg text-sm bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    {creatingService ? 'Сохранение...' : 'Сохранить'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
