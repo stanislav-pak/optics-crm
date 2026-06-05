@@ -106,13 +106,17 @@ export default function WorkshopPage({ branchId, employeeId, role }: WorkshopPag
     }
   }
 
-  async function handleStatusChange(id: string, status: ServiceOrderStatus) {
-    try {
-      await updateServiceOrderStatus(id, status);
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    } catch (e) {
-      console.error('handleStatusChange:', e);
+  async function handleStatusChange(id: string, status: ServiceOrderStatus, prepayment?: number) {
+    const { error } = await updateServiceOrderStatus(id, status, prepayment);
+    if (error) {
+      console.error('handleStatusChange:', error);
+      return;
     }
+    setOrders(prev => prev.map(o =>
+      o.id === id
+        ? { ...o, status, ...(prepayment !== undefined ? { prepayment } : {}) }
+        : o
+    ));
   }
 
   function handleNewOrder() {

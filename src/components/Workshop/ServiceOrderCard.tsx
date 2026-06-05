@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<ServiceOrderStatus, StatusConfig> = {
 
 interface Props {
   order: ServiceOrder;
-  onStatusChange: (id: string, status: ServiceOrderStatus) => void;
+  onStatusChange: (id: string, status: ServiceOrderStatus, prepayment?: number) => void;
 }
 
 export default function ServiceOrderCard({ order, onStatusChange }: Props) {
@@ -70,10 +70,16 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
             </span>
           )}
         </div>
-        {remaining > 0 && order.status !== 'cancelled' && (
-          <span className="text-orange-600 font-semibold flex-shrink-0">
-            Остаток: ₸{remaining.toLocaleString()}
-          </span>
+        {order.status !== 'cancelled' && (
+          order.status === 'done' ? (
+            <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
+          ) : remaining > 0 ? (
+            <span className="text-red-500 font-medium text-sm">
+              Остаток: ₸{remaining.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
+          )
         )}
       </div>
 
@@ -140,7 +146,7 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
               <button
                 onClick={() => {
                   setShowConfirm(false);
-                  onStatusChange(order.id, 'done');
+                  onStatusChange(order.id, 'done', order.price);
                 }}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
               >

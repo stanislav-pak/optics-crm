@@ -57,13 +57,29 @@ export async function createServiceOrder(
 
 export async function updateServiceOrderStatus(
   id: string,
-  status: ServiceOrderStatus
-): Promise<void> {
+  status: ServiceOrderStatus,
+  prepayment?: number
+): Promise<{ error: string | null }> {
+  const updateData: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (status === 'done') {
+    updateData.completed_at = new Date().toISOString();
+  }
+
+  if (prepayment !== undefined) {
+    updateData.prepayment = prepayment;
+  }
+
   const { error } = await supabase
     .from('service_orders')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', id);
-  if (error) throw error;
+
+  if (error) return { error: error.message };
+  return { error: null };
 }
 
 export async function createService(
