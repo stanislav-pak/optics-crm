@@ -79,6 +79,20 @@ export function SignupForm({ onBack }: SignupFormProps) {
       }
 
       if (!data.user) throw new Error('Ошибка создания пользователя');
+
+      // Проверяем нет ли уже employee с этим user_id
+      const { data: existing } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (existing) {
+        setError('Аккаунт с этим email уже зарегистрирован. Войдите в систему.');
+        await supabase.auth.signOut();
+        return;
+      }
+
       const { error: empError } = await supabase.from('employees').insert({
         user_id: data.user.id,
         branch_id: finalBranchId,
