@@ -92,6 +92,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesRefreshKey, setSalesRefreshKey] = useState(0);
+  const [saleWorkshopRemainders, setSaleWorkshopRemainders] = useState<Record<string, number>>({});
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -288,7 +289,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }
     catch (e) { console.error('getPurchaseOrders error:', e); }
 
-    try { const sa = await getSales(scopeId); setSales(sa); }
+    try {
+      const sa = await getSales(scopeId);
+      setSales(sa);
+      await loadWorkshopRemainders(sa.map(s => s.id));
+    }
     catch (e) { console.error('getSales error:', e); }
 
     try { const rv = await getRevisions(scopeId); setRevisions(rv); }
@@ -340,6 +345,24 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }
 
+  // Загружает остатки мастерской для карточек продаж
+  async function loadWorkshopRemainders(saleIds: string[]) {
+    if (saleIds.length === 0) { setSaleWorkshopRemainders({}); return; }
+    try {
+      const { data: wsOrders } = await supabase
+        .from('service_orders')
+        .select('sale_id, service_price, parts_price, prepayment')
+        .in('sale_id', saleIds)
+        .not('status', 'in', '("done","cancelled")');
+      const map: Record<string, number> = {};
+      (wsOrders ?? []).forEach((o: { sale_id: string; service_price: number; parts_price: number; prepayment: number }) => {
+        const remainder = o.service_price + o.parts_price - o.prepayment;
+        if (remainder > 0 && o.sale_id) map[o.sale_id] = remainder;
+      });
+      setSaleWorkshopRemainders(map);
+    } catch (e) { console.error('loadWorkshopRemainders error:', e); }
+  }
+
   // Быстрые перезагрузки отдельных срезов данных
   async function loadSales() {
     const scopeId = role === 'admin' ? undefined : activeBranchId;
@@ -350,6 +373,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       ]);
       setSales(sa);
       setMovements(mv);
+      await loadWorkshopRemainders(sa.map(s => s.id));
     }
     catch (e) { console.error('loadSales error:', e); }
   }
@@ -1291,6 +1315,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           )}
                         </span>
                       </div>
+
+                      {/* Остаток мастерской */}
+                      {saleWorkshopRemainders[s.id] > 0 && (
+                        <div className="pt-2 border-t border-orange-50">
+                          <span className="text-xs text-orange-500 font-medium">
+                            🔧 Остаток мастерской: ₸{saleWorkshopRemainders[s.id].toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ); })}
                 </div>

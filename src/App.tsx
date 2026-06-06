@@ -19,6 +19,7 @@ import { usePushNotifications } from './hooks/usePushNotifications';
 import InventoryPage from './pages/InventoryPage';
 import WorkshopPage from './pages/WorkshopPage';
 import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
+import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
@@ -51,7 +52,8 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
-  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop'>('sales');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -174,6 +176,34 @@ function AppContent() {
       document.removeEventListener('touchend', onEnd);
     };
   }, [isMobile]);
+
+  // Счётчик незакрытых доплат мастерской (только для менеджеров не из мастерской)
+  useEffect(() => {
+    const branchId = employee?.branch_id;
+    if (!branchId || branchId === '1104bc27-07bb-4930-93b2-19a2d92b71c9') return;
+
+    async function fetchCount() {
+      const { data } = await supabase
+        .from('service_orders')
+        .select('service_price, parts_price, prepayment')
+        .eq('created_branch_id', branchId)
+        .not('status', 'in', '("done","cancelled")');
+      const count = (data ?? []).filter(
+        (o: { service_price: number; parts_price: number; prepayment: number }) =>
+          o.service_price + o.parts_price - o.prepayment > 0
+      ).length;
+      setPendingPaymentsCount(count);
+    }
+
+    fetchCount();
+
+    const channel = supabase
+      .channel('app-pending-payments')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_orders' }, fetchCount)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [employee?.branch_id]);
 
   if (loading) {
     return (
@@ -573,7 +603,7 @@ function AppContent() {
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Подраздел: Продажи | Услуги мастерской */}
+          {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
           <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
             <button
               onClick={() => setShopSubView('sales')}
@@ -592,6 +622,14 @@ function AppContent() {
               <Wrench size={12} />
               Услуги мастерской
             </button>
+            <button
+              onClick={() => setShopSubView('payments')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
+            </button>
           </div>
           {shopSubView === 'sales' ? (
             <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
@@ -603,11 +641,16 @@ function AppContent() {
                 storefront={true}
               />
             </div>
-          ) : (
+          ) : shopSubView === 'workshop' ? (
             <WorkshopManagerView
               branchId={employee?.branch_id ?? ''}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+            />
+          ) : (
+            <PendingPaymentsView
+              branchId={employee?.branch_id ?? ''}
+              onCountChange={setPendingPaymentsCount}
             />
           )}
         </div>
@@ -673,11 +716,11 @@ function AppContent() {
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
-              {/* Подраздел: Продажи | Услуги мастерской */}
-              <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
+              {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
+              <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => setShopSubView('sales')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
@@ -685,12 +728,20 @@ function AppContent() {
                 </button>
                 <button
                   onClick={() => setShopSubView('workshop')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
                   <Wrench size={12} />
                   Услуги мастерской
+                </button>
+                <button
+                  onClick={() => setShopSubView('payments')}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
                 </button>
               </div>
               {shopSubView === 'sales' ? (
@@ -703,11 +754,16 @@ function AppContent() {
                     storefront={true}
                   />
                 </div>
-              ) : (
+              ) : shopSubView === 'workshop' ? (
                 <WorkshopManagerView
                   branchId={employee?.branch_id ?? ''}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                />
+              ) : (
+                <PendingPaymentsView
+                  branchId={employee?.branch_id ?? ''}
+                  onCountChange={setPendingPaymentsCount}
                 />
               )}
             </div>

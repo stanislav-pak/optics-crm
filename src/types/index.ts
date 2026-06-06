@@ -474,6 +474,8 @@ export interface ServiceOrder {
   sale_id?: string;
   estimated_ready_at?: string;
   completed_at?: string;
+  remaining_payment_method?: 'cash' | 'kaspi';
+  remaining_paid_at?: string;
   created_at: string;
   updated_at: string;
   // relations

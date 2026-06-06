@@ -44,8 +44,29 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .gte('created_at', todayStr + 'T00:00:00')
       .lte('created_at', todayStr + 'T23:59:59');
 
-    const systemCash = (sales || []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
-    const systemKaspi = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+    const salesCash = (sales || []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
+    const salesKaspi = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+
+    // Доплаты мастерской за сегодня
+    const { data: workshopPayments } = await supabase
+      .from('service_orders')
+      .select('service_price, parts_price, prepayment, remaining_payment_method, remaining_paid_at')
+      .eq('created_branch_id', branchId)
+      .eq('status', 'done')
+      .gte('remaining_paid_at', todayStr + 'T00:00:00')
+      .lte('remaining_paid_at', todayStr + 'T23:59:59')
+      .not('remaining_paid_at', 'is', null);
+
+    const cashWorkshop = (workshopPayments ?? [])
+      .filter(o => o.remaining_payment_method === 'cash')
+      .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
+
+    const kaspiWorkshop = (workshopPayments ?? [])
+      .filter(o => o.remaining_payment_method === 'kaspi')
+      .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
+
+    const systemCash = salesCash + cashWorkshop;
+    const systemKaspi = salesKaspi + kaspiWorkshop;
     const systemTotal = systemCash + systemKaspi;
 
     const { data: existing } = await supabase
