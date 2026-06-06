@@ -169,6 +169,31 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       .catch(() => setSaleWorkshopOrder(null));
   }, [selectedSale?.id]);
 
+  // Realtime: обновляем saleWorkshopOrder когда мастер меняет статус заказа
+  useEffect(() => {
+    if (!saleWorkshopOrder?.id) return;
+
+    const channel = supabase
+      .channel(`workshop-order-${saleWorkshopOrder.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'service_orders',
+          filter: `id=eq.${saleWorkshopOrder.id}`,
+        },
+        (payload) => {
+          setSaleWorkshopOrder(prev =>
+            prev ? ({ ...prev, ...payload.new } as ServiceOrder) : prev
+          );
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [saleWorkshopOrder?.id]);
+
   // Запоминаем предыдущий филиал перед переходом в Мастерскую
   const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
   useEffect(() => {
