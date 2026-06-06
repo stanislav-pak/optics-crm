@@ -469,7 +469,10 @@ export interface ServiceOrder {
   parts_price: number;
   price: number;           // устаревшее, оставлено для совместимости
   prepayment: number;
+  original_prepayment: number; // оригинальная предоплата при создании заказа
   payment_type: 'prepaid' | 'full' | 'on_delivery';
+  prepayment_method?: 'cash' | 'kaspi';
+  prepayment_paid_at?: string;
   notes?: string;
   sale_id?: string;
   estimated_ready_at?: string;

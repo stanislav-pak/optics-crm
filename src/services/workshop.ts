@@ -124,6 +124,7 @@ export async function createServiceOrder(data: {
     ...rest,
     price: total, // backward compat
     status: 'new',
+    original_prepayment: data.prepayment,
   };
 
   // Сохраняем метод и дату предоплаты только если предоплата > 0
@@ -164,9 +165,8 @@ export async function updateServiceOrderStatus(
     updateData.completed_at = new Date().toISOString();
   }
 
-  if (prepayment !== undefined) {
-    updateData.prepayment = prepayment;
-  }
+  // prepayment НЕ перезаписываем — он хранит оригинальную предоплату.
+  // Доплата фиксируется через remaining_payment_method + remaining_paid_at.
 
   const { error } = await supabase
     .from('service_orders')

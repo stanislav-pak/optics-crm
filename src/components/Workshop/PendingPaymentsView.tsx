@@ -68,9 +68,11 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
 
       if (error) throw error;
 
-      const pending = (data as ServiceOrder[]).filter(
-        o => (o.service_price + o.parts_price - o.prepayment) > 0
-      );
+      const pending = (data as ServiceOrder[]).filter(o => {
+        // Используем original_prepayment если есть, иначе prepayment (старые записи)
+        const effectivePrepayment = o.original_prepayment || o.prepayment;
+        return (o.service_price + o.parts_price - effectivePrepayment) > 0;
+      });
       setOrders(pending);
       onCountChange?.(pending.length);
     } catch (e) {
@@ -87,8 +89,8 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
       const { order, method } = confirm;
       const total = order.service_price + order.parts_price;
 
-      // 1. Переводим статус в done и закрываем предоплату = total
-      const { error } = await updateServiceOrderStatus(order.id, 'done', total);
+      // 1. Переводим статус в done (prepayment НЕ перезаписываем)
+      const { error } = await updateServiceOrderStatus(order.id, 'done');
       if (error) throw new Error(error);
 
       // 2. Записываем способ оплаты доплаты и время
@@ -139,7 +141,9 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
         ) : (
           orders.map(order => {
             const total = order.service_price + order.parts_price;
-            const remainder = total - order.prepayment;
+            // Fallback для старых записей без original_prepayment
+            const effectivePrepayment = order.original_prepayment || order.prepayment;
+            const remainder = total - effectivePrepayment;
             return (
               <div key={order.id} className="bg-white rounded-xl border border-orange-100 p-4 space-y-2.5">
                 {/* Клиент + статус */}
@@ -171,10 +175,12 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
                 </div>
 
                 {/* Предоплата */}
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Предоплата:</span>
-                  <span className="text-gray-700">₸{order.prepayment.toLocaleString()}</span>
-                </div>
+                {effectivePrepayment > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Предоплата:</span>
+                    <span className="text-gray-700">₸{effectivePrepayment.toLocaleString()}</span>
+                  </div>
+                )}
 
                 {/* Остаток */}
                 <div className="flex justify-between text-sm font-semibold">
@@ -204,7 +210,7 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
         >
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 space-y-4">
             <h3 className="text-base font-semibold text-gray-900">
-              Принять доплату ₸{(confirm.order.service_price + confirm.order.parts_price - confirm.order.prepayment).toLocaleString()} от {confirm.order.client_name}?
+              Принять доплату ₸{(confirm.order.service_price + confirm.order.parts_price - (confirm.order.original_prepayment || confirm.order.prepayment)).toLocaleString()} от {confirm.order.client_name}?
             </h3>
 
             {/* Способ оплаты */}

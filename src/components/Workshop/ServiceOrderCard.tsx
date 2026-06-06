@@ -32,7 +32,13 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
   // Итого: приоритет — новые поля, иначе старое price
   const total = (order.service_price || 0) + (order.parts_price || 0) || order.price || 0;
   const hasBreakdown = (order.service_price || 0) > 0 || (order.parts_price || 0) > 0;
-  const remaining = Math.max(0, total - (order.prepayment || 0));
+  // Fallback для старых записей без original_prepayment
+  const effectivePrepayment = order.original_prepayment || order.prepayment || 0;
+  const isFullyPaid =
+    order.status === 'done' ||
+    !!order.remaining_paid_at ||
+    effectivePrepayment >= total;
+  const remaining = Math.max(0, total - effectivePrepayment);
 
   const estimatedDate = order.estimated_ready_at
     ? new Date(order.estimated_ready_at).toLocaleString('ru-RU', {
@@ -109,15 +115,15 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
           </div>
         ) : null}
 
-        {order.prepayment > 0 && order.status !== 'done' && (
+        {effectivePrepayment > 0 && !isFullyPaid && (
           <div className="flex justify-between text-gray-500">
             <span>Предоплата</span>
-            <span className="font-medium text-green-600">₸{order.prepayment.toLocaleString()}</span>
+            <span className="font-medium text-green-600">₸{effectivePrepayment.toLocaleString()}</span>
           </div>
         )}
 
         {total > 0 && order.status !== 'cancelled' && (
-          order.status === 'done' ? (
+          isFullyPaid ? (
             <div className="text-right">
               <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
             </div>

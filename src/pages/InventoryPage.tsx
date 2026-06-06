@@ -2151,46 +2151,67 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
               {/* Заказ мастерской */}
               {saleWorkshopOrder && (() => {
-                const wsTotal = saleWorkshopOrder.service_price + saleWorkshopOrder.parts_price;
-                const remainder = wsTotal - saleWorkshopOrder.prepayment;
+                const order = saleWorkshopOrder;
+                const wsTotal = order.service_price + order.parts_price;
+                // Fallback для старых записей без original_prepayment
+                const origPrepayment = order.original_prepayment || order.prepayment;
+                const wsRemainder = order.original_prepayment != null
+                  ? wsTotal - order.original_prepayment
+                  : wsTotal - order.prepayment;
+                const wsFullyPaid =
+                  order.status === 'done' ||
+                  !!order.remaining_paid_at ||
+                  origPrepayment >= wsTotal;
                 return (
                   <div className="border-t border-purple-100 pt-3 space-y-2">
                     <p className="text-xs font-semibold text-purple-600">🔧 Заказ мастерской</p>
-                    <p className="text-sm font-medium text-gray-900">{saleWorkshopOrder.service_name}</p>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Услуга:</span>
-                      <span>₸{saleWorkshopOrder.service_price.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Запчасти:</span>
-                      <span>₸{saleWorkshopOrder.parts_price.toLocaleString()}</span>
-                    </div>
+                    <p className="text-sm font-medium text-gray-900">{order.service_name}</p>
+                    {order.service_price > 0 && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Услуга:</span>
+                        <span>₸{order.service_price.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {order.parts_price > 0 && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Запчасти:</span>
+                        <span>₸{order.parts_price.toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm font-semibold text-gray-900">
                       <span>Итого:</span>
                       <span>₸{wsTotal.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Предоплата:</span>
-                      <span>₸{saleWorkshopOrder.prepayment.toLocaleString()}</span>
-                    </div>
+                    {origPrepayment > 0 && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Предоплата{order.prepayment_method ? ` (${order.prepayment_method === 'cash' ? 'Наличные' : 'Kaspi'})` : ''}:</span>
+                        <span>₸{origPrepayment.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {order.remaining_paid_at && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Доплата{order.remaining_payment_method ? ` (${order.remaining_payment_method === 'cash' ? 'Наличные' : 'Kaspi'})` : ''}:</span>
+                        <span>₸{Math.max(0, wsTotal - origPrepayment).toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm font-medium">
-                      {remainder > 0 ? (
+                      {wsFullyPaid ? (
+                        <span className="text-green-600">✓ Оплачено</span>
+                      ) : (
                         <>
                           <span className="text-red-500">Остаток:</span>
-                          <span className="text-red-500">₸{remainder.toLocaleString()}</span>
+                          <span className="text-red-500">₸{Math.max(0, wsRemainder).toLocaleString()}</span>
                         </>
-                      ) : (
-                        <span className="text-green-600">✓ Оплачено</span>
                       )}
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Статус:</span>
-                      <span>{WS_STATUS_RU[saleWorkshopOrder.status] ?? saleWorkshopOrder.status}</span>
+                      <span>{WS_STATUS_RU[order.status] ?? order.status}</span>
                     </div>
-                    {saleWorkshopOrder.created_branch?.name && (
+                    {order.created_branch?.name && (
                       <div className="flex justify-between text-sm text-gray-500">
                         <span>Филиал:</span>
-                        <span>{saleWorkshopOrder.created_branch.name}</span>
+                        <span>{order.created_branch.name}</span>
                       </div>
                     )}
                   </div>
