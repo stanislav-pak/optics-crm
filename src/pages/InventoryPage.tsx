@@ -92,7 +92,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [salesRefreshKey, setSalesRefreshKey] = useState(0);
-  const [saleWorkshopRemainders, setSaleWorkshopRemainders] = useState<Record<string, number>>({});
+  const [saleWorkshopOrders, setSaleWorkshopOrders] = useState<Record<string, {
+    original_prepayment: number;
+    service_price: number;
+    parts_price: number;
+    prepayment: number;
+    status: string;
+    remaining_paid_at?: string | null;
+  }>>({});
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -318,7 +325,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       const sa = await getSales(scopeId);
       setSales(sa);
-      await loadWorkshopRemainders(sa.map(s => s.id));
+      await loadWorkshopOrders(sa.map(s => s.id));
     }
     catch (e) { console.error('getSales error:', e); }
 
@@ -371,22 +378,27 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     }
   }
 
-  // Загружает остатки мастерской для карточек продаж
-  async function loadWorkshopRemainders(saleIds: string[]) {
-    if (saleIds.length === 0) { setSaleWorkshopRemainders({}); return; }
+  // Загружает данные заказов мастерской для карточек продаж
+  async function loadWorkshopOrders(saleIds: string[]) {
+    if (saleIds.length === 0) { setSaleWorkshopOrders({}); return; }
     try {
       const { data: wsOrders } = await supabase
         .from('service_orders')
-        .select('sale_id, service_price, parts_price, prepayment')
-        .in('sale_id', saleIds)
-        .not('status', 'in', '("done","cancelled")');
-      const map: Record<string, number> = {};
-      (wsOrders ?? []).forEach((o: { sale_id: string; service_price: number; parts_price: number; prepayment: number }) => {
-        const remainder = o.service_price + o.parts_price - o.prepayment;
-        if (remainder > 0 && o.sale_id) map[o.sale_id] = remainder;
+        .select('sale_id, original_prepayment, service_price, parts_price, prepayment, status, remaining_paid_at')
+        .in('sale_id', saleIds);
+      const map: Record<string, { original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; remaining_paid_at?: string | null }> = {};
+      (wsOrders ?? []).forEach((o: { sale_id: string; original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; remaining_paid_at?: string | null }) => {
+        if (o.sale_id) map[o.sale_id] = {
+          original_prepayment: o.original_prepayment ?? 0,
+          service_price: o.service_price,
+          parts_price: o.parts_price,
+          prepayment: o.prepayment,
+          status: o.status,
+          remaining_paid_at: o.remaining_paid_at,
+        };
       });
-      setSaleWorkshopRemainders(map);
-    } catch (e) { console.error('loadWorkshopRemainders error:', e); }
+      setSaleWorkshopOrders(map);
+    } catch (e) { console.error('loadWorkshopOrders error:', e); }
   }
 
   // Быстрые перезагрузки отдельных срезов данных
@@ -399,7 +411,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       ]);
       setSales(sa);
       setMovements(mv);
-      await loadWorkshopRemainders(sa.map(s => s.id));
+      await loadWorkshopOrders(sa.map(s => s.id));
     }
     catch (e) { console.error('loadSales error:', e); }
   }
@@ -1349,14 +1361,37 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         </span>
                       </div>
 
-                      {/* Остаток мастерской */}
-                      {saleWorkshopRemainders[s.id] > 0 && (
-                        <div className="pt-2 border-t border-orange-50">
-                          <span className="text-xs text-orange-500 font-medium">
-                            🔧 Остаток мастерской: ₸{saleWorkshopRemainders[s.id].toLocaleString()}
-                          </span>
-                        </div>
-                      )}
+                      {/* Мастерская */}
+                      {saleWorkshopOrders[s.id] && (() => {
+                        const wo = saleWorkshopOrders[s.id];
+                        const origPrepayment = wo.original_prepayment || wo.prepayment;
+                        const wsTotal = wo.service_price + wo.parts_price;
+                        const wsRemainder = wsTotal - origPrepayment;
+                        const paid = wo.status === 'done' || !!wo.remaining_paid_at;
+                        return (
+                          <div className="pt-2 border-t border-gray-50 space-y-0.5">
+                            {origPrepayment > 0 && (
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>🔧 Предоплата мастерской</span>
+                                <span>₸{origPrepayment.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {paid ? (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-green-600">✓ Мастерская оплачена</span>
+                                <span className="text-green-600">₸{wsTotal.toLocaleString()}</span>
+                              </div>
+                            ) : wo.status === 'cancelled' ? (
+                              <div className="text-xs text-red-400">🔧 Заказ мастерской отменён</div>
+                            ) : wsRemainder > 0 ? (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-orange-500">🔧 Остаток мастерской</span>
+                                <span className="text-orange-500">₸{wsRemainder.toLocaleString()}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ); })}
                 </div>
