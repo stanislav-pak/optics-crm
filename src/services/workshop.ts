@@ -110,6 +110,7 @@ export async function createServiceOrder(data: {
   prepayment: number;
   payment_type: 'prepaid' | 'full' | 'on_delivery';
   notes?: string;
+  sale_id?: string;
   estimated_ready_at?: string;
 }): Promise<ServiceOrder> {
   const total = data.service_price + data.parts_price;
@@ -161,20 +162,30 @@ export async function updateServiceOrderStatus(
 
   if (error) return { error: error.message };
 
-  // При статусе "готов" — уведомить создавший заказ филиал
-  if (status === 'ready') {
-    const { data: order } = await supabase
+  // Уведомления нужны только для статусов ready и cancelled
+  if (status === 'ready' || status === 'cancelled') {
+    const { data: orderData } = await supabase
       .from('service_orders')
       .select('client_name, service_name, created_branch_id')
       .eq('id', id)
       .single();
 
-    if (order?.created_branch_id) {
-      notifyBranch(
-        order.created_branch_id,
-        'Заказ готов!',
-        `${order.client_name} — ${order.service_name}`
-      ).catch(console.error);
+    if (orderData) {
+      if (status === 'ready' && orderData.created_branch_id) {
+        notifyBranch(
+          orderData.created_branch_id,
+          'Заказ готов!',
+          `${orderData.client_name} — ${orderData.service_name}`
+        ).catch(console.error);
+      }
+
+      if (status === 'cancelled') {
+        notifyBranch(
+          WORKSHOP_BRANCH_ID,
+          'Заказ отменён',
+          `${orderData.client_name} — ${orderData.service_name}`
+        ).catch(console.error);
+      }
     }
   }
 

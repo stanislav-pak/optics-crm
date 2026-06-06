@@ -471,6 +471,7 @@ export interface ServiceOrder {
   prepayment: number;
   payment_type: 'prepaid' | 'full' | 'on_delivery';
   notes?: string;
+  sale_id?: string;
   estimated_ready_at?: string;
   completed_at?: string;
   created_at: string;

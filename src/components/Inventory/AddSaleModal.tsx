@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check } from 'lucide-react';
+import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
 import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
+import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { supabase } from '../../services/supabase';
 import { formatPhone } from '@/utils/formatters';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
-import type { Product, Client } from '../../types';
+import type { Product, Client, Service } from '../../types';
+
+const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+type WorkshopPaymentType = 'prepaid' | 'full' | 'on_delivery';
 
 interface SaleItem {
   product_id: string;
@@ -42,6 +46,21 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [loading, setLoading] = useState(false);
   const [change, setChange] = useState(0);
 
+  // Состояния мастерской
+  const [workshopServices, setWorkshopServices] = useState<Service[]>([]);
+  const [addWorkshop, setAddWorkshop] = useState(false);
+  const [workshopServiceId, setWorkshopServiceId] = useState('');
+  const [workshopServiceName, setWorkshopServiceName] = useState('');
+  const [workshopServicePrice, setWorkshopServicePrice] = useState(0);
+  const [workshopPartsPrice, setWorkshopPartsPrice] = useState(0);
+  const [workshopNotes, setWorkshopNotes] = useState('');
+  const [workshopPaymentType, setWorkshopPaymentType] = useState<WorkshopPaymentType>('on_delivery');
+  const [workshopShowServiceList, setWorkshopShowServiceList] = useState(false);
+  const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
+  const [newWsServiceName, setNewWsServiceName] = useState('');
+  const [newWsServicePrice, setNewWsServicePrice] = useState(0);
+  const [creatingWsService, setCreatingWsService] = useState(false);
+
   // client UI state
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
@@ -57,6 +76,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchPaymentClients();
+    fetchServices(WORKSHOP_BRANCH_ID).then(setWorkshopServices).catch(console.error);
   }, [branchId]);
 
   async function fetchPaymentClients() {
@@ -246,6 +266,28 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           price: i.price,
         }))
       );
+
+      // Создать заказ в мастерскую вместе с продажей (если включён чекбокс)
+      if (addWorkshop && workshopServiceName.trim()) {
+        const clientName = selectedClient?.name ?? selectedClient?.phone ?? 'Клиент';
+        const clientPhone = selectedClient?.phone ?? '';
+        const wsTotal = workshopServicePrice + workshopPartsPrice;
+        await createServiceOrder({
+          branch_id: WORKSHOP_BRANCH_ID,
+          created_branch_id: branchId,
+          client_name: clientName,
+          client_phone: clientPhone,
+          employee_id: employeeId,
+          service_id: workshopServiceId || undefined,
+          service_name: workshopServiceName.trim(),
+          service_price: workshopServicePrice,
+          parts_price: workshopPartsPrice,
+          prepayment: workshopPaymentType === 'full' ? wsTotal : 0,
+          payment_type: workshopPaymentType,
+          notes: workshopNotes.trim() || undefined,
+          sale_id: sale.id,
+        });
+      }
 
       if (needsKaspi) {
         setTempSaleId(sale.id);
@@ -596,6 +638,184 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
               <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
                 placeholder="Необязательно..."
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+            </div>
+
+            {/* ── Секция мастерской ── */}
+            <div className="border border-purple-100 rounded-xl overflow-hidden">
+              {/* Чекбокс-заголовок */}
+              <button
+                type="button"
+                onClick={() => setAddWorkshop(v => !v)}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors text-left"
+              >
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${addWorkshop ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
+                  {addWorkshop && <Check size={12} className="text-white" strokeWidth={3} />}
+                </div>
+                <Wrench size={14} className="text-purple-600 flex-shrink-0" />
+                <span className="text-sm font-medium text-gray-800">Добавить заказ в мастерскую</span>
+              </button>
+
+              {addWorkshop && (
+                <div className="px-4 py-3 space-y-3 bg-white">
+
+                  {/* Выбор услуги */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Услуга *</label>
+                    <button
+                      type="button"
+                      onClick={() => { setWorkshopShowServiceList(v => !v); setWorkshopShowCreateService(false); }}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <span className={workshopServiceName ? 'text-gray-900' : 'text-gray-400'}>
+                        {workshopServiceName || '— выберите услугу —'}
+                      </span>
+                      <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+                    </button>
+
+                    {workshopShowServiceList && (
+                      <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                        <button
+                          onMouseDown={e => { e.preventDefault(); setWorkshopServiceId(''); setWorkshopServiceName(''); setWorkshopShowServiceList(false); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-50 border-b border-gray-100"
+                        >
+                          — не выбрано —
+                        </button>
+                        {workshopServices.filter(s => s.is_active).map(svc => (
+                          <button
+                            key={svc.id}
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              setWorkshopServiceId(svc.id);
+                              setWorkshopServiceName(svc.name);
+                              if (svc.price > 0) setWorkshopServicePrice(svc.price);
+                              setWorkshopShowServiceList(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between ${workshopServiceId === svc.id ? 'bg-purple-50' : ''}`}
+                          >
+                            <span className="text-sm text-gray-900">{svc.name}</span>
+                            {svc.price > 0 && <span className="text-xs text-gray-400">₸{svc.price.toLocaleString()}</span>}
+                          </button>
+                        ))}
+                        <button
+                          onMouseDown={e => { e.preventDefault(); setWorkshopServiceId(''); setWorkshopServiceName(''); setWorkshopShowServiceList(false); setWorkshopShowCreateService(true); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-purple-600 font-medium hover:bg-purple-50 border-t border-gray-100"
+                        >
+                          + Создать услугу
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Inline-форма создания новой услуги */}
+                    {workshopShowCreateService && (
+                      <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
+                        <input
+                          type="text"
+                          value={newWsServiceName}
+                          onChange={e => setNewWsServiceName(e.target.value)}
+                          placeholder="Название услуги"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          autoFocus
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={newWsServicePrice || ''}
+                          onChange={e => setNewWsServicePrice(parseFloat(e.target.value) || 0)}
+                          placeholder="Цена (₸)"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                        <div className="flex gap-2">
+                          <button type="button"
+                            onClick={() => { setWorkshopShowCreateService(false); setNewWsServiceName(''); setNewWsServicePrice(0); }}
+                            className="flex-1 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-100">
+                            Отмена
+                          </button>
+                          <button type="button"
+                            disabled={creatingWsService || !newWsServiceName.trim()}
+                            onClick={async () => {
+                              setCreatingWsService(true);
+                              const result = await createService({ name: newWsServiceName.trim(), price: newWsServicePrice, branch_id: WORKSHOP_BRANCH_ID, is_active: true });
+                              setCreatingWsService(false);
+                              if (result.error) { alert('Ошибка: ' + result.error); return; }
+                              const created = result.data!;
+                              setWorkshopServices(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+                              setWorkshopServiceId(created.id);
+                              setWorkshopServiceName(created.name);
+                              if (created.price > 0) setWorkshopServicePrice(created.price);
+                              setWorkshopShowCreateService(false);
+                              setNewWsServiceName('');
+                              setNewWsServicePrice(0);
+                            }}
+                            className="flex-1 py-2 rounded-lg text-sm bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50">
+                            {creatingWsService ? 'Создаём...' : 'Сохранить'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Цены */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость услуги ₸</label>
+                      <input type="number" value={workshopServicePrice || ''}
+                        onChange={e => setWorkshopServicePrice(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость запчастей ₸</label>
+                      <input type="number" value={workshopPartsPrice || ''}
+                        onChange={e => setWorkshopPartsPrice(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                  </div>
+
+                  {/* Итого мастерская */}
+                  {(workshopServicePrice + workshopPartsPrice) > 0 && (
+                    <div className="bg-purple-50 rounded-lg px-3 py-2 flex items-center justify-between">
+                      <span className="text-xs text-purple-600">Итого мастерская</span>
+                      <span className="text-sm font-semibold text-purple-700">
+                        ₸{(workshopServicePrice + workshopPartsPrice).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Тип оплаты мастерской */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-2">Тип оплаты мастерской</label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { value: 'on_delivery', label: 'При получении' },
+                        { value: 'prepaid',     label: 'Предоплата' },
+                        { value: 'full',        label: '100% сразу' },
+                      ] as { value: WorkshopPaymentType; label: string }[]).map(opt => (
+                        <label key={opt.value}
+                          className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                            workshopPaymentType === opt.value
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}>
+                          <input type="radio" name="wsPaymentType" value={opt.value}
+                            checked={workshopPaymentType === opt.value}
+                            onChange={() => setWorkshopPaymentType(opt.value)}
+                            className="sr-only" />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Примечание к заказу */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Примечание к заказу</label>
+                    <textarea value={workshopNotes} onChange={e => setWorkshopNotes(e.target.value)} rows={2}
+                      placeholder="Описание работ..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
