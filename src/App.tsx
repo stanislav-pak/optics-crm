@@ -51,6 +51,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop'>('sales');
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -348,11 +349,13 @@ function AppContent() {
                   )}
                 </div>
               </button>
-              <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                title="Мастерская">
-                <Wrench className="w-3.5 h-3.5" />
-              </button>
+              {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
+                <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
+                  className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  title="Мастерская">
+                  <Wrench className="w-3.5 h-3.5" />
+                </button>
+              )}
             </>
           )}
 
@@ -478,11 +481,13 @@ function AppContent() {
               <span className="text-[10px] font-medium">Склад</span>
             </div>
           </button>
-          <button onClick={() => navigateTo('workshop')}
-            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-            <Wrench className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Мастерская</span>
-          </button>
+          {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
+            <button onClick={() => navigateTo('workshop')}
+              className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
+              <Wrench className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Мастерская</span>
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -568,15 +573,43 @@ function AppContent() {
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-            <InventoryPage
-              branchId={employee?.branch_id}
+          {/* Подраздел: Продажи | Услуги мастерской */}
+          <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShopSubView('sales')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              Продажи
+            </button>
+            <button
+              onClick={() => setShopSubView('workshop')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <Wrench size={12} />
+              Услуги мастерской
+            </button>
+          </div>
+          {shopSubView === 'sales' ? (
+            <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+              <InventoryPage
+                branchId={employee?.branch_id}
+                employeeId={employee.id}
+                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                defaultTab="sales"
+                storefront={true}
+              />
+            </div>
+          ) : (
+            <WorkshopManagerView
+              branchId={employee?.branch_id ?? ''}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-              defaultTab="sales"
-              storefront={true}
             />
-          </div>
+          )}
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'workshop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -640,15 +673,43 @@ function AppContent() {
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
-              <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-                <InventoryPage
-                  branchId={employee?.branch_id}
+              {/* Подраздел: Продажи | Услуги мастерской */}
+              <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShopSubView('sales')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Продажи
+                </button>
+                <button
+                  onClick={() => setShopSubView('workshop')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  <Wrench size={12} />
+                  Услуги мастерской
+                </button>
+              </div>
+              {shopSubView === 'sales' ? (
+                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                  <InventoryPage
+                    branchId={employee?.branch_id}
+                    employeeId={employee.id}
+                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                    defaultTab="sales"
+                    storefront={true}
+                  />
+                </div>
+              ) : (
+                <WorkshopManagerView
+                  branchId={employee?.branch_id ?? ''}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                  defaultTab="sales"
-                  storefront={true}
                 />
-              </div>
+              )}
             </div>
           )}
           {mobileView === 'workshop' && (
