@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { supabase } from '../../services/supabase';
+import { restoreServiceOrder } from '../../services/workshop';
 import type { ServiceOrder, ServiceOrderStatus } from '../../types';
 
 const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
@@ -25,8 +27,11 @@ interface Props {
 
 export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
-  const config = STATUS_CONFIG[order.status];
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
+  const config = STATUS_CONFIG[order.status];
   const isMaster = viewerBranchId === WORKSHOP_BRANCH_ID;
 
   // Итого: приоритет — новые поля, иначе старое price
@@ -63,6 +68,43 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
       : order.status === 'confirmed' ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
       : null
       : null;
+
+  // Отмена с сохранением previous_status
+  const handleConfirmCancel = async () => {
+    setCancelling(true);
+    try {
+      await supabase
+        .from('service_orders')
+        .update({
+          status: 'cancelled',
+          previous_status: order.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+      onStatusChange(order.id, 'cancelled');
+      setShowCancelConfirm(false);
+    } catch (e) {
+      console.error('handleConfirmCancel:', e);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // Восстановление отменённого заказа
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const restoreStatus = (order.previous_status as ServiceOrderStatus | undefined) ?? 'new';
+      const { error } = await restoreServiceOrder(order.id, restoreStatus);
+      if (!error) {
+        onStatusChange(order.id, restoreStatus);
+      }
+    } catch (e) {
+      console.error('handleRestore:', e);
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 active:bg-gray-50">
@@ -134,6 +176,19 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
             </div>
           ) : null
         )}
+
+        {/* Статус возврата предоплаты для отменённых */}
+        {order.status === 'cancelled' && effectivePrepayment > 0 && (
+          order.prepayment_refunded_at ? (
+            <div className="text-xs text-gray-400 mt-1">
+              ✓ Предоплата возвращена ({order.prepayment_refund_method === 'kaspi' ? 'Kaspi' : 'Наличные'})
+            </div>
+          ) : (
+            <div className="text-xs text-orange-500 mt-1">
+              ⚠ Предоплата ₸{effectivePrepayment.toLocaleString()} не возвращена
+            </div>
+          )
+        )}
       </div>
 
       {/* Дата готовности */}
@@ -151,12 +206,24 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
         </p>
 
         <div className="flex items-center gap-2">
+          {/* Кнопка отмены — только для активных заказов */}
           {order.status !== 'cancelled' && order.status !== 'done' && (
             <button
-              onClick={() => onStatusChange(order.id, 'cancelled')}
+              onClick={() => setShowCancelConfirm(true)}
               className="text-[11px] px-2.5 py-1 border border-red-200 text-red-400 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
             >
               Отменить
+            </button>
+          )}
+
+          {/* Кнопка восстановления — только для мастера, только если предоплата не возвращена */}
+          {isMaster && order.status === 'cancelled' && !order.prepayment_refunded_at && (
+            <button
+              onClick={handleRestore}
+              disabled={restoring}
+              className="text-[11px] px-2.5 py-1 border border-blue-400 text-blue-500 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors disabled:opacity-50"
+            >
+              {restoring ? '...' : 'Восстановить'}
             </button>
           )}
 
@@ -211,6 +278,39 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
               >
                 {remaining > 0 ? 'Выдать и закрыть' : 'Выдать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Диалог подтверждения отмены */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-modal="true">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3">
+            <h3 className="text-base font-semibold text-gray-900">Отменить заказ?</h3>
+            <p className="text-sm text-gray-600">
+              {order.client_name} — {order.service_name}
+            </p>
+            {effectivePrepayment > 0 && (
+              <p className="text-sm text-orange-500 bg-orange-50 rounded-lg px-3 py-2">
+                ⚠ Необходимо вернуть клиенту предоплату ₸{effectivePrepayment.toLocaleString()}
+              </p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={cancelling}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Назад
+              </button>
+              <button
+                onClick={handleConfirmCancel}
+                disabled={cancelling}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {cancelling ? 'Отмена...' : 'Да, отменить'}
               </button>
             </div>
           </div>

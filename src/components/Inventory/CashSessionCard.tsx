@@ -82,8 +82,25 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .filter(o => o.remaining_payment_method === 'kaspi')
       .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
 
-    const systemCash = salesCash + prepaidCash + cashWorkshop;
-    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop;
+    // Возвраты предоплат мастерской сегодня
+    const { data: refunds } = await supabase
+      .from('service_orders')
+      .select('original_prepayment, prepayment_refund_method')
+      .eq('created_branch_id', branchId)
+      .gte('prepayment_refunded_at', todayStr + 'T00:00:00')
+      .lte('prepayment_refunded_at', todayStr + 'T23:59:59')
+      .not('prepayment_refunded_at', 'is', null);
+
+    const refundCash = (refunds ?? [])
+      .filter(o => o.prepayment_refund_method === 'cash')
+      .reduce((sum, o) => sum + (o.original_prepayment ?? 0), 0);
+
+    const refundKaspi = (refunds ?? [])
+      .filter(o => o.prepayment_refund_method === 'kaspi')
+      .reduce((sum, o) => sum + (o.original_prepayment ?? 0), 0);
+
+    const systemCash = salesCash + prepaidCash + cashWorkshop - refundCash;
+    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop - refundKaspi;
     const systemTotal = systemCash + systemKaspi;
 
     const { data: existing } = await supabase

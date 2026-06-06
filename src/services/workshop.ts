@@ -228,6 +228,23 @@ export async function updateService(
   return { error: error?.message ?? null };
 }
 
+// Восстановить отменённый заказ в предыдущий статус.
+export async function restoreServiceOrder(
+  id: string,
+  previousStatus: ServiceOrderStatus
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('service_orders')
+    .update({
+      status: previousStatus,
+      previous_status: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 // Получить заказ мастерской по sale_id (для отображения в деталях продажи).
 export async function fetchServiceOrderBySaleId(saleId: string): Promise<ServiceOrder | null> {
   const { data, error } = await supabase
