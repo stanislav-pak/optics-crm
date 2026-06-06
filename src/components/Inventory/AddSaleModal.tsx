@@ -58,6 +58,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [workshopShowServiceList, setWorkshopShowServiceList] = useState(false);
   const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
   const [workshopPrepayment, setWorkshopPrepayment] = useState(0);
+  const [workshopPrepaymentMethod, setWorkshopPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
   const [newWsServiceName, setNewWsServiceName] = useState('');
   const [newWsServicePrice, setNewWsServicePrice] = useState(0);
   const [creatingWsService, setCreatingWsService] = useState(false);
@@ -245,6 +246,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
         const clientName = selectedClient?.name ?? selectedClient?.phone ?? 'Клиент';
         const clientPhone = selectedClient?.phone ?? '';
         const wsTotal = workshopServicePrice + workshopPartsPrice;
+        const wsPrepayment = workshopPaymentType === 'full'
+          ? wsTotal
+          : workshopPaymentType === 'prepaid'
+            ? workshopPrepayment
+            : 0;
         await createServiceOrder({
           branch_id: WORKSHOP_BRANCH_ID,
           created_branch_id: branchId,
@@ -255,14 +261,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           service_name: workshopServiceName.trim(),
           service_price: workshopServicePrice,
           parts_price: workshopPartsPrice,
-          prepayment: workshopPaymentType === 'full'
-            ? wsTotal
-            : workshopPaymentType === 'prepaid'
-              ? workshopPrepayment
-              : 0,
+          prepayment: wsPrepayment,
           payment_type: workshopPaymentType,
           notes: workshopNotes.trim() || undefined,
           sale_id: sale.id,
+          prepayment_method: wsPrepayment > 0 ? workshopPrepaymentMethod : undefined,
+          prepayment_paid_at: wsPrepayment > 0 ? new Date().toISOString() : undefined,
         });
       }
 
@@ -802,6 +806,37 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                           Остаток: ₸{Math.max(0, workshopServicePrice + workshopPartsPrice - workshopPrepayment).toLocaleString()}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Способ предоплаты мастерской */}
+                  {workshopPaymentType !== 'on_delivery' && (workshopServicePrice + workshopPartsPrice) > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Способ предоплаты</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setWorkshopPrepaymentMethod('cash')}
+                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                            workshopPrepaymentMethod === 'cash'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          💵 Наличные
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWorkshopPrepaymentMethod('kaspi')}
+                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                            workshopPrepaymentMethod === 'kaspi'
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          📱 Kaspi
+                        </button>
+                      </div>
                     </div>
                   )}
 

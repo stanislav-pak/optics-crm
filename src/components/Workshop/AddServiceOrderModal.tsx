@@ -27,6 +27,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   const [paymentType, setPaymentType] = useState<PaymentType>('on_delivery');
   const [notes, setNotes] = useState('');
   const [estimatedReadyAt, setEstimatedReadyAt] = useState('');
+  const [prepaymentMethod, setPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
   const [loading, setLoading] = useState(false);
   const [showServiceList, setShowServiceList] = useState(false);
 
@@ -115,6 +116,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     if (!clientName.trim() || !finalServiceName) return;
     setLoading(true);
     try {
+      const prepaymentVal = parseFloat(prepayment) || 0;
       await createServiceOrder({
         branch_id: WORKSHOP_BRANCH_ID,
         created_branch_id: branchId,
@@ -125,10 +127,12 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
         service_name: finalServiceName,
         service_price: parseFloat(servicePrice) || 0,
         parts_price: parseFloat(partsPrice) || 0,
-        prepayment: parseFloat(prepayment) || 0,
+        prepayment: prepaymentVal,
         payment_type: paymentType,
         notes: notes.trim() || undefined,
         estimated_ready_at: estimatedReadyAt || undefined,
+        prepayment_method: prepaymentVal > 0 ? prepaymentMethod : undefined,
+        prepayment_paid_at: prepaymentVal > 0 ? new Date().toISOString() : undefined,
       });
       onSuccess();
     } catch (e: unknown) {
@@ -348,6 +352,37 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
+            </div>
+          )}
+
+          {/* Способ предоплаты — показываем если будет предоплата */}
+          {paymentType !== 'on_delivery' && total > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-2">Способ предоплаты</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPrepaymentMethod('cash')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                    prepaymentMethod === 'cash'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  💵 Наличные
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrepaymentMethod('kaspi')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                    prepaymentMethod === 'kaspi'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  📱 Kaspi
+                </button>
+              </div>
             </div>
           )}
 

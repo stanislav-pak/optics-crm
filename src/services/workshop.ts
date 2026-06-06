@@ -112,16 +112,29 @@ export async function createServiceOrder(data: {
   notes?: string;
   sale_id?: string;
   estimated_ready_at?: string;
+  prepayment_method?: 'cash' | 'kaspi';
+  prepayment_paid_at?: string;
 }): Promise<ServiceOrder> {
   const total = data.service_price + data.parts_price;
 
+  // Выносим опциональные поля из spread чтобы не попадали как undefined → null
+  const { prepayment_method, prepayment_paid_at, ...rest } = data;
+
+  const insertData: Record<string, unknown> = {
+    ...rest,
+    price: total, // backward compat
+    status: 'new',
+  };
+
+  // Сохраняем метод и дату предоплаты только если предоплата > 0
+  if (data.prepayment > 0 && prepayment_method) {
+    insertData.prepayment_method = prepayment_method;
+    insertData.prepayment_paid_at = prepayment_paid_at ?? new Date().toISOString();
+  }
+
   const { data: order, error } = await supabase
     .from('service_orders')
-    .insert({
-      ...data,
-      price: total, // backward compat
-      status: 'new',
-    })
+    .insert(insertData)
     .select()
     .single();
 

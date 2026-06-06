@@ -47,12 +47,29 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     const salesCash = (sales || []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
     const salesKaspi = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
 
-    // Доплаты мастерской за сегодня
+    // Предоплаты мастерской за сегодня (created_branch_id = этот филиал)
+    const { data: workshopPrepayments } = await supabase
+      .from('service_orders')
+      .select('prepayment, prepayment_method')
+      .eq('created_branch_id', branchId)
+      .gte('prepayment_paid_at', todayStr + 'T00:00:00')
+      .lte('prepayment_paid_at', todayStr + 'T23:59:59')
+      .gt('prepayment', 0)
+      .not('prepayment_paid_at', 'is', null);
+
+    const prepaidCash = (workshopPrepayments ?? [])
+      .filter(o => o.prepayment_method === 'cash')
+      .reduce((sum, o) => sum + (o.prepayment ?? 0), 0);
+
+    const prepaidKaspi = (workshopPrepayments ?? [])
+      .filter(o => o.prepayment_method === 'kaspi')
+      .reduce((sum, o) => sum + (o.prepayment ?? 0), 0);
+
+    // Доплаты мастерской за сегодня (остатки при выдаче)
     const { data: workshopPayments } = await supabase
       .from('service_orders')
       .select('service_price, parts_price, prepayment, remaining_payment_method, remaining_paid_at')
       .eq('created_branch_id', branchId)
-      .eq('status', 'done')
       .gte('remaining_paid_at', todayStr + 'T00:00:00')
       .lte('remaining_paid_at', todayStr + 'T23:59:59')
       .not('remaining_paid_at', 'is', null);
@@ -65,8 +82,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .filter(o => o.remaining_payment_method === 'kaspi')
       .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
 
-    const systemCash = salesCash + cashWorkshop;
-    const systemKaspi = salesKaspi + kaspiWorkshop;
+    const systemCash = salesCash + prepaidCash + cashWorkshop;
+    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop;
     const systemTotal = systemCash + systemKaspi;
 
     const { data: existing } = await supabase
