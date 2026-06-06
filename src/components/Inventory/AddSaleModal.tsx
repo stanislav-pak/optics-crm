@@ -76,49 +76,21 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
     getProducts(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
-    fetchPaymentClients();
+    fetchBranchClients();
     fetchServices(WORKSHOP_BRANCH_ID).then(setWorkshopServices).catch(console.error);
   }, [branchId]);
 
-  async function fetchPaymentClients() {
+  async function fetchBranchClients() {
     setClientsLoading(true);
     try {
-      // 1. Последний этап по каждому чату
-      const { data: stages } = await supabase
-        .from('deal_stages')
-        .select('chat_id, current_stage, moved_to_stage_at')
-        .order('moved_to_stage_at', { ascending: false });
-
-      const latestStage: Record<string, string> = {};
-      (stages ?? []).forEach((s: any) => {
-        if (!latestStage[s.chat_id]) latestStage[s.chat_id] = s.current_stage;
-      });
-
-      // 2. Чаты на этапе payment
-      const paymentChatIds = Object.entries(latestStage)
-        .filter(([, stage]) => stage === 'payment')
-        .map(([chatId]) => chatId);
-
-      if (paymentChatIds.length === 0) { setClients([]); setClientsLoading(false); return; }
-
-      // 3. client_id из этих чатов
-      const { data: chatsData } = await supabase
-        .from('chats')
-        .select('client_id')
-        .in('id', paymentChatIds);
-
-      const clientIds = [...new Set((chatsData ?? []).map((c: any) => c.client_id).filter(Boolean))];
-      if (clientIds.length === 0) { setClients([]); setClientsLoading(false); return; }
-
-      // 4. Сами клиенты
-      const { data: clientData } = await supabase
+      const { data } = await supabase
         .from('clients')
         .select('id, name, phone')
-        .in('id', clientIds);
-
-      setClients((clientData ?? []) as ClientSnap[]);
+        .eq('branch_id', branchId)
+        .order('name', { ascending: true });
+      setClients((data ?? []) as ClientSnap[]);
     } catch (e) {
-      console.error('[AddSaleModal] fetchPaymentClients:', e);
+      console.error('[AddSaleModal] fetchBranchClients:', e);
     }
     setClientsLoading(false);
   }
@@ -386,12 +358,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     — без клиента —
                   </button>
 
-                  {/* Список клиентов на этапе «Оплата» */}
+                  {/* Все клиенты филиала */}
                   <div style={{ maxHeight: clients.length > 5 ? 208 : undefined, overflowY: clients.length > 5 ? 'auto' : undefined }}>
                     {clientsLoading ? (
                       <div className="px-4 py-3 text-sm text-gray-400">Загрузка...</div>
                     ) : clients.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-gray-400">Нет клиентов в стадии «Оплата»</div>
+                      <div className="px-4 py-3 text-sm text-gray-400">Нет клиентов</div>
                     ) : clients.map(c => (
                       <button
                         key={c.id}
