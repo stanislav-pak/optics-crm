@@ -43,13 +43,13 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
     loadPendingPayments();
   }, [branchId]);
 
-  // Realtime — обновление при изменении service_orders
+  // Realtime — обновление при любом изменении service_orders (INSERT / UPDATE / DELETE)
   useEffect(() => {
     const channel = supabase
       .channel('pending-payments')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'service_orders' },
+        { event: '*', schema: 'public', table: 'service_orders' },
         () => { loadPendingPayments(); }
       )
       .subscribe();

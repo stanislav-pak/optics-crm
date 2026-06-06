@@ -138,6 +138,8 @@ function AppContent() {
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
   const adminViewRef = useRef(adminView);
   useEffect(() => { adminViewRef.current = adminView; }, [adminView]);
+  const shopSubViewRef = useRef(shopSubView);
+  useEffect(() => { shopSubViewRef.current = shopSubView; }, [shopSubView]);
 
   const navigateBackRef = useRef(() => {});
   navigateBackRef.current = () => {
@@ -158,6 +160,11 @@ function AppContent() {
       const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
       if (dy < 80 && dx > 60) {
         const view = mobileViewRef.current;
+        // Если внутри подраздела Магазина — возвращаемся к Продажам, а не на главную
+        if (view === 'shop' && shopSubViewRef.current !== 'sales') {
+          setShopSubView('sales');
+          return;
+        }
         if (view === 'inventory' || view === 'shop' || view === 'workshop' || (view === 'main' && (adminViewRef.current === 'inventory' || adminViewRef.current === 'workshop'))) {
           setMobileView('list');
         } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings', 'watchlist'].includes(adminViewRef.current)) {
@@ -199,7 +206,7 @@ function AppContent() {
 
     const channel = supabase
       .channel('app-pending-payments')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_orders' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders' }, fetchCount)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

@@ -119,7 +119,7 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
         </div>
 
         {/* Фильтры статуса */}
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map(f => {
             const count = f.value !== 'all'
               ? orders.filter(o => o.status === f.value).length
