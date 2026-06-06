@@ -481,5 +481,6 @@ export interface ServiceOrder {
   // relations
   employee?: Employee;
   service?: Service;
+  created_branch?: { name: string };
 }
 

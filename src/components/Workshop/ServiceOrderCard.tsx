@@ -68,6 +68,9 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
           {order.client_phone && (
             <p className="text-xs text-gray-400 mt-0.5">{order.client_phone}</p>
           )}
+          {order.created_branch?.name && order.created_branch.name !== 'Мастерская' && (
+            <p className="text-xs text-gray-400 mt-0.5">📍 {order.created_branch.name}</p>
+          )}
         </div>
         <span className={`flex-shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${config.color}`}>
           {config.label}

@@ -47,7 +47,7 @@ export async function fetchServiceOrders(
 ): Promise<ServiceOrder[]> {
   let query = supabase
     .from('service_orders')
-    .select('*, employee:employees(id, name), service:services(id, name)')
+    .select('*, employee:employees(id, name), service:services(id, name), created_branch:branches!service_orders_created_branch_id_fkey(name)')
     .order('created_at', { ascending: false });
 
   if (branchId !== null) {
@@ -69,7 +69,7 @@ export async function fetchOrdersByCreatedBranch(
 ): Promise<ServiceOrder[]> {
   const { data, error } = await supabase
     .from('service_orders')
-    .select('*, employee:employees(id, name), service:services(id, name)')
+    .select('*, employee:employees(id, name), service:services(id, name), created_branch:branches!service_orders_created_branch_id_fkey(name)')
     .eq('created_branch_id', createdBranchId)
     .order('created_at', { ascending: false });
 
@@ -84,7 +84,7 @@ export async function fetchCompletedOrders(
 ): Promise<ServiceOrder[]> {
   let query = supabase
     .from('service_orders')
-    .select('*, employee:employees(id, name), service:services(id, name)')
+    .select('*, employee:employees(id, name), service:services(id, name), created_branch:branches!service_orders_created_branch_id_fkey(name)')
     .eq('status', 'done')
     .order('created_at', { ascending: false });
 
