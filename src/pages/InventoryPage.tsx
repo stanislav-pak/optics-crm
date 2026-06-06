@@ -255,9 +255,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     catch (e) { console.error('getInventoryStats error:', e); }
 
     try {
-      const p = role === 'admin'
-        ? await getProducts(undefined)
-        : await getProductsFromStock(activeBranchId);
+      // getProducts фильтрует только по is_active, без ограничения по остатку —
+      // новые товары с нулевым остатком отображаются сразу после создания
+      const p = await getProducts(role === 'admin' ? undefined : activeBranchId);
       setProducts(p);
     }
     catch (e) { console.error('getProducts error:', e); }
