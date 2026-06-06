@@ -9,7 +9,7 @@ import {
 import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, Revision, Branch
+  StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
@@ -28,6 +28,7 @@ import ReturnModal from '../components/Inventory/ReturnModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
 import CashSessionCard from '../components/Inventory/CashSessionCard';
 import WorkshopPage from './WorkshopPage';
+import { fetchServiceOrderBySaleId } from '../services/workshop';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
@@ -50,6 +51,10 @@ const STATUS_RU: Record<string, string> = {
 const MV_TYPE_RU: Record<string, string> = {
   in: 'Приход', out: 'Продажа', writeoff: 'Списание',
   transfer: 'Перемещение', revision_adjust: 'Ревизия', return: 'Возврат',
+};
+const WS_STATUS_RU: Record<string, string> = {
+  new: 'Новый', in_progress: 'В работе', ready: 'Готов',
+  confirmed: 'Подтверждён', done: 'Выполнен', cancelled: 'Отменён',
 };
 function xlsxExport(rows: Record<string, unknown>[], filename: string) {
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -141,6 +146,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
@@ -152,6 +158,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+
+  // Загружаем связанный заказ мастерской при открытии детали продажи
+  useEffect(() => {
+    if (!selectedSale) { setSaleWorkshopOrder(null); return; }
+    fetchServiceOrderBySaleId(selectedSale.id)
+      .then(setSaleWorkshopOrder)
+      .catch(() => setSaleWorkshopOrder(null));
+  }, [selectedSale?.id]);
 
   // Запоминаем предыдущий филиал перед переходом в Мастерскую
   const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
@@ -2089,6 +2103,48 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               {selectedSale.notes && (
                 <p className="text-sm text-gray-500 italic border-t border-gray-100 pt-3">{selectedSale.notes}</p>
               )}
+
+              {/* Заказ мастерской */}
+              {saleWorkshopOrder && (() => {
+                const wsTotal = saleWorkshopOrder.service_price + saleWorkshopOrder.parts_price;
+                const remainder = wsTotal - saleWorkshopOrder.prepayment;
+                return (
+                  <div className="border-t border-purple-100 pt-3 space-y-2">
+                    <p className="text-xs font-semibold text-purple-600">🔧 Заказ мастерской</p>
+                    <p className="text-sm font-medium text-gray-900">{saleWorkshopOrder.service_name}</p>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Услуга:</span>
+                      <span>₸{saleWorkshopOrder.service_price.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Запчасти:</span>
+                      <span>₸{saleWorkshopOrder.parts_price.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-semibold text-gray-900">
+                      <span>Итого:</span>
+                      <span>₸{wsTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Предоплата:</span>
+                      <span>₸{saleWorkshopOrder.prepayment.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-medium">
+                      {remainder > 0 ? (
+                        <>
+                          <span className="text-red-500">Остаток:</span>
+                          <span className="text-red-500">₸{remainder.toLocaleString()}</span>
+                        </>
+                      ) : (
+                        <span className="text-green-600">✓ Оплачено</span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Статус:</span>
+                      <span>{WS_STATUS_RU[saleWorkshopOrder.status] ?? saleWorkshopOrder.status}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="px-5 py-4 border-t border-gray-100">
               <button onClick={() => setSelectedSale(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">

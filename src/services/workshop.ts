@@ -214,3 +214,15 @@ export async function updateService(
     .eq('id', id);
   return { error: error?.message ?? null };
 }
+
+// Получить заказ мастерской по sale_id (для отображения в деталях продажи).
+export async function fetchServiceOrderBySaleId(saleId: string): Promise<ServiceOrder | null> {
+  const { data, error } = await supabase
+    .from('service_orders')
+    .select('*')
+    .eq('sale_id', saleId)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data as ServiceOrder | null;
+}
