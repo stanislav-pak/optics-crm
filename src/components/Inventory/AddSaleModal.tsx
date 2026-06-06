@@ -715,7 +715,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                             disabled={creatingWsService || !newWsServiceName.trim()}
                             onClick={async () => {
                               setCreatingWsService(true);
-                              const result = await createService({ name: newWsServiceName.trim(), price: newWsServicePrice, branch_id: WORKSHOP_BRANCH_ID, is_active: true });
+                              const result = await createService({ name: newWsServiceName.trim(), price: newWsServicePrice, branch_id: null, is_active: true });
                               setCreatingWsService(false);
                               if (result.error) { alert('Ошибка: ' + result.error); return; }
                               const created = result.data!;
