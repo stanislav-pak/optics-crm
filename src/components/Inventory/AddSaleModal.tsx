@@ -160,6 +160,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
 
   const total = items.reduce((sum, i) => sum + i.quantity * i.price, 0);
 
+  // Сумма мастерской, которую клиент платит прямо сейчас
+  const workshopAmountNow = addWorkshop
+    ? workshopPaymentType === 'full'
+      ? workshopServicePrice + workshopPartsPrice
+      : workshopPaymentType === 'prepaid'
+        ? workshopPrepayment
+        : 0
+    : 0;
+
+  const totalWithWorkshop = total + workshopAmountNow;
+
   useEffect(() => {
     if (paymentMethod === 'cash') {
       setChange(Math.max(0, parseFloat(paidCash || '0') - total));
@@ -561,7 +572,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between text-base font-bold text-gray-900">
                   <span>Итого к оплате:</span>
-                  <span>₸{total.toLocaleString()}</span>
+                  <span>₸{totalWithWorkshop.toLocaleString()}</span>
                 </div>
 
                 {/* Способ оплаты */}
@@ -860,7 +871,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
             </button>
             <button onClick={handleSubmit} disabled={loading || items.length === 0}
               className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-              {loading ? 'Сохраняем...' : `Оформить продажу (₸${total.toLocaleString()})`}
+              {loading ? 'Сохраняем...' : `Оформить продажу (₸${totalWithWorkshop.toLocaleString()})`}
             </button>
           </div>
         </div>
