@@ -2004,15 +2004,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
 
-      {showSaleReturn && selectedSale && (
-        <ReturnModal
-          sales={[selectedSale]}
-          employeeId={employeeId}
-          onClose={() => setShowSaleReturn(false)}
-          onSuccess={handleSaleDetailReturnSuccess}
-        />
-      )}
-
       {selectedMovementId && (
         <MovementDetailModal
           movementId={selectedMovementId}
@@ -2221,6 +2212,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             </div>
           </div>
         </div>
+      )}
+
+      {showSaleReturn && selectedSale && (
+        <ReturnModal
+          sales={[selectedSale]}
+          employeeId={employeeId}
+          onClose={() => setShowSaleReturn(false)}
+          onSuccess={handleSaleDetailReturnSuccess}
+        />
       )}
 
       {selectedRevision && (
