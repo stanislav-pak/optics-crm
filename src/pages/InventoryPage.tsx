@@ -2075,6 +2075,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 <span>Сотрудник</span>
                 <span>{(selectedSale.employee as any)?.name ?? '—'}</span>
               </div>
+              <div className="flex justify-between py-1">
+                <span className="text-gray-500 text-sm">Филиал</span>
+                <span className="text-sm">{branches.find(b => b.id === selectedSale.branch_id)?.name ?? '—'}</span>
+              </div>
               <div className="flex justify-between text-sm text-gray-500">
                 <span>Статус</span>
                 <StatusBadge status={selectedSale.status} />
