@@ -58,7 +58,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [workshopShowServiceList, setWorkshopShowServiceList] = useState(false);
   const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
   const [workshopPrepayment, setWorkshopPrepayment] = useState(0);
-  const [workshopPrepaymentMethod, setWorkshopPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
+
   const [newWsServiceName, setNewWsServiceName] = useState('');
   const [newWsServicePrice, setNewWsServicePrice] = useState(0);
   const [creatingWsService, setCreatingWsService] = useState(false);
@@ -173,12 +173,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
 
   useEffect(() => {
     if (paymentMethod === 'cash') {
-      setChange(Math.max(0, parseFloat(paidCash || '0') - total));
+      setChange(Math.max(0, parseFloat(paidCash || '0') - totalWithWorkshop));
     } else if (paymentMethod === 'mixed') {
       const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
-      setChange(Math.max(0, paid - total));
+      setChange(Math.max(0, paid - totalWithWorkshop));
     }
-  }, [paidCash, paidKaspi, total, paymentMethod]);
+  }, [paidCash, paidKaspi, totalWithWorkshop, paymentMethod]);
+
+  // Изменение 3: автозаполнение "Получено наличными" при изменении итога
+  useEffect(() => {
+    setPaidCash(totalWithWorkshop > 0 ? String(totalWithWorkshop) : '');
+  }, [totalWithWorkshop]);
 
   const addItem = (product: Product) => {
     const stockQty = (product.stock as any)?.[0]?.quantity ?? 0;
@@ -276,7 +281,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           payment_type: workshopPaymentType,
           notes: workshopNotes.trim() || undefined,
           sale_id: sale.id,
-          prepayment_method: wsPrepayment > 0 ? workshopPrepaymentMethod : undefined,
+          prepayment_method: wsPrepayment > 0 ? (paymentMethod === 'kaspi_qr' ? 'kaspi' : 'cash') : undefined,
           prepayment_paid_at: wsPrepayment > 0 ? new Date().toISOString() : undefined,
         });
       }
@@ -567,63 +572,6 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
               </div>
             </div>
 
-            {/* Итого */}
-            {items.length > 0 && (
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <div className="flex justify-between text-base font-bold text-gray-900">
-                  <span>Итого к оплате:</span>
-                  <span>₸{totalWithWorkshop.toLocaleString()}</span>
-                </div>
-
-                {/* Способ оплаты */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2">Способ оплаты</label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {(['cash', 'kaspi_qr', 'mixed'] as const).map(m => (
-                      <button key={m} onClick={() => setPaymentMethod(m)}
-                        className={`py-2 rounded-lg text-xs font-medium transition-colors ${paymentMethod === m ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-                        {m === 'cash' ? '💵 Наличные' : m === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Поля оплаты */}
-                {paymentMethod === 'cash' && (
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Получено наличными ₸</label>
-                    <input type="number" value={paidCash}
-                      onChange={e => setPaidCash(e.target.value)}
-                      placeholder={total.toString()}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    {change > 0 && (
-                      <p className="text-sm text-green-600 font-medium mt-1">Сдача: ₸{change.toLocaleString()}</p>
-                    )}
-                  </div>
-                )}
-
-                {paymentMethod === 'mixed' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Наличные ₸</label>
-                      <input type="number" value={paidCash}
-                        onChange={e => setPaidCash(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Kaspi QR ₸</label>
-                      <input type="number" value={paidKaspi}
-                        onChange={e => setPaidKaspi(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    </div>
-                    {change > 0 && (
-                      <p className="col-span-2 text-sm text-green-600 font-medium">Сдача: ₸{change.toLocaleString()}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Примечание */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Примечание</label>
@@ -820,37 +768,6 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     </div>
                   )}
 
-                  {/* Способ предоплаты мастерской */}
-                  {workshopPaymentType !== 'on_delivery' && (workshopServicePrice + workshopPartsPrice) > 0 && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-2">Способ предоплаты</label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setWorkshopPrepaymentMethod('cash')}
-                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            workshopPrepaymentMethod === 'cash'
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          💵 Наличные
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setWorkshopPrepaymentMethod('kaspi')}
-                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            workshopPrepaymentMethod === 'kaspi'
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          📱 Kaspi
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Примечание к заказу */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Примечание к заказу</label>
@@ -861,6 +778,63 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                 </div>
               )}
             </div>
+
+            {/* Итого */}
+            {items.length > 0 && (
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between text-base font-bold text-gray-900">
+                  <span>Итого к оплате:</span>
+                  <span>₸{totalWithWorkshop.toLocaleString()}</span>
+                </div>
+
+                {/* Способ оплаты */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-2">Способ оплаты</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(['cash', 'kaspi_qr', 'mixed'] as const).map(m => (
+                      <button key={m} onClick={() => setPaymentMethod(m)}
+                        className={`py-2 rounded-lg text-xs font-medium transition-colors ${paymentMethod === m ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+                        {m === 'cash' ? '💵 Наличные' : m === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Поля оплаты */}
+                {paymentMethod === 'cash' && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Получено наличными ₸</label>
+                    <input type="number" value={paidCash}
+                      onChange={e => setPaidCash(e.target.value)}
+                      placeholder={totalWithWorkshop.toString()}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    {change > 0 && (
+                      <p className="text-sm text-green-600 font-medium mt-1">Сдача: ₸{change.toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+
+                {paymentMethod === 'mixed' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Наличные ₸</label>
+                      <input type="number" value={paidCash}
+                        onChange={e => setPaidCash(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Kaspi QR ₸</label>
+                      <input type="number" value={paidKaspi}
+                        onChange={e => setPaidKaspi(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    </div>
+                    {change > 0 && (
+                      <p className="col-span-2 text-sm text-green-600 font-medium">Сдача: ₸{change.toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer */}
