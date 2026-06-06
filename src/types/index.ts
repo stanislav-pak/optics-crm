@@ -452,19 +452,24 @@ export interface Service {
   created_at: string;
 }
 
-export type ServiceOrderStatus = 'new' | 'in_progress' | 'ready' | 'done' | 'cancelled';
+export type ServiceOrderStatus =
+  'new' | 'in_progress' | 'ready' | 'confirmed' | 'done' | 'cancelled';
 
 export interface ServiceOrder {
   id: string;
   branch_id: string;
+  created_branch_id: string;
   client_name: string;
   client_phone?: string;
   employee_id: string;
   service_id?: string;
   service_name: string;
   status: ServiceOrderStatus;
-  price: number;
+  service_price: number;
+  parts_price: number;
+  price: number;           // устаревшее, оставлено для совместимости
   prepayment: number;
+  payment_type: 'prepaid' | 'full' | 'on_delivery';
   notes?: string;
   estimated_ready_at?: string;
   completed_at?: string;

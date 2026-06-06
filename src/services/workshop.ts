@@ -1,6 +1,26 @@
 import { supabase } from './supabase';
 import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
 
+const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+
+async function notifyBranch(branchId: string, title: string, body: string) {
+  try {
+    const { data: employees } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('branch_id', branchId)
+      .eq('is_active', true);
+
+    if (!employees?.length) return;
+
+    await supabase.functions.invoke('send-push-notification', {
+      body: { employeeIds: employees.map(e => e.id), title, body },
+    });
+  } catch (e) {
+    console.error('notifyBranch error:', e);
+  }
+}
+
 // Если branchId === null — загружаем все активные услуги (branch_id IS NULL + все филиалы).
 // Если branchId — строка — загружаем общие + для конкретного филиала.
 export async function fetchServices(branchId: string | null): Promise<Service[]> {
@@ -19,8 +39,8 @@ export async function fetchServices(branchId: string | null): Promise<Service[]>
   return data as Service[];
 }
 
-// Если branchId === null — возвращаем заказы всех филиалов (для admin-режима "Все").
-// Если branchId — строка — фильтруем по филиалу.
+// Если branchId === null — возвращаем заказы всех филиалов (для admin-режима «Все»).
+// Если branchId — строка — фильтруем по branch_id (мастерская).
 export async function fetchServiceOrders(
   branchId: string | null,
   filters?: { status?: ServiceOrderStatus }
@@ -43,15 +63,76 @@ export async function fetchServiceOrders(
   return data as ServiceOrder[];
 }
 
-export async function createServiceOrder(
-  data: Omit<ServiceOrder, 'id' | 'created_at' | 'updated_at'>
-): Promise<ServiceOrder> {
+// Заказы, созданные конкретным филиалом (для менеджерского вида).
+export async function fetchOrdersByCreatedBranch(
+  createdBranchId: string
+): Promise<ServiceOrder[]> {
+  const { data, error } = await supabase
+    .from('service_orders')
+    .select('*, employee:employees(id, name), service:services(id, name)')
+    .eq('created_branch_id', createdBranchId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data as ServiceOrder[];
+}
+
+// Выполненные заказы для журнала.
+// branchFilter = created_branch_id для фильтрации; null = все.
+export async function fetchCompletedOrders(
+  branchFilter?: string | null
+): Promise<ServiceOrder[]> {
+  let query = supabase
+    .from('service_orders')
+    .select('*, employee:employees(id, name), service:services(id, name)')
+    .eq('status', 'done')
+    .order('created_at', { ascending: false });
+
+  if (branchFilter) {
+    query = query.eq('created_branch_id', branchFilter);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as ServiceOrder[];
+}
+
+export async function createServiceOrder(data: {
+  branch_id: string;
+  created_branch_id: string;
+  client_name: string;
+  client_phone?: string;
+  employee_id: string;
+  service_id?: string;
+  service_name: string;
+  service_price: number;
+  parts_price: number;
+  prepayment: number;
+  payment_type: 'prepaid' | 'full' | 'on_delivery';
+  notes?: string;
+  estimated_ready_at?: string;
+}): Promise<ServiceOrder> {
+  const total = data.service_price + data.parts_price;
+
   const { data: order, error } = await supabase
     .from('service_orders')
-    .insert(data)
+    .insert({
+      ...data,
+      price: total, // backward compat
+      status: 'new',
+    })
     .select()
     .single();
+
   if (error) throw error;
+
+  // Уведомить мастерскую о новом заказе
+  notifyBranch(
+    WORKSHOP_BRANCH_ID,
+    'Новый заказ!',
+    `${data.client_name} — ${data.service_name}`
+  ).catch(console.error);
+
   return order as ServiceOrder;
 }
 
@@ -79,6 +160,24 @@ export async function updateServiceOrderStatus(
     .eq('id', id);
 
   if (error) return { error: error.message };
+
+  // При статусе "готов" — уведомить создавший заказ филиал
+  if (status === 'ready') {
+    const { data: order } = await supabase
+      .from('service_orders')
+      .select('client_name, service_name, created_branch_id')
+      .eq('id', id)
+      .single();
+
+    if (order?.created_branch_id) {
+      notifyBranch(
+        order.created_branch_id,
+        'Заказ готов!',
+        `${order.client_name} — ${order.service_name}`
+      ).catch(console.error);
+    }
+  }
+
   return { error: null };
 }
 

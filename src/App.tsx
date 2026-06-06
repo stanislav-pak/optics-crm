@@ -18,6 +18,7 @@ import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import InventoryPage from './pages/InventoryPage';
 import WorkshopPage from './pages/WorkshopPage';
+import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
@@ -347,13 +348,11 @@ function AppContent() {
                   )}
                 </div>
               </button>
-              {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
               <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Мастерская">
                 <Wrench className="w-3.5 h-3.5" />
               </button>
-              )}
             </>
           )}
 
@@ -479,13 +478,11 @@ function AppContent() {
               <span className="text-[10px] font-medium">Склад</span>
             </div>
           </button>
-          {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
           <button onClick={() => navigateTo('workshop')}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <Wrench className="w-5 h-5" />
             <span className="text-[10px] font-medium">Мастерская</span>
           </button>
-          )}
         </div>
       )}
     </div>
@@ -584,11 +581,19 @@ function AppContent() {
       ) : isManager && !isMobile && !activeChat && mobileView === 'workshop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-            <WorkshopPage
-              branchId={employee?.branch_id}
-              employeeId={employee.id}
-              role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-            />
+            {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' ? (
+              <WorkshopPage
+                branchId={employee.branch_id}
+                employeeId={employee.id}
+                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              />
+            ) : (
+              <WorkshopManagerView
+                branchId={employee?.branch_id ?? ''}
+                employeeId={employee.id}
+                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              />
+            )}
           </div>
         </div>
 
@@ -648,13 +653,25 @@ function AppContent() {
           )}
           {mobileView === 'workshop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <MobilePageHeader title="Мастерская" />
+              <MobilePageHeader title={
+                isAdmin || employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9'
+                  ? 'Мастерская'
+                  : 'Услуги мастерской'
+              } />
               <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-                <WorkshopPage
-                  branchId={isAdmin ? null : employee.branch_id}
-                  employeeId={employee.id}
-                  role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                />
+                {isAdmin || employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' ? (
+                  <WorkshopPage
+                    branchId={isAdmin ? null : employee.branch_id}
+                    employeeId={employee.id}
+                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  />
+                ) : (
+                  <WorkshopManagerView
+                    branchId={employee?.branch_id ?? ''}
+                    employeeId={employee.id}
+                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  />
+                )}
               </div>
             </div>
           )}

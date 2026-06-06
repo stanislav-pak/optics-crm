@@ -4,8 +4,12 @@ import { createServiceOrder, createService } from '../../services/workshop';
 import { formatPhone } from '@/utils/formatters';
 import type { Service } from '../../types';
 
+const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+
+type PaymentType = 'prepaid' | 'full' | 'on_delivery';
+
 interface Props {
-  branchId: string;
+  branchId: string;       // филиал создателя (created_branch_id)
   employeeId: string;
   services: Service[];
   onClose: () => void;
@@ -17,21 +21,31 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   const [clientPhone, setClientPhone] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [serviceName, setServiceName] = useState('');
-  const [price, setPrice] = useState('');
+  const [servicePrice, setServicePrice] = useState('');
+  const [partsPrice, setPartsPrice] = useState('');
   const [prepayment, setPrepayment] = useState('');
+  const [paymentType, setPaymentType] = useState<PaymentType>('on_delivery');
   const [notes, setNotes] = useState('');
   const [estimatedReadyAt, setEstimatedReadyAt] = useState('');
   const [loading, setLoading] = useState(false);
   const [showServiceList, setShowServiceList] = useState(false);
 
-  // Локальная копия списка услуг — пополняется при создании новой
   const [localServices, setLocalServices] = useState<Service[]>(services);
-
-  // Inline-форма создания новой услуги
   const [showCreateService, setShowCreateService] = useState(false);
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState(0);
   const [creatingService, setCreatingService] = useState(false);
+
+  const total = (parseFloat(servicePrice) || 0) + (parseFloat(partsPrice) || 0);
+
+  // Синхронизируем prepayment с типом оплаты
+  useEffect(() => {
+    if (paymentType === 'full') {
+      setPrepayment(String(total));
+    } else if (paymentType === 'on_delivery') {
+      setPrepayment('0');
+    }
+  }, [paymentType, total]);
 
   // Свайп для закрытия
   useEffect(() => {
@@ -56,7 +70,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   function handleServiceSelect(svc: Service) {
     setServiceId(svc.id);
     setServiceName(svc.name);
-    if (svc.price > 0) setPrice(String(svc.price));
+    if (svc.price > 0) setServicePrice(String(svc.price));
     setShowServiceList(false);
   }
 
@@ -75,7 +89,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     const result = await createService({
       name,
       price: newServicePrice,
-      branch_id: branchId ?? null,
+      branch_id: WORKSHOP_BRANCH_ID,
       is_active: true,
     });
     setCreatingService(false);
@@ -90,7 +104,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     setLocalServices(updated);
     setServiceId(created.id);
     setServiceName(created.name);
-    if (created.price > 0) setPrice(String(created.price));
+    if (created.price > 0) setServicePrice(String(created.price));
     setShowCreateService(false);
     setNewServiceName('');
     setNewServicePrice(0);
@@ -102,15 +116,17 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     setLoading(true);
     try {
       await createServiceOrder({
-        branch_id: branchId,
+        branch_id: WORKSHOP_BRANCH_ID,
+        created_branch_id: branchId,
         client_name: clientName.trim(),
         client_phone: clientPhone.trim() || undefined,
         employee_id: employeeId,
         service_id: serviceId || undefined,
         service_name: finalServiceName,
-        status: 'new',
-        price: parseFloat(price) || 0,
+        service_price: parseFloat(servicePrice) || 0,
+        parts_price: parseFloat(partsPrice) || 0,
         prepayment: parseFloat(prepayment) || 0,
+        payment_type: paymentType,
         notes: notes.trim() || undefined,
         estimated_ready_at: estimatedReadyAt || undefined,
       });
@@ -124,6 +140,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
 
   const selectedService = localServices.find(s => s.id === serviceId);
   const canSubmit = !loading && clientName.trim().length > 0 && (serviceName.trim().length > 0 || serviceId.length > 0);
+  const remaining = Math.max(0, total - (parseFloat(prepayment) || 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
@@ -183,7 +200,6 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
 
             {showServiceList && (
               <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
-                {/* Сброс выбора */}
                 <button
                   onMouseDown={e => {
                     e.preventDefault();
@@ -196,7 +212,6 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                   — не выбрано —
                 </button>
 
-                {/* Список активных услуг */}
                 {localServices.filter(s => s.is_active).map(svc => (
                   <button
                     key={svc.id}
@@ -210,7 +225,6 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                   </button>
                 ))}
 
-                {/* Создать новую услугу */}
                 <button
                   onMouseDown={e => {
                     e.preventDefault();
@@ -226,7 +240,6 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
               </div>
             )}
 
-            {/* Inline-форма создания новой услуги */}
             {showCreateService && (
               <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-2">
                 <input
@@ -249,19 +262,13 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">₸</span>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={cancelCreate}
-                    className="flex-1 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
-                  >
+                  <button type="button" onClick={cancelCreate}
+                    className="flex-1 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
                     Отмена
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateService}
+                  <button type="button" onClick={handleCreateService}
                     disabled={creatingService || !newServiceName.trim()}
-                    className="flex-1 py-2 rounded-lg text-sm bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
-                  >
+                    className="flex-1 py-2 rounded-lg text-sm bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
                     {creatingService ? 'Сохранение...' : 'Сохранить'}
                   </button>
                 </div>
@@ -269,20 +276,71 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
             )}
           </div>
 
-          {/* Цена и предоплата */}
+          {/* Стоимость работы и запчастей */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Цена ₸</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость услуги ₸</label>
               <input
                 type="number"
-                value={price}
-                onChange={e => setPrice(e.target.value)}
+                value={servicePrice}
+                onChange={e => setServicePrice(e.target.value)}
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Предоплата ₸</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость запчастей ₸</label>
+              <input
+                type="number"
+                value={partsPrice}
+                onChange={e => setPartsPrice(e.target.value)}
+                placeholder="0"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* Итого */}
+          {total > 0 && (
+            <div className="bg-gray-50 rounded-lg px-4 py-2 flex items-center justify-between">
+              <span className="text-xs text-gray-500">Итого</span>
+              <span className="text-sm font-semibold text-gray-900">₸{total.toLocaleString()}</span>
+            </div>
+          )}
+
+          {/* Тип оплаты */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-2">Тип оплаты</label>
+            <div className="flex gap-2">
+              {([
+                { value: 'prepaid',     label: 'Предоплата' },
+                { value: 'full',        label: '100% сразу' },
+                { value: 'on_delivery', label: 'При получении' },
+              ] as { value: PaymentType; label: string }[]).map(opt => (
+                <label key={opt.value}
+                  className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                    paymentType === opt.value
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <input
+                    type="radio"
+                    name="paymentType"
+                    value={opt.value}
+                    checked={paymentType === opt.value}
+                    onChange={() => setPaymentType(opt.value)}
+                    className="sr-only"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Сумма предоплаты — только при типе "Предоплата" */}
+          {paymentType === 'prepaid' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
               <input
                 type="number"
                 value={prepayment}
@@ -291,14 +349,14 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-          </div>
+          )}
 
-          {/* Итого к оплате */}
-          {(parseFloat(price) > 0) && (
+          {/* Остаток к оплате */}
+          {total > 0 && paymentType !== 'on_delivery' && (
             <div className="bg-purple-50 rounded-lg px-4 py-2.5 flex items-center justify-between">
               <span className="text-xs text-purple-600">Остаток к оплате</span>
               <span className="text-sm font-semibold text-purple-700">
-                ₸{Math.max(0, (parseFloat(price) || 0) - (parseFloat(prepayment) || 0)).toLocaleString()}
+                ₸{remaining.toLocaleString()}
               </span>
             </div>
           )}
@@ -329,17 +387,12 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-          >
+          <button onClick={onClose}
+            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
             Отмена
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="flex-1 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleSubmit} disabled={!canSubmit}
+            className="flex-1 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
             {loading ? 'Создаём...' : 'Создать заказ'}
           </button>
         </div>

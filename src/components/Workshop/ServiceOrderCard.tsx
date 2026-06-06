@@ -1,30 +1,38 @@
 import { useState } from 'react';
 import type { ServiceOrder, ServiceOrderStatus } from '../../types';
 
+const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+
 interface StatusConfig {
   label: string;
   color: string;
-  next?: ServiceOrderStatus;
-  nextLabel?: string;
 }
 
 const STATUS_CONFIG: Record<ServiceOrderStatus, StatusConfig> = {
-  new:        { label: 'Новый',    color: 'bg-gray-100 text-gray-600',      next: 'in_progress', nextLabel: 'Взять в работу' },
-  in_progress:{ label: 'В работе', color: 'bg-blue-100 text-blue-700',      next: 'ready',       nextLabel: 'Отметить готовым' },
-  ready:      { label: 'Готов',    color: 'bg-green-100 text-green-700',    next: 'done',        nextLabel: 'Выдать клиенту' },
-  done:       { label: 'Выдан',    color: 'bg-emerald-100 text-emerald-800' },
-  cancelled:  { label: 'Отменён',  color: 'bg-red-100 text-red-600' },
+  new:         { label: 'Новый',         color: 'bg-gray-100 text-gray-600' },
+  in_progress: { label: 'В работе',      color: 'bg-blue-100 text-blue-700' },
+  ready:       { label: 'Готов',         color: 'bg-green-100 text-green-700' },
+  confirmed:   { label: 'Подтверждено',  color: 'bg-violet-100 text-violet-700' },
+  done:        { label: 'Выдан',         color: 'bg-emerald-100 text-emerald-800' },
+  cancelled:   { label: 'Отменён',       color: 'bg-red-100 text-red-600' },
 };
 
 interface Props {
   order: ServiceOrder;
+  viewerBranchId: string;
   onStatusChange: (id: string, status: ServiceOrderStatus, prepayment?: number) => void;
 }
 
-export default function ServiceOrderCard({ order, onStatusChange }: Props) {
+export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
   const config = STATUS_CONFIG[order.status];
-  const remaining = order.price - order.prepayment;
+
+  const isMaster = viewerBranchId === WORKSHOP_BRANCH_ID;
+
+  // Итого: приоритет — новые поля, иначе старое price
+  const total = (order.service_price || 0) + (order.parts_price || 0) || order.price || 0;
+  const hasBreakdown = (order.service_price || 0) > 0 || (order.parts_price || 0) > 0;
+  const remaining = Math.max(0, total - (order.prepayment || 0));
 
   const estimatedDate = order.estimated_ready_at
     ? new Date(order.estimated_ready_at).toLocaleString('ru-RU', {
@@ -33,6 +41,22 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
     : null;
 
   const employeeName = (order.employee as { name?: string } | undefined)?.name;
+
+  // Кнопка действия мастера
+  const masterNextAction: { label: string; status: ServiceOrderStatus } | null =
+    isMaster
+      ? order.status === 'new'         ? { label: 'Принять в работу', status: 'in_progress' }
+      : order.status === 'in_progress' ? { label: 'Отметить готовым', status: 'ready' }
+      : null
+      : null;
+
+  // Кнопка действия менеджера
+  const managerNextAction: { label: string; status: ServiceOrderStatus; needsConfirm: boolean } | null =
+    !isMaster
+      ? order.status === 'ready'     ? { label: 'Подтвердить получение', status: 'confirmed', needsConfirm: false }
+      : order.status === 'confirmed' ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
+      : null
+      : null;
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 active:bg-gray-50">
@@ -59,27 +83,47 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
       </div>
 
       {/* Строка 3: цены */}
-      <div className="flex items-center justify-between text-xs gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-gray-500">
-            Цена: <span className="font-semibold text-gray-800">₸{order.price.toLocaleString()}</span>
-          </span>
-          {order.status !== 'done' && order.prepayment > 0 && (
-            <span className="text-gray-500">
-              Предоплата: <span className="font-medium text-green-600">₸{order.prepayment.toLocaleString()}</span>
-            </span>
-          )}
-        </div>
-        {order.status !== 'cancelled' && (
+      <div className="space-y-1 text-xs">
+        {hasBreakdown ? (
+          <>
+            <div className="flex justify-between text-gray-500">
+              <span>Услуга</span>
+              <span className="font-medium text-gray-700">₸{(order.service_price || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-gray-500">
+              <span>Запчасти</span>
+              <span className="font-medium text-gray-700">₸{(order.parts_price || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between pt-0.5 border-t border-gray-100">
+              <span className="font-medium text-gray-700">Итого</span>
+              <span className="font-semibold text-gray-900">₸{total.toLocaleString()}</span>
+            </div>
+          </>
+        ) : total > 0 ? (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Итого</span>
+            <span className="font-semibold text-gray-900">₸{total.toLocaleString()}</span>
+          </div>
+        ) : null}
+
+        {order.prepayment > 0 && order.status !== 'done' && (
+          <div className="flex justify-between text-gray-500">
+            <span>Предоплата</span>
+            <span className="font-medium text-green-600">₸{order.prepayment.toLocaleString()}</span>
+          </div>
+        )}
+
+        {total > 0 && order.status !== 'cancelled' && (
           order.status === 'done' ? (
-            <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
+            <div className="text-right">
+              <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
+            </div>
           ) : remaining > 0 ? (
-            <span className="text-red-500 font-medium text-sm">
-              Остаток: ₸{remaining.toLocaleString()}
-            </span>
-          ) : (
-            <span className="text-green-600 font-medium text-sm">✓ Оплачено</span>
-          )
+            <div className="flex justify-between">
+              <span className="text-gray-500">Остаток</span>
+              <span className="font-semibold text-red-500">₸{remaining.toLocaleString()}</span>
+            </div>
+          ) : null
         )}
       </div>
 
@@ -106,29 +150,36 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
               Отменить
             </button>
           )}
-          {config.next && (
+
+          {isMaster && masterNextAction && (
+            <button
+              onClick={() => onStatusChange(order.id, masterNextAction.status)}
+              className="text-[11px] px-2.5 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors font-medium"
+            >
+              {masterNextAction.label}
+            </button>
+          )}
+
+          {!isMaster && managerNextAction && (
             <button
               onClick={() => {
-                if (config.next === 'done') {
+                if (managerNextAction.needsConfirm) {
                   setShowConfirm(true);
                 } else {
-                  onStatusChange(order.id, config.next!);
+                  onStatusChange(order.id, managerNextAction.status);
                 }
               }}
               className="text-[11px] px-2.5 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors font-medium"
             >
-              {config.nextLabel}
+              {managerNextAction.label}
             </button>
           )}
         </div>
       </div>
 
-      {/* Диалог подтверждения выдачи */}
+      {/* Диалог подтверждения выдачи клиенту */}
       {showConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          data-modal="true"
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-modal="true">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
             <h3 className="text-base font-semibold text-gray-900">Подтвердите выдачу</h3>
             <p className="text-sm text-gray-600">
@@ -146,7 +197,7 @@ export default function ServiceOrderCard({ order, onStatusChange }: Props) {
               <button
                 onClick={() => {
                   setShowConfirm(false);
-                  onStatusChange(order.id, 'done', order.price);
+                  onStatusChange(order.id, 'done', total);
                 }}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
               >
