@@ -2217,6 +2217,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       {showSaleReturn && selectedSale && (
         <ReturnModal
           sales={[selectedSale]}
+          initialSaleId={selectedSale.id}
           employeeId={employeeId}
           onClose={() => setShowSaleReturn(false)}
           onSuccess={handleSaleDetailReturnSuccess}

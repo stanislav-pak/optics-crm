@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw, ChevronLeft, Search } from 'lucide-react';
 import { createReturn } from '../../services/inventory';
-import type { Sale } from '../../types';
+import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../../services/workshop';
+import type { Sale, ServiceOrder } from '../../types';
 
 interface Props {
   sales: Sale[];
   employeeId: string;
   onClose: () => void;
   onSuccess: () => void;
+  initialSaleId?: string;
 }
 
-export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: Props) {
+export default function ReturnModal({ sales, employeeId, onClose, onSuccess, initialSaleId }: Props) {
   const [step, setStep] = useState<'select' | 'items'>('select');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleSearch, setSaleSearch] = useState('');
@@ -19,6 +21,10 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
+
+  // Заказ мастерской для выбранной продажи
+  const [workshopOrder, setWorkshopOrder] = useState<ServiceOrder | null>(null);
+  const [returnWorkshop, setReturnWorkshop] = useState(false);
 
   // Свайп вниз — закрыть
   useEffect(() => {
@@ -53,12 +59,37 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
     setQtys(Object.fromEntries((sale.items ?? []).map(i => [i.product_id, 0])));
     setReason('');
     setError(null);
+    setReturnWorkshop(false);
+    setWorkshopOrder(null);
     setStep('items');
   };
 
+  // Авто-выбор если передан initialSaleId — пропускаем экран выбора
+  useEffect(() => {
+    if (!initialSaleId) return;
+    const sale = sales.find(s => s.id === initialSaleId);
+    if (sale) handleSelectSale(sale);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Загружаем заказ мастерской при выборе продажи
+  useEffect(() => {
+    if (!selectedSale) { setWorkshopOrder(null); return; }
+    fetchServiceOrderBySaleId(selectedSale.id).then(order => {
+      // Показываем только незакрытые/неотменённые
+      setWorkshopOrder(order && order.status !== 'cancelled' && order.status !== 'done' ? order : null);
+    }).catch(() => setWorkshopOrder(null));
+  }, [selectedSale?.id]);
+
   const items = selectedSale?.items ?? [];
   const totalReturnQty = Object.values(qtys).reduce((s, q) => s + q, 0);
-  const canSubmit = totalReturnQty > 0 && reason.trim().length > 0 && !loading;
+
+  // Суммы возврата
+  const itemsReturnAmount = items.reduce((sum, i) => sum + (qtys[i.product_id] ?? 0) * i.price, 0);
+  const workshopReturnAmount = returnWorkshop && workshopOrder ? workshopOrder.prepayment : 0;
+  const totalReturnAmount = itemsReturnAmount + workshopReturnAmount;
+
+  const canSubmit = (totalReturnQty > 0 || returnWorkshop) && reason.trim().length > 0 && !loading;
 
   const handleSubmit = async () => {
     if (!canSubmit || !selectedSale || isSubmittingRef.current) return;
@@ -66,10 +97,17 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
     setError(null);
     setLoading(true);
     try {
-      const returnItems = items
-        .map(i => ({ product_id: i.product_id, quantity: qtys[i.product_id] ?? 0 }))
-        .filter(i => i.quantity > 0);
-      await createReturn(selectedSale.id, returnItems, reason.trim(), employeeId);
+      // 1. Возврат товаров (только если выбраны позиции)
+      if (totalReturnQty > 0) {
+        const returnItems = items
+          .map(i => ({ product_id: i.product_id, quantity: qtys[i.product_id] ?? 0 }))
+          .filter(i => i.quantity > 0);
+        await createReturn(selectedSale.id, returnItems, reason.trim(), employeeId);
+      }
+      // 2. Отмена заказа мастерской (если выбрано)
+      if (returnWorkshop && workshopOrder) {
+        await updateServiceOrderStatus(workshopOrder.id, 'cancelled');
+      }
       onSuccess();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -98,7 +136,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
           <div className="flex items-center gap-2">
-            {step === 'items' && (
+            {step === 'items' && !initialSaleId && (
               <button
                 onClick={() => setStep('select')}
                 className="p-1 rounded-full mr-1"
@@ -196,62 +234,107 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
 
             <div className="overflow-y-auto flex-1 px-5 pb-4 space-y-3">
 
-              {/* Позиции */}
-              <div
-                className="rounded-2xl overflow-hidden divide-y"
-                style={{ backgroundColor: '#202c33', borderColor: '#2a3942' }}
-              >
-                {items.map(item => {
-                  const productName = (item.product as any)?.name ?? '—';
-                  const maxQty = item.quantity;
-                  const qty = qtys[item.product_id] ?? 0;
-                  return (
-                    <div key={item.product_id} className="px-4 py-3">
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: '#e9edef' }}>{productName}</p>
-                          <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
-                            В продаже: {maxQty} шт · ₸{item.price.toLocaleString()} / шт
-                          </p>
+              {/* Позиции товаров */}
+              {items.length > 0 && (
+                <div
+                  className="rounded-2xl overflow-hidden divide-y"
+                  style={{ backgroundColor: '#202c33', borderColor: '#2a3942' }}
+                >
+                  {items.map(item => {
+                    const productName = (item.product as any)?.name ?? '—';
+                    const maxQty = item.quantity;
+                    const qty = qtys[item.product_id] ?? 0;
+                    return (
+                      <div key={item.product_id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: '#e9edef' }}>{productName}</p>
+                            <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                              В продаже: {maxQty} шт · ₸{item.price.toLocaleString()} / шт
+                            </p>
+                          </div>
                         </div>
+                        <div
+                          className="flex items-center rounded-xl overflow-hidden"
+                          style={{ backgroundColor: '#111b21', border: '1px solid #2a3942' }}
+                        >
+                          <button
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.max(0, (prev[item.product_id] ?? 0) - 1) })); }}
+                            className="px-4 py-2 text-lg font-medium flex-shrink-0"
+                            style={{ color: '#8696a0' }}
+                          >−</button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={qty === 0 ? '' : String(qty)}
+                            onChange={e => {
+                              const val = parseInt(e.target.value.replace(/[^0-9]/g, '') || '0');
+                              setQtys(prev => ({ ...prev, [item.product_id]: Math.min(val, maxQty) }));
+                            }}
+                            className="flex-1 text-center text-sm py-2 bg-transparent border-0 focus:outline-none"
+                            style={{ color: qty > 0 ? '#60a5fa' : '#8696a0' }}
+                          />
+                          <button
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.min((prev[item.product_id] ?? 0) + 1, maxQty) })); }}
+                            className="px-4 py-2 text-lg font-medium flex-shrink-0"
+                            style={{ color: '#8696a0' }}
+                          >+</button>
+                        </div>
+                        {qty > 0 && (
+                          <p className="text-xs mt-1.5" style={{ color: '#60a5fa' }}>
+                            Вернуть: {qty} шт · ₸{(qty * item.price).toLocaleString()}
+                          </p>
+                        )}
                       </div>
-                      <div
-                        className="flex items-center rounded-xl overflow-hidden"
-                        style={{ backgroundColor: '#111b21', border: '1px solid #2a3942' }}
-                      >
-                        <button
-                          type="button"
-                          onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.max(0, (prev[item.product_id] ?? 0) - 1) })); }}
-                          className="px-4 py-2 text-lg font-medium flex-shrink-0"
-                          style={{ color: '#8696a0' }}
-                        >−</button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={qty === 0 ? '' : String(qty)}
-                          onChange={e => {
-                            const val = parseInt(e.target.value.replace(/[^0-9]/g, '') || '0');
-                            setQtys(prev => ({ ...prev, [item.product_id]: Math.min(val, maxQty) }));
-                          }}
-                          className="flex-1 text-center text-sm py-2 bg-transparent border-0 focus:outline-none"
-                          style={{ color: qty > 0 ? '#60a5fa' : '#8696a0' }}
-                        />
-                        <button
-                          type="button"
-                          onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.min((prev[item.product_id] ?? 0) + 1, maxQty) })); }}
-                          className="px-4 py-2 text-lg font-medium flex-shrink-0"
-                          style={{ color: '#8696a0' }}
-                        >+</button>
-                      </div>
-                      {qty > 0 && (
-                        <p className="text-xs mt-1.5" style={{ color: '#60a5fa' }}>
-                          Вернуть: {qty} шт · ₸{(qty * item.price).toLocaleString()}
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Секция мастерской */}
+              {workshopOrder && (
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: '#8696a0' }}>
+                    Услуги мастерской
+                  </p>
+                  <div
+                    className="rounded-2xl px-4 py-3"
+                    style={{ backgroundColor: '#202c33', border: '1px solid #2a3942' }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium" style={{ color: '#e9edef' }}>
+                          {workshopOrder.service_name}
                         </p>
-                      )}
+                        <p className="text-xs mt-1" style={{ color: '#8696a0' }}>
+                          Услуга: ₸{workshopOrder.service_price.toLocaleString()}
+                          {workshopOrder.parts_price > 0 && ` · Запчасти: ₸${workshopOrder.parts_price.toLocaleString()}`}
+                        </p>
+                        {workshopOrder.prepayment > 0 && (
+                          <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                            Предоплата: ₸{workshopOrder.prepayment.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <label className="flex items-center gap-2 flex-shrink-0 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={returnWorkshop}
+                          onChange={e => setReturnWorkshop(e.target.checked)}
+                          className="w-4 h-4 rounded accent-blue-500"
+                        />
+                      </label>
                     </div>
-                  );
-                })}
-              </div>
+                    {returnWorkshop && workshopOrder.prepayment > 0 && (
+                      <p className="text-xs mt-2 font-medium" style={{ color: '#60a5fa' }}>
+                        Вернуть предоплату: ₸{workshopOrder.prepayment.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Причина */}
               <div>
@@ -269,15 +352,36 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
               </div>
 
               {/* Итог */}
-              {totalReturnQty > 0 && reason.trim().length > 0 && (
+              {(totalReturnQty > 0 || returnWorkshop) && reason.trim().length > 0 && (
                 <div
-                  className="rounded-2xl px-4 py-3 text-sm"
+                  className="rounded-2xl px-4 py-3 text-sm space-y-1"
                   style={{ backgroundColor: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)' }}
                 >
-                  <p style={{ color: '#60a5fa' }}>
-                    Вернуть <strong>{totalReturnQty} шт</strong> на склад
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>Причина: {reason.trim()}</p>
+                  {itemsReturnAmount > 0 && (
+                    <div className="flex justify-between" style={{ color: '#8696a0' }}>
+                      <span>Возврат товаров ({totalReturnQty} шт):</span>
+                      <span>₸{itemsReturnAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {returnWorkshop && workshopReturnAmount > 0 && (
+                    <div className="flex justify-between" style={{ color: '#8696a0' }}>
+                      <span>Возврат предоплаты мастерской:</span>
+                      <span>₸{workshopReturnAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {(itemsReturnAmount > 0 || workshopReturnAmount > 0) && (
+                    <div
+                      className="flex justify-between font-semibold pt-1"
+                      style={{ color: '#60a5fa', borderTop: '1px solid rgba(96,165,250,0.2)' }}
+                    >
+                      <span>Итого к возврату:</span>
+                      <span>₸{totalReturnAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {returnWorkshop && !workshopReturnAmount && (
+                    <p style={{ color: '#60a5fa' }}>Заказ мастерской будет отменён</p>
+                  )}
+                  <p className="text-xs" style={{ color: '#8696a0' }}>Причина: {reason.trim()}</p>
                 </div>
               )}
 
@@ -298,11 +402,11 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess }: P
               style={{ borderTop: '1px solid #2a3942' }}
             >
               <button
-                onClick={() => setStep('select')}
+                onClick={initialSaleId ? onClose : () => setStep('select')}
                 className="flex-1 py-2.5 rounded-xl text-sm"
                 style={{ border: '1px solid #374045', color: '#8696a0' }}
               >
-                Назад
+                {initialSaleId ? 'Отмена' : 'Назад'}
               </button>
               <button
                 onClick={handleSubmit}
