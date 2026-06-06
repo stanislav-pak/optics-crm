@@ -149,6 +149,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showSaleReturn, setShowSaleReturn] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -405,6 +406,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       loadStats(),    // статистика и счётчики
       loadStock(),    // остатки + алерты низкого остатка
     ]);
+  }
+
+  async function handleSaleDetailReturnSuccess() {
+    setShowSaleReturn(false);
+    setSelectedSale(null);
+    setSalesRefreshKey(k => k + 1);
+    await Promise.all([loadSales(), loadStats(), loadStock()]);
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -1996,6 +2004,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
 
+      {showSaleReturn && selectedSale && (
+        <ReturnModal
+          sales={[selectedSale]}
+          employeeId={employeeId}
+          onClose={() => setShowSaleReturn(false)}
+          onSuccess={handleSaleDetailReturnSuccess}
+        />
+      )}
+
       {selectedMovementId && (
         <MovementDetailModal
           movementId={selectedMovementId}
@@ -2189,8 +2206,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 );
               })()}
             </div>
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button onClick={() => setSelectedSale(null)} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
+              {(selectedSale.status === 'paid' || selectedSale.status === 'partially_refunded') && (
+                <button
+                  onClick={() => setShowSaleReturn(true)}
+                  className="px-4 py-2 border border-red-300 text-red-500 rounded-lg text-sm font-medium"
+                >
+                  Возврат
+                </button>
+              )}
+              <button onClick={() => setSelectedSale(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                 Закрыть
               </button>
             </div>
