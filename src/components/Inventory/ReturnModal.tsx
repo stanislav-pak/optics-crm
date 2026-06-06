@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw, ChevronLeft, Search } from 'lucide-react';
 import { createReturn } from '../../services/inventory';
-import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../../services/workshop';
+import { supabase } from '../../services/supabase';
 import type { Sale, ServiceOrder } from '../../types';
 
 interface Props {
@@ -72,13 +72,19 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Загружаем заказ мастерской при выборе продажи
+  // Загружаем заказ мастерской при выборе продажи (показываем всё кроме cancelled)
   useEffect(() => {
     if (!selectedSale) { setWorkshopOrder(null); return; }
-    fetchServiceOrderBySaleId(selectedSale.id).then(order => {
-      // Показываем только незакрытые/неотменённые
-      setWorkshopOrder(order && order.status !== 'cancelled' && order.status !== 'done' ? order : null);
-    }).catch(() => setWorkshopOrder(null));
+    supabase
+      .from('service_orders')
+      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at')
+      .eq('sale_id', selectedSale.id)
+      .not('status', 'in', '("cancelled")')
+      .maybeSingle()
+      .then(({ data }) => {
+        setWorkshopOrder(data ? (data as unknown as ServiceOrder) : null);
+      })
+      .catch(() => setWorkshopOrder(null));
   }, [selectedSale?.id]);
 
   const items = selectedSale?.items ?? [];
@@ -86,7 +92,10 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
 
   // Суммы возврата
   const itemsReturnAmount = items.reduce((sum, i) => sum + (qtys[i.product_id] ?? 0) * i.price, 0);
-  const workshopReturnAmount = returnWorkshop && workshopOrder ? workshopOrder.prepayment : 0;
+  const workshopPrepayment = workshopOrder
+    ? (workshopOrder.original_prepayment || workshopOrder.prepayment || 0)
+    : 0;
+  const workshopReturnAmount = returnWorkshop && workshopOrder ? workshopPrepayment : 0;
   const totalReturnAmount = itemsReturnAmount + workshopReturnAmount;
 
   const canSubmit = (totalReturnQty > 0 || returnWorkshop) && reason.trim().length > 0 && !loading;
@@ -104,9 +113,18 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
           .filter(i => i.quantity > 0);
         await createReturn(selectedSale.id, returnItems, reason.trim(), employeeId);
       }
-      // 2. Отмена заказа мастерской (если выбрано)
+      // 2. Отмена заказа мастерской + возврат предоплаты (если выбрано)
       if (returnWorkshop && workshopOrder) {
-        await updateServiceOrderStatus(workshopOrder.id, 'cancelled');
+        await supabase
+          .from('service_orders')
+          .update({
+            status: 'cancelled',
+            previous_status: workshopOrder.status,
+            prepayment_refunded_at: new Date().toISOString(),
+            prepayment_refund_method: 'cash',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', workshopOrder.id);
       }
       onSuccess();
     } catch (e: unknown) {
@@ -294,7 +312,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               )}
 
               {/* Секция мастерской */}
-              {workshopOrder && (
+              {workshopOrder && workshopPrepayment > 0 && (
                 <div>
                   <p className="text-xs font-medium mb-2" style={{ color: '#8696a0' }}>
                     Услуги мастерской
@@ -306,17 +324,15 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium" style={{ color: '#e9edef' }}>
-                          {workshopOrder.service_name}
+                          🔧 {workshopOrder.service_name}
                         </p>
                         <p className="text-xs mt-1" style={{ color: '#8696a0' }}>
                           Услуга: ₸{workshopOrder.service_price.toLocaleString()}
                           {workshopOrder.parts_price > 0 && ` · Запчасти: ₸${workshopOrder.parts_price.toLocaleString()}`}
                         </p>
-                        {workshopOrder.prepayment > 0 && (
-                          <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
-                            Предоплата: ₸{workshopOrder.prepayment.toLocaleString()}
-                          </p>
-                        )}
+                        <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                          Предоплата клиента: ₸{workshopPrepayment.toLocaleString()}
+                        </p>
                       </div>
                       <label className="flex items-center gap-2 flex-shrink-0 cursor-pointer">
                         <input
@@ -327,9 +343,9 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                         />
                       </label>
                     </div>
-                    {returnWorkshop && workshopOrder.prepayment > 0 && (
+                    {returnWorkshop && (
                       <p className="text-xs mt-2 font-medium" style={{ color: '#60a5fa' }}>
-                        Вернуть предоплату: ₸{workshopOrder.prepayment.toLocaleString()}
+                        Вернуть предоплату: ₸{workshopPrepayment.toLocaleString()}
                       </p>
                     )}
                   </div>
@@ -377,9 +393,6 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                       <span>Итого к возврату:</span>
                       <span>₸{totalReturnAmount.toLocaleString()}</span>
                     </div>
-                  )}
-                  {returnWorkshop && !workshopReturnAmount && (
-                    <p style={{ color: '#60a5fa' }}>Заказ мастерской будет отменён</p>
                   )}
                   <p className="text-xs" style={{ color: '#8696a0' }}>Причина: {reason.trim()}</p>
                 </div>
