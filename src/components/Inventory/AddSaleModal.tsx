@@ -57,6 +57,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [workshopPaymentType, setWorkshopPaymentType] = useState<WorkshopPaymentType>('on_delivery');
   const [workshopShowServiceList, setWorkshopShowServiceList] = useState(false);
   const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
+  const [workshopPrepayment, setWorkshopPrepayment] = useState(0);
   const [newWsServiceName, setNewWsServiceName] = useState('');
   const [newWsServicePrice, setNewWsServicePrice] = useState(0);
   const [creatingWsService, setCreatingWsService] = useState(false);
@@ -282,7 +283,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           service_name: workshopServiceName.trim(),
           service_price: workshopServicePrice,
           parts_price: workshopPartsPrice,
-          prepayment: workshopPaymentType === 'full' ? wsTotal : 0,
+          prepayment: workshopPaymentType === 'full'
+            ? wsTotal
+            : workshopPaymentType === 'prepaid'
+              ? workshopPrepayment
+              : 0,
           payment_type: workshopPaymentType,
           notes: workshopNotes.trim() || undefined,
           sale_id: sale.id,
@@ -806,6 +811,27 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                       ))}
                     </div>
                   </div>
+
+                  {/* Поле предоплаты */}
+                  {workshopPaymentType === 'prepaid' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
+                      <input
+                        type="number"
+                        value={workshopPrepayment || ''}
+                        onChange={e => setWorkshopPrepayment(Number(e.target.value))}
+                        placeholder="0"
+                        min={0}
+                        max={workshopServicePrice + workshopPartsPrice}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      {(workshopServicePrice + workshopPartsPrice) > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Остаток: ₸{Math.max(0, workshopServicePrice + workshopPartsPrice - workshopPrepayment).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Примечание к заказу */}
                   <div>
