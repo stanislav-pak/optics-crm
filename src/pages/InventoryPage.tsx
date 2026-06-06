@@ -2175,6 +2175,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       <span>Статус:</span>
                       <span>{WS_STATUS_RU[saleWorkshopOrder.status] ?? saleWorkshopOrder.status}</span>
                     </div>
+                    {saleWorkshopOrder.created_branch?.name && (
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Филиал:</span>
+                        <span>{saleWorkshopOrder.created_branch.name}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

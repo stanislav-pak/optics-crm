@@ -175,7 +175,7 @@ export async function updateServiceOrderStatus(
         notifyBranch(
           orderData.created_branch_id,
           'Заказ готов!',
-          `${orderData.client_name} — ${orderData.service_name}`
+          `${orderData.client_name} — ${orderData.service_name} готов к выдаче`
         ).catch(console.error);
       }
 
@@ -219,7 +219,7 @@ export async function updateService(
 export async function fetchServiceOrderBySaleId(saleId: string): Promise<ServiceOrder | null> {
   const { data, error } = await supabase
     .from('service_orders')
-    .select('*')
+    .select('*, created_branch:branches!service_orders_created_branch_id_fkey(name)')
     .eq('sale_id', saleId)
     .limit(1)
     .maybeSingle();
