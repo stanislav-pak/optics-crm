@@ -7,15 +7,20 @@ async function notifyBranch(branchId: string, title: string, body: string) {
   try {
     const { data: employees } = await supabase
       .from('employees')
-      .select('user_id')
+      .select('id')
       .eq('branch_id', branchId)
       .eq('is_active', true);
 
     if (!employees?.length) return;
 
-    await supabase.functions.invoke('send-push-notification', {
-      body: { employeeIds: employees.map(e => e.user_id), title, body },
-    });
+    // send-push принимает одного сотрудника за раз
+    await Promise.all(
+      employees.map(emp =>
+        supabase.functions.invoke('send-push', {
+          body: { employee_id: emp.id, title, body },
+        })
+      )
+    );
   } catch (e) {
     console.error('notifyBranch error:', e);
   }
