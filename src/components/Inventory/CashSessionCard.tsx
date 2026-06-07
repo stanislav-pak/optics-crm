@@ -99,7 +99,38 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .filter(o => o.prepayment_refund_method === 'kaspi')
       .reduce((sum, o) => sum + (o.original_prepayment ?? 0), 0);
 
-    const systemCash = salesCash + prepaidCash + cashWorkshop - refundCash;
+    // Возвраты товаров за сегодня (stock_movements type=return, price=null → берём из sale_items)
+    const { data: returnMovements } = await supabase
+      .from('stock_movements')
+      .select('quantity, product_id, reference_id')
+      .eq('type', 'return')
+      .eq('branch_id', branchId)
+      .gte('created_at', todayStr + 'T00:00:00')
+      .lte('created_at', todayStr + 'T23:59:59');
+
+    let saleReturnsCash = 0;
+    const returnSaleIds = [
+      ...new Set((returnMovements ?? []).map(r => r.reference_id).filter(Boolean)),
+    ];
+    if (returnSaleIds.length > 0) {
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('sale_id, product_id, price')
+        .in('sale_id', returnSaleIds);
+
+      const priceMap: Record<string, Record<string, number>> = {};
+      (saleItems ?? []).forEach((si: { sale_id: string; product_id: string; price: number }) => {
+        if (!priceMap[si.sale_id]) priceMap[si.sale_id] = {};
+        priceMap[si.sale_id][si.product_id] = si.price;
+      });
+
+      saleReturnsCash = (returnMovements ?? []).reduce((sum, r) => {
+        const unitPrice = priceMap[r.reference_id ?? '']?.[r.product_id] ?? 0;
+        return sum + r.quantity * unitPrice;
+      }, 0);
+    }
+
+    const systemCash = salesCash + prepaidCash + cashWorkshop - refundCash - saleReturnsCash;
     const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop - refundKaspi;
     const systemTotal = systemCash + systemKaspi;
 
