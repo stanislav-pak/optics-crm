@@ -443,6 +443,14 @@ export async function createReturn(
     const alreadyReturned = (prevReturns ?? []).reduce((sum, r) => sum + r.quantity, 0);
     returnedMap[item.product_id] = alreadyReturned;
 
+    console.log('Validation:', {
+      previousReturns: alreadyReturned,
+      currentReturn: item.quantity,
+      saleQuantity: saleItem.quantity,
+      saleId,
+      product_id: item.product_id,
+    });
+
     if (alreadyReturned + item.quantity > saleItem.quantity) {
       throw new Error('Суммарный возврат превышает количество в продаже');
     }

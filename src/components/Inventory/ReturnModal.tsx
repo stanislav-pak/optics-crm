@@ -26,6 +26,9 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
   const [workshopOrder, setWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [returnWorkshop, setReturnWorkshop] = useState(false);
 
+  // Уже возвращённые количества по товарам: product_id → кол-во
+  const [returnedQtys, setReturnedQtys] = useState<Record<string, number>>({});
+
   // Только продажи, которые можно вернуть
   const returnableSales = sales.filter(s => s.status === 'paid' || s.status === 'partially_refunded');
   const filteredSales = saleSearch
@@ -40,11 +43,31 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
   const handleSelectSale = (sale: Sale) => {
     setSelectedSale(sale);
     setQtys(Object.fromEntries((sale.items ?? []).map(i => [i.product_id, 0])));
+    setReturnedQtys({});
     setReason('');
     setError(null);
     setReturnWorkshop(false);
     setWorkshopOrder(null);
     setStep('items');
+
+    // Загружаем уже возвращённые количества по этой продаже
+    const productIds = (sale.items ?? []).map(i => i.product_id);
+    if (productIds.length > 0) {
+      supabase
+        .from('stock_movements')
+        .select('product_id, quantity')
+        .eq('reference_id', sale.id)
+        .eq('type', 'return')
+        .in('product_id', productIds)
+        .then(({ data }) => {
+          const map: Record<string, number> = {};
+          (data ?? []).forEach(r => {
+            map[r.product_id] = (map[r.product_id] ?? 0) + r.quantity;
+          });
+          setReturnedQtys(map);
+        })
+        .catch(() => setReturnedQtys({}));
+    }
   };
 
   // Авто-выбор если передан initialSaleId — пропускаем экран выбора
@@ -268,7 +291,8 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                 >
                   {items.map(item => {
                     const productName = (item.product as any)?.name ?? '—';
-                    const maxQty = item.quantity;
+                    const alreadyReturned = returnedQtys[item.product_id] ?? 0;
+                    const maxQty = Math.max(0, item.quantity - alreadyReturned);
                     const qty = qtys[item.product_id] ?? 0;
                     return (
                       <div key={item.product_id} className="px-4 py-3">
@@ -276,7 +300,10 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate" style={{ color: '#e9edef' }}>{productName}</p>
                             <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
-                              В продаже: {maxQty} шт · ₸{item.price.toLocaleString()} / шт
+                              Доступно к возврату: {maxQty} шт · ₸{item.price.toLocaleString()} / шт
+                              {alreadyReturned > 0 && (
+                                <span style={{ color: '#f59e0b' }}> (уже возвращено: {alreadyReturned})</span>
+                              )}
                             </p>
                           </div>
                         </div>
