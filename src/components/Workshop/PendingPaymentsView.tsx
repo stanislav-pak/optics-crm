@@ -209,12 +209,15 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
                     </span>
                   </div>
 
-                  {/* Услуга */}
-                  <p className="text-sm font-medium text-gray-800">{order.service_name}</p>
+                  {/* Вид услуги + Цены */}
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-500">Вид услуги</span>
+                    <span>{order.service_name}</span>
+                  </div>
 
                   {/* Цены */}
                   <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
-                    <span>Услуга: <span className="text-gray-700 font-medium">₸{order.service_price.toLocaleString()}</span></span>
+                    <span>Работа: <span className="text-gray-700 font-medium">₸{order.service_price.toLocaleString()}</span></span>
                     <span>Запчасти: <span className="text-gray-700 font-medium">₸{order.parts_price.toLocaleString()}</span></span>
                   </div>
 
@@ -266,8 +269,11 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
                     </span>
                   </div>
 
-                  {/* Услуга */}
-                  <p className="text-sm font-medium text-gray-800">{order.service_name}</p>
+                  {/* Вид услуги */}
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-500">Вид услуги</span>
+                    <span>{order.service_name}</span>
+                  </div>
 
                   {/* Предоплата к возврату */}
                   <div className="flex justify-between text-sm font-semibold">
