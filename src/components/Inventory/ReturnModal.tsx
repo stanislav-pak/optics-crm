@@ -77,7 +77,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
     if (!selectedSale) { setWorkshopOrder(null); return; }
     supabase
       .from('service_orders')
-      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at')
+      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at, remaining_paid_at')
       .eq('sale_id', selectedSale.id)
       .not('status', 'in', '("cancelled")')
       .maybeSingle()
@@ -92,10 +92,24 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
 
   // Суммы возврата
   const itemsReturnAmount = items.reduce((sum, i) => sum + (qtys[i.product_id] ?? 0) * i.price, 0);
-  const workshopPrepayment = workshopOrder
-    ? (workshopOrder.original_prepayment || workshopOrder.prepayment || 0)
+
+  // Секция мастерской показывается если была любая оплата
+  const workshopHasPayment = workshopOrder && (
+    (workshopOrder.original_prepayment ?? 0) > 0 ||
+    (workshopOrder.prepayment ?? 0) > 0 ||
+    workshopOrder.remaining_paid_at != null
+  );
+
+  // Сколько клиент реально заплатил за мастерскую
+  const workshopPaidAmount = workshopOrder
+    ? (workshopOrder.original_prepayment ?? workshopOrder.prepayment ?? 0) +
+      (workshopOrder.remaining_paid_at
+        ? (workshopOrder.service_price + workshopOrder.parts_price) -
+          (workshopOrder.original_prepayment ?? workshopOrder.prepayment ?? 0)
+        : 0)
     : 0;
-  const workshopReturnAmount = returnWorkshop && workshopOrder ? workshopPrepayment : 0;
+
+  const workshopReturnAmount = returnWorkshop && workshopOrder ? workshopPaidAmount : 0;
   const totalReturnAmount = itemsReturnAmount + workshopReturnAmount;
 
   const canSubmit = (totalReturnQty > 0 || returnWorkshop) && reason.trim().length > 0 && !loading;
@@ -312,7 +326,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               )}
 
               {/* Секция мастерской */}
-              {workshopOrder && workshopPrepayment > 0 && (
+              {workshopHasPayment && workshopOrder && workshopOrder.status !== 'cancelled' && (
                 <div>
                   <p className="text-xs font-medium mb-2" style={{ color: '#8696a0' }}>
                     Услуги мастерской
@@ -331,7 +345,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                           {workshopOrder.parts_price > 0 && ` · Запчасти: ₸${workshopOrder.parts_price.toLocaleString()}`}
                         </p>
                         <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
-                          Предоплата клиента: ₸{workshopPrepayment.toLocaleString()}
+                          Оплачено клиентом: ₸{workshopPaidAmount.toLocaleString()}
                         </p>
                       </div>
                       <label className="flex items-center gap-2 flex-shrink-0 cursor-pointer">
@@ -341,11 +355,14 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                           onChange={e => setReturnWorkshop(e.target.checked)}
                           className="w-4 h-4 rounded accent-blue-500"
                         />
+                        <span className="text-xs" style={{ color: '#e9edef' }}>
+                          Вернуть ₸{workshopPaidAmount.toLocaleString()}
+                        </span>
                       </label>
                     </div>
                     {returnWorkshop && (
                       <p className="text-xs mt-2 font-medium" style={{ color: '#60a5fa' }}>
-                        Вернуть предоплату: ₸{workshopPrepayment.toLocaleString()}
+                        Вернуть клиенту: ₸{workshopPaidAmount.toLocaleString()}
                       </p>
                     )}
                   </div>
