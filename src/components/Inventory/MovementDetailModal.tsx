@@ -26,6 +26,7 @@ const TYPE_META: Record<string, { label: string; color: string; bg: string; icon
 interface Props {
   movementId: string;
   onClose: () => void;
+  onPaymentAccepted?: () => void;
 }
 
 export default function MovementDetailModal({ movementId, onClose }: Props) {

@@ -167,6 +167,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [completedTransfers, setCompletedTransfers] = useState<any[]>([]);
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
+  const [cashKey, setCashKey] = useState(0);
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
 
@@ -237,6 +238,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   useEffect(() => {
     loadAll();
   }, [activeBranchId]);
+
+  // Обновить CashSessionCard после приёма доплаты мастерской
+  useEffect(() => {
+    const handler = () => setCashKey(k => k + 1);
+    window.addEventListener('workshop-payment-accepted', handler);
+    return () => window.removeEventListener('workshop-payment-accepted', handler);
+  }, []);
 
   // Принудительный рефреш ревизий при переключении на вкладку
   useEffect(() => {
@@ -470,6 +478,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       remaining_payment_method: payMethod,
     } : prev);
     setShowPayDialog(false);
+    window.dispatchEvent(new CustomEvent('workshop-payment-accepted'));
+    await loadSales();
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -1145,7 +1155,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
         {storefront && (
           <div className="mb-4">
-            <CashSessionCard branchId={activeBranchId} employeeId={employeeId} />
+            <CashSessionCard key={cashKey} branchId={activeBranchId} employeeId={employeeId} />
           </div>
         )}
 
@@ -2088,6 +2098,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <MovementDetailModal
           movementId={selectedMovementId}
           onClose={() => setSelectedMovementId(null)}
+          onPaymentAccepted={() => { loadSales(); }}
         />
       )}
 
