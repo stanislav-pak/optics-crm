@@ -169,21 +169,21 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
         : 0
     : 0;
 
-  const totalWithWorkshop = total + workshopAmountNow;
+  const totalNow = total + workshopAmountNow;
 
   useEffect(() => {
     if (paymentMethod === 'cash') {
-      setChange(Math.max(0, parseFloat(paidCash || '0') - totalWithWorkshop));
+      setChange(Math.max(0, parseFloat(paidCash || '0') - totalNow));
     } else if (paymentMethod === 'mixed') {
       const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
-      setChange(Math.max(0, paid - totalWithWorkshop));
+      setChange(Math.max(0, paid - totalNow));
     }
-  }, [paidCash, paidKaspi, totalWithWorkshop, paymentMethod]);
+  }, [paidCash, paidKaspi, totalNow, paymentMethod]);
 
   // Изменение 3: автозаполнение "Получено наличными" при изменении итога
   useEffect(() => {
-    setPaidCash(totalWithWorkshop > 0 ? String(totalWithWorkshop) : '');
-  }, [totalWithWorkshop]);
+    setPaidCash(totalNow > 0 ? String(totalNow) : '');
+  }, [totalNow]);
 
   const addItem = (product: Product) => {
     const stockQty = (product.stock as any)?.[0]?.quantity ?? 0;
@@ -782,9 +782,43 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
             {/* Итого */}
             {items.length > 0 && (
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <div className="flex justify-between text-base font-bold text-gray-900">
-                  <span>Итого к оплате:</span>
-                  <span>₸{totalWithWorkshop.toLocaleString()}</span>
+                {/* Детализация суммы */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Товары:</span>
+                    <span>₸{total.toLocaleString()}</span>
+                  </div>
+
+                  {addWorkshop && (workshopServicePrice + workshopPartsPrice) > 0 && (
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>
+                        {'Мастерская'}
+                        {workshopPaymentType === 'on_delivery' ? ' (при получении)' :
+                         workshopPaymentType === 'prepaid' ? ' (предоплата)' : ''}
+                        {':'}
+                      </span>
+                      <span>
+                        {workshopPaymentType === 'on_delivery'
+                          ? `+₸${(workshopServicePrice + workshopPartsPrice).toLocaleString()} позже`
+                          : workshopPaymentType === 'prepaid'
+                            ? `+₸${workshopPrepayment.toLocaleString()} сейчас`
+                            : `+₸${(workshopServicePrice + workshopPartsPrice).toLocaleString()}`
+                        }
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between font-bold text-base text-gray-900 border-t border-gray-200 pt-2">
+                    <span>Итого к оплате сейчас:</span>
+                    <span>₸{totalNow.toLocaleString()}</span>
+                  </div>
+
+                  {addWorkshop && workshopPaymentType === 'on_delivery' && (workshopServicePrice + workshopPartsPrice) > 0 && (
+                    <div className="flex justify-between text-xs text-orange-500">
+                      <span>Общая сумма заказа:</span>
+                      <span>₸{(total + workshopServicePrice + workshopPartsPrice).toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Способ оплаты */}
@@ -806,7 +840,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     <label className="block text-xs text-gray-500 mb-1">Получено наличными ₸</label>
                     <input type="number" value={paidCash}
                       onChange={e => setPaidCash(e.target.value)}
-                      placeholder={totalWithWorkshop.toString()}
+                      placeholder={totalNow.toString()}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                     {change > 0 && (
                       <p className="text-sm text-green-600 font-medium mt-1">Сдача: ₸{change.toLocaleString()}</p>
@@ -845,7 +879,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
             </button>
             <button onClick={handleSubmit} disabled={loading || items.length === 0}
               className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-              {loading ? 'Сохраняем...' : `Оформить продажу (₸${totalWithWorkshop.toLocaleString()})`}
+              {loading ? 'Сохраняем...' : `Оформить продажу (₸${totalNow.toLocaleString()})`}
             </button>
           </div>
         </div>
