@@ -813,6 +813,14 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     <span>₸{totalNow.toLocaleString()}</span>
                   </div>
 
+                  {addWorkshop && workshopPaymentType === 'prepaid' &&
+                   (workshopServicePrice + workshopPartsPrice - workshopPrepayment) > 0 && (
+                    <div className="flex justify-between text-sm text-orange-500">
+                      <span>Остаток по мастерской (при получении):</span>
+                      <span>₸{(workshopServicePrice + workshopPartsPrice - workshopPrepayment).toLocaleString()}</span>
+                    </div>
+                  )}
+
                   {addWorkshop && workshopPaymentType === 'on_delivery' && (workshopServicePrice + workshopPartsPrice) > 0 && (
                     <div className="flex justify-between text-xs text-orange-500">
                       <span>Общая сумма заказа:</span>
