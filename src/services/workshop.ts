@@ -7,14 +7,14 @@ async function notifyBranch(branchId: string, title: string, body: string) {
   try {
     const { data: employees } = await supabase
       .from('employees')
-      .select('id')
+      .select('user_id')
       .eq('branch_id', branchId)
       .eq('is_active', true);
 
     if (!employees?.length) return;
 
     await supabase.functions.invoke('send-push-notification', {
-      body: { employeeIds: employees.map(e => e.id), title, body },
+      body: { employeeIds: employees.map(e => e.user_id), title, body },
     });
   } catch (e) {
     console.error('notifyBranch error:', e);
@@ -39,28 +39,37 @@ export async function fetchServices(branchId: string | null): Promise<Service[]>
   return data as Service[];
 }
 
-// Если branchId === null — возвращаем заказы всех филиалов (для admin-режима «Все»).
-// Если branchId — строка — фильтруем по branch_id (мастерская).
+// fetchServiceOrders с учётом роли:
+// - admin: видит все заказы (опционально фильтр по branchId)
+// - мастер (employeeBranchId === WORKSHOP_BRANCH_ID): видит заказы по branch_id = мастерская
+// - менеджер: видит заказы по created_branch_id = его филиал
 export async function fetchServiceOrders(
   branchId: string | null,
+  role: string,
+  employeeBranchId: string,
   filters?: { status?: ServiceOrderStatus }
-): Promise<ServiceOrder[]> {
+): Promise<{ data: ServiceOrder[] | null; error: string | null }> {
   let query = supabase
     .from('service_orders')
     .select('*, employee:employees(id, name), service:services(id, name), created_branch:branches!service_orders_created_branch_id_fkey(name)')
     .order('created_at', { ascending: false });
 
-  if (branchId !== null) {
-    query = query.eq('branch_id', branchId);
+  if (role === 'admin') {
+    // Admin видит все, опционально фильтр по выбранному филиалу
+    if (branchId) query = query.eq('branch_id', branchId);
+  } else if (employeeBranchId === WORKSHOP_BRANCH_ID) {
+    // Мастер видит все заказы направленные в мастерскую
+    query = query.eq('branch_id', WORKSHOP_BRANCH_ID);
+  } else {
+    // Менеджер видит заказы созданные его филиалом
+    query = query.eq('created_branch_id', employeeBranchId);
   }
 
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
+  if (filters?.status) query = query.eq('status', filters.status);
 
   const { data, error } = await query;
-  if (error) throw error;
-  return data as ServiceOrder[];
+  if (error) return { data: null, error: error.message };
+  return { data: data as ServiceOrder[], error: null };
 }
 
 // Заказы, созданные конкретным филиалом (для менеджерского вида).

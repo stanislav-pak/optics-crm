@@ -101,11 +101,12 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
   async function loadAll() {
     setLoading(true);
     try {
-      const [ord, svc] = await Promise.all([
-        fetchServiceOrders(selectedBranch),
+      const [result, svc] = await Promise.all([
+        fetchServiceOrders(selectedBranch, role, branchId ?? ''),
         fetchServices(selectedBranch),
       ]);
-      setOrders(ord);
+      if (result.error) console.error('fetchServiceOrders:', result.error);
+      setOrders(result.data ?? []);
       setServices(svc);
     } catch (e) {
       console.error('WorkshopPage loadAll:', e);
@@ -115,8 +116,9 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
 
   async function loadOrders() {
     try {
-      const ord = await fetchServiceOrders(selectedBranch);
-      setOrders(ord);
+      const result = await fetchServiceOrders(selectedBranch, role, branchId ?? '');
+      if (result.error) console.error('fetchServiceOrders:', result.error);
+      setOrders(result.data ?? []);
     } catch (e) {
       console.error('WorkshopPage loadOrders:', e);
     }

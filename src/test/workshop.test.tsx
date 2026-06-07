@@ -146,7 +146,7 @@ describe('workshop сервисные функции', () => {
     const fromSpy = vi.mocked(supabase.from)
 
     // from() вызывается синхронно до первого await внутри функции
-    fetchServiceOrders('branch-1').catch(() => {})
+    fetchServiceOrders('branch-1', 'manager', 'branch-1').catch(() => {})
 
     expect(fromSpy).toHaveBeenCalledWith('service_orders')
   })
@@ -181,7 +181,7 @@ describe('workshop сервисные функции', () => {
     const { supabase } = await import('@/services/supabase')
     const fromSpy = vi.mocked(supabase.from)
 
-    fetchServiceOrders(null).catch(() => {})
+    fetchServiceOrders(null, 'admin', '').catch(() => {})
 
     expect(fromSpy).toHaveBeenCalledWith('service_orders')
 
