@@ -248,9 +248,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Обновить данные после возврата продажи
   useEffect(() => {
-    const handler = () => setCashKey(k => k + 1);
+    const handler = () => {
+      setCashKey(k => k + 1);  // перемонтировать CashSessionCard
+      loadSales();              // обновить список продаж и движений
+      loadStats();              // обновить статистику
+    };
     window.addEventListener('sale-returned', handler);
     return () => window.removeEventListener('sale-returned', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Принудительный рефреш ревизий при переключении на вкладку
