@@ -28,7 +28,7 @@ import ReturnModal from '../components/Inventory/ReturnModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
 import CashSessionCard from '../components/Inventory/CashSessionCard';
 import WorkshopPage from './WorkshopPage';
-import { fetchServiceOrderBySaleId } from '../services/workshop';
+import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
@@ -155,6 +155,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
+  const [showPayDialog, setShowPayDialog] = useState(false);
+  const [payMethod, setPayMethod] = useState<'cash' | 'kaspi'>('cash');
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showSaleReturn, setShowSaleReturn] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
@@ -450,6 +452,24 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     setSelectedSale(null);
     setSalesRefreshKey(k => k + 1);
     await Promise.all([loadSales(), loadStats(), loadStock()]);
+  }
+
+  async function handleAcceptPayment() {
+    if (!saleWorkshopOrder) return;
+    const total = saleWorkshopOrder.service_price + saleWorkshopOrder.parts_price;
+    await updateServiceOrderStatus(saleWorkshopOrder.id, 'done');
+    await supabase.from('service_orders').update({
+      remaining_payment_method: payMethod,
+      remaining_paid_at: new Date().toISOString(),
+    }).eq('id', saleWorkshopOrder.id);
+    setSaleWorkshopOrder(prev => prev ? {
+      ...prev,
+      status: 'done',
+      prepayment: total,
+      remaining_paid_at: new Date().toISOString(),
+      remaining_payment_method: payMethod,
+    } : prev);
+    setShowPayDialog(false);
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -2267,6 +2287,58 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         </>
                       )}
                     </div>
+
+                    {/* Кнопка принять доплату */}
+                    {order.status !== 'done' &&
+                     order.status !== 'cancelled' &&
+                     wsRemainder > 0 && (
+                      <>
+                        {showPayDialog && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
+                            <p className="text-sm font-medium mb-2">
+                              Принять доплату ₸{wsRemainder.toLocaleString()} от {order.client_name}?
+                            </p>
+                            <div className="flex gap-2 mb-2">
+                              <button
+                                onClick={() => setPayMethod('cash')}
+                                className={`flex-1 py-1.5 rounded-lg text-sm border ${payMethod === 'cash' ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
+                              >
+                                Наличные
+                              </button>
+                              <button
+                                onClick={() => setPayMethod('kaspi')}
+                                className={`flex-1 py-1.5 rounded-lg text-sm border ${payMethod === 'kaspi' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
+                              >
+                                Kaspi
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setShowPayDialog(false)}
+                                className="flex-1 py-1.5 rounded-lg text-sm border border-gray-300"
+                              >
+                                Отмена
+                              </button>
+                              <button
+                                onClick={handleAcceptPayment}
+                                className="flex-1 py-1.5 rounded-lg text-sm bg-green-600 text-white"
+                              >
+                                Подтвердить
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {!showPayDialog && (
+                          <button
+                            onClick={() => setShowPayDialog(true)}
+                            className="w-full mt-2 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium"
+                          >
+                            Принять доплату ₸{wsRemainder.toLocaleString()}
+                          </button>
+                        )}
+                      </>
+                    )}
+
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Статус:</span>
                       <span>{WS_STATUS_RU[order.status] ?? order.status}</span>
