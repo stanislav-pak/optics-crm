@@ -26,23 +26,6 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
   const [workshopOrder, setWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [returnWorkshop, setReturnWorkshop] = useState(false);
 
-  // Свайп вниз — закрыть
-  useEffect(() => {
-    const start = { x: 0, y: 0 };
-    const onStart = (e: TouchEvent) => { start.x = e.touches[0].clientX; start.y = e.touches[0].clientY; };
-    const onEnd = (e: TouchEvent) => {
-      const dy = e.changedTouches[0].clientY - start.y;
-      const dx = Math.abs(e.changedTouches[0].clientX - start.x);
-      if (dy > 80 && dx < 60) onClose();
-    };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend', onEnd, { passive: true });
-    return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchend', onEnd);
-    };
-  }, [onClose]);
-
   // Только продажи, которые можно вернуть
   const returnableSales = sales.filter(s => s.status === 'paid' || s.status === 'partially_refunded');
   const filteredSales = saleSearch
@@ -203,7 +186,11 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-5 pb-5">
+            <div
+              className="overflow-y-auto flex-1 px-5 pb-5"
+              onTouchStart={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
+            >
               {filteredSales.length === 0 ? (
                 <div className="text-center py-10 text-sm" style={{ color: '#8696a0' }}>
                   {returnableSales.length === 0 ? 'Нет продаж для возврата' : 'Ничего не найдено'}
@@ -264,7 +251,11 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               </p>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-5 pb-4 space-y-3">
+            <div
+              className="overflow-y-auto flex-1 px-5 pb-4 space-y-3"
+              onTouchStart={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
+            >
 
               {/* Позиции товаров */}
               {items.length > 0 && (
