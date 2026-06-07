@@ -246,6 +246,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     return () => window.removeEventListener('workshop-payment-accepted', handler);
   }, []);
 
+  // Обновить данные после возврата продажи
+  useEffect(() => {
+    const handler = () => setCashKey(k => k + 1);
+    window.addEventListener('sale-returned', handler);
+    return () => window.removeEventListener('sale-returned', handler);
+  }, []);
+
   // Принудительный рефреш ревизий при переключении на вкладку
   useEffect(() => {
     if (tab === 'revisions') {

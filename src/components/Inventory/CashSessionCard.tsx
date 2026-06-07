@@ -142,6 +142,13 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
   useEffect(() => { loadSession(); }, [branchId]);
 
+  // Обновить кассу после возврата продажи
+  useEffect(() => {
+    const refresh = () => loadSession();
+    window.addEventListener('sale-returned', refresh);
+    return () => window.removeEventListener('sale-returned', refresh);
+  }, []);
+
   const handleClose = async () => {
     if (!session || !actualCash) return;
     setSaving(true);

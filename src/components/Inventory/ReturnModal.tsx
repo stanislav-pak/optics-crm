@@ -123,6 +123,9 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
           })
           .eq('id', workshopOrder.id);
       }
+      window.dispatchEvent(new CustomEvent('sale-returned', {
+        detail: { saleId: selectedSale?.id },
+      }));
       onSuccess();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
