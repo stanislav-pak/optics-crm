@@ -424,24 +424,25 @@ export async function createReturn(
   if (saleErr || !sale) throw new Error('Продажа не найдена');
   if (!sale.branch_id) throw new Error('Филиал продажи не определён');
 
-  // 2. Считаем уже возвращённые количества
-  const { data: existingReturns } = await supabase
-    .from('stock_movements')
-    .select('product_id, quantity')
-    .eq('reference_id', saleId)
-    .eq('type', 'return');
-
+  // 2-3. Валидируем: не превышает ли сумма возвратов кол-во в продаже.
+  // Фильтруем previousReturns по обоим: sale_id (reference_id) И product_id.
   const returnedMap: Record<string, number> = {};
-  (existingReturns ?? []).forEach(r => {
-    returnedMap[r.product_id] = (returnedMap[r.product_id] ?? 0) + r.quantity;
-  });
-
-  // 3. Валидируем: не превышает ли сумма возвратов кол-во в продаже
   for (const item of returnItems) {
     const saleItem = (sale.items as { product_id: string; quantity: number }[])
       ?.find(i => i.product_id === item.product_id);
     if (!saleItem) throw new Error('Товар не найден в продаже');
-    const alreadyReturned = returnedMap[item.product_id] ?? 0;
+
+    // Считаем возвраты только по ЭТОЙ продаже И ЭТОМУ товару
+    const { data: prevReturns } = await supabase
+      .from('stock_movements')
+      .select('quantity')
+      .eq('reference_id', saleId)
+      .eq('product_id', item.product_id)
+      .eq('type', 'return');
+
+    const alreadyReturned = (prevReturns ?? []).reduce((sum, r) => sum + r.quantity, 0);
+    returnedMap[item.product_id] = alreadyReturned;
+
     if (alreadyReturned + item.quantity > saleItem.quantity) {
       throw new Error('Суммарный возврат превышает количество в продаже');
     }
