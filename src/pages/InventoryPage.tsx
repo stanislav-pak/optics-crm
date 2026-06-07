@@ -2231,7 +2231,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </div>
                     {order.service_price > 0 && (
                       <div className="flex justify-between text-sm text-gray-500">
-                        <span>Услуга:</span>
+                        <span>Работа:</span>
                         <span>₸{order.service_price.toLocaleString()}</span>
                       </div>
                     )}
