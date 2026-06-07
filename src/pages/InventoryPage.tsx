@@ -2225,7 +2225,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 return (
                   <div className="border-t border-purple-100 pt-3 space-y-2">
                     <p className="text-xs font-semibold text-purple-600">🔧 Заказ мастерской</p>
-                    <p className="text-sm font-medium text-gray-900">{order.service_name}</p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Вид услуги</span>
+                      <span>{order.service_name}</span>
+                    </div>
                     {order.service_price > 0 && (
                       <div className="flex justify-between text-sm text-gray-500">
                         <span>Услуга:</span>
