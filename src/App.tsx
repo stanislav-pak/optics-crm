@@ -560,6 +560,13 @@ function AppContent() {
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
           </button>
+          <button
+            onClick={() => { setAdminView('expenses'); setActiveChat(null); setMobileView('main'); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('expenses') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
+            title="Расходы"
+          >
+            <Receipt className="w-5 h-5" />
+          </button>
           {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
           <button
             onClick={() => { setAdminView('workshop'); setActiveChat(null); setMobileView('workshop'); }}
