@@ -780,14 +780,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
             </div>
 
             {/* Итого */}
-            {items.length > 0 && (
+            {(items.length > 0 || addWorkshop) && (
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 {/* Детализация суммы */}
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Товары:</span>
-                    <span>₸{total.toLocaleString()}</span>
-                  </div>
+                  {items.length > 0 && (
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Товары:</span>
+                      <span>₸{total.toLocaleString()}</span>
+                    </div>
+                  )}
 
                   {addWorkshop && (workshopServicePrice + workshopPartsPrice) > 0 && (
                     <div className="flex justify-between text-sm text-gray-500">

@@ -1439,6 +1439,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                 <span className="text-orange-500">₸{wsRemainder.toLocaleString()}</span>
                               </div>
                             ) : null}
+                            {(wo.status === 'confirmed' ||
+                              (wo.status === 'ready' && wo.payment_type === 'full')) && (
+                              <div className="text-xs text-amber-500 font-medium">🟡 Готов к выдаче</div>
+                            )}
                           </div>
                         );
                       })()}
