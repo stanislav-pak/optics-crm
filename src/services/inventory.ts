@@ -514,12 +514,11 @@ export async function createReturn(
 
   const newStatus: SaleStatus = isFullRefund ? 'refunded' : 'partially_refunded';
 
-  const { error: statusErr } = await supabase
-    .from('sales')
-    .update({ status: newStatus })
-    .eq('id', saleId);
-
-  if (statusErr) throw statusErr;
+  const { error: statusError } = await supabase.rpc('update_sale_status_for_return', {
+    p_sale_id: saleId,
+    p_new_status: newStatus,
+  });
+  if (statusError) throw new Error(`Не удалось обновить статус продажи: ${statusError.message}`);
 
   // 7. Пересчитываем остатки
   await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });
