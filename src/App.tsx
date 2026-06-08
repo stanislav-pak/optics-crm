@@ -53,7 +53,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
-  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
@@ -503,11 +503,6 @@ function AppContent() {
                   )}
                 </div>
               </button>
-              <button onClick={() => { setMobileView('expenses'); setActiveChat(null); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('expenses') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
-                title="Расходы">
-                <Receipt className="w-3.5 h-3.5" />
-              </button>
               {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
                   className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
@@ -792,6 +787,15 @@ function AppContent() {
             >
               Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
             </button>
+            <button
+              onClick={() => setShopSubView('expenses')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <Receipt size={12} />
+              Расходы
+            </button>
           </div>
           {shopSubView === 'sales' ? (
             <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
@@ -811,10 +815,16 @@ function AppContent() {
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
             />
-          ) : (
+          ) : shopSubView === 'payments' ? (
             <PendingPaymentsView
               branchId={employee?.branch_id ?? ''}
               onCountChange={setPendingPaymentsCount}
+            />
+          ) : (
+            <ExpensesTab
+              branchId={employee?.branch_id ?? ''}
+              employeeId={employee.id}
+              isAdmin={false}
             />
           )}
         </div>
@@ -834,17 +844,6 @@ function AppContent() {
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
               />
             )}
-          </div>
-        </div>
-
-      ) : isManager && !isMobile && !activeChat && mobileView === 'expenses' ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="h-full overflow-y-auto">
-            <ExpensesTab
-              branchId={employee?.branch_id ?? ''}
-              employeeId={employee.id}
-              isAdmin={false}
-            />
           </div>
         </div>
 
@@ -918,6 +917,15 @@ function AppContent() {
                 >
                   Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
                 </button>
+                <button
+                  onClick={() => setShopSubView('expenses')}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  <Receipt size={12} />
+                  Расходы
+                </button>
               </div>
               {shopSubView === 'sales' ? (
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
@@ -937,10 +945,16 @@ function AppContent() {
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 />
-              ) : (
+              ) : shopSubView === 'payments' ? (
                 <PendingPaymentsView
                   branchId={employee?.branch_id ?? ''}
                   onCountChange={setPendingPaymentsCount}
+                />
+              ) : (
+                <ExpensesTab
+                  branchId={employee?.branch_id ?? ''}
+                  employeeId={employee.id}
+                  isAdmin={false}
                 />
               )}
             </div>
