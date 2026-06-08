@@ -205,6 +205,34 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     return () => { supabase.removeChannel(channel); };
   }, [saleWorkshopOrder?.id]);
 
+  // Realtime: обновляем status/payment_type в saleWorkshopOrders (карточки продаж)
+  useEffect(() => {
+    const channel = supabase
+      .channel('inventory-sale-workshop-orders')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'service_orders' },
+        (payload) => {
+          const upd = payload.new as { sale_id?: string; status?: string; payment_type?: string | null };
+          if (!upd.sale_id) return;
+          setSaleWorkshopOrders(prev => {
+            if (!prev[upd.sale_id!]) return prev;
+            return {
+              ...prev,
+              [upd.sale_id!]: {
+                ...prev[upd.sale_id!],
+                status: upd.status ?? prev[upd.sale_id!].status,
+                payment_type: upd.payment_type ?? prev[upd.sale_id!].payment_type,
+              },
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Запоминаем предыдущий филиал перед переходом в Мастерскую
   const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
   useEffect(() => {
