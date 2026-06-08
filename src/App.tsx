@@ -384,7 +384,7 @@ function AppContent() {
             <p className="text-xs text-[#8696a0] truncate">{ROLE_LABELS[employee.role] ?? employee.role}</p>
           </div>
         </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-1 max-w-[88px]">
           {isAdmin && !isMobile && (
             <>
               <button onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
