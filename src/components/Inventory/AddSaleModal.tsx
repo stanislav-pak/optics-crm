@@ -524,8 +524,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Цена продажи ₸</label>
-                    <input type="number" value={item.price || ''}
-                      onChange={e => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                    <input type="text" inputMode="numeric" value={item.price === 0 ? '' : String(item.price)}
+                      onChange={e => updateItem(idx, 'price', parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
+                      onFocus={(e) => {
+                        const input = e.target;
+                        setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                          e.preventDefault();
+                          updateItem(idx, 'price', 0);
+                        }
+                      }}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                   </div>
                 </div>
@@ -666,10 +676,20 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                           autoFocus
                         />
                         <input
-                          type="number"
-                          min="0"
-                          value={newWsServicePrice || ''}
-                          onChange={e => setNewWsServicePrice(parseFloat(e.target.value) || 0)}
+                          type="text"
+                          inputMode="numeric"
+                          value={newWsServicePrice === 0 ? '' : String(newWsServicePrice)}
+                          onChange={e => setNewWsServicePrice(parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
+                          onFocus={(e) => {
+                            const input = e.target;
+                            setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                              e.preventDefault();
+                              setNewWsServicePrice(0);
+                            }
+                          }}
                           placeholder="Цена (₸)"
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
@@ -707,15 +727,37 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость услуги ₸</label>
-                      <input type="number" value={workshopServicePrice || ''}
-                        onChange={e => setWorkshopServicePrice(parseFloat(e.target.value) || 0)}
+                      <input type="text" inputMode="numeric"
+                        value={workshopServicePrice === 0 ? '' : String(workshopServicePrice)}
+                        onChange={e => setWorkshopServicePrice(parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
+                        onFocus={(e) => {
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                            e.preventDefault();
+                            setWorkshopServicePrice(0);
+                          }
+                        }}
                         placeholder="0"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Стоимость запчастей ₸</label>
-                      <input type="number" value={workshopPartsPrice || ''}
-                        onChange={e => setWorkshopPartsPrice(parseFloat(e.target.value) || 0)}
+                      <input type="text" inputMode="numeric"
+                        value={workshopPartsPrice === 0 ? '' : String(workshopPartsPrice)}
+                        onChange={e => setWorkshopPartsPrice(parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
+                        onFocus={(e) => {
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                            e.preventDefault();
+                            setWorkshopPartsPrice(0);
+                          }
+                        }}
                         placeholder="0"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
                     </div>
@@ -761,12 +803,21 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
                       <input
-                        type="number"
-                        value={workshopPrepayment || ''}
-                        onChange={e => setWorkshopPrepayment(Number(e.target.value))}
+                        type="text"
+                        inputMode="numeric"
+                        value={workshopPrepayment === 0 ? '' : String(workshopPrepayment)}
+                        onChange={e => setWorkshopPrepayment(Number(e.target.value.replace(/[^0-9]/g, '')))}
+                        onFocus={(e) => {
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                            e.preventDefault();
+                            setWorkshopPrepayment(0);
+                          }
+                        }}
                         placeholder="0"
-                        min={0}
-                        max={workshopServicePrice + workshopPartsPrice}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
                       {(workshopServicePrice + workshopPartsPrice) > 0 && (
@@ -857,8 +908,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                 {paymentMethod === 'cash' && (
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Получено наличными ₸</label>
-                    <input type="number" value={paidCash}
-                      onChange={e => setPaidCash(e.target.value)}
+                    <input type="text" inputMode="numeric" value={paidCash}
+                      onChange={e => setPaidCash(e.target.value.replace(/[^0-9.]/g, ''))}
+                      onFocus={(e) => {
+                        const input = e.target;
+                        setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                          e.preventDefault();
+                          setPaidCash('');
+                        }
+                      }}
                       placeholder={totalNow.toString()}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                     {change > 0 && (
@@ -871,14 +932,34 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Наличные ₸</label>
-                      <input type="number" value={paidCash}
-                        onChange={e => setPaidCash(e.target.value)}
+                      <input type="text" inputMode="numeric" value={paidCash}
+                        onChange={e => setPaidCash(e.target.value.replace(/[^0-9.]/g, ''))}
+                        onFocus={(e) => {
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                            e.preventDefault();
+                            setPaidCash('');
+                          }
+                        }}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Kaspi QR ₸</label>
-                      <input type="number" value={paidKaspi}
-                        onChange={e => setPaidKaspi(e.target.value)}
+                      <input type="text" inputMode="numeric" value={paidKaspi}
+                        onChange={e => setPaidKaspi(e.target.value.replace(/[^0-9.]/g, ''))}
+                        onFocus={(e) => {
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                            e.preventDefault();
+                            setPaidKaspi('');
+                          }
+                        }}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                     </div>
                     {change > 0 && (
