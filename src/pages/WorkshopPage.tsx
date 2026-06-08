@@ -34,7 +34,6 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'new',         label: 'Новые' },
   { value: 'in_progress', label: 'В работе' },
   { value: 'ready',       label: 'Готовы' },
-  { value: 'confirmed',   label: 'Подтверждено' },
   { value: 'done',        label: 'Выданы' },
   { value: 'cancelled',   label: 'Отменены' },
 ];
