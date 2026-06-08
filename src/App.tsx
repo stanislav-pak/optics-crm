@@ -780,7 +780,6 @@ function AppContent() {
                 defaultTab="sales"
                 storefront={true}
                 onWorkshopBadgeChange={setWorkshopBadgeCount}
-                onBadgeChange={setInventoryWorkshopBadge}
                 resetBadgeKey={workshopBadgeResetKey}
               />
             </div>
@@ -896,7 +895,6 @@ function AppContent() {
                     defaultTab="sales"
                     storefront={true}
                     onWorkshopBadgeChange={setWorkshopBadgeCount}
-                    onBadgeChange={setInventoryWorkshopBadge}
                     resetBadgeKey={workshopBadgeResetKey}
                   />
                 </div>
