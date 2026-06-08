@@ -40,7 +40,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .from('sales')
       .select('total, paid_cash, paid_kaspi')
       .eq('branch_id', branchId)
-      .eq('status', 'paid')
+      .in('status', ['paid', 'refunded', 'partially_refunded'])
       .gte('created_at', todayStr + 'T00:00:00')
       .lte('created_at', todayStr + 'T23:59:59');
 
