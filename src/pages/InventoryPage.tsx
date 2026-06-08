@@ -2401,7 +2401,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             onClick={() => setShowPayDialog(true)}
                             className="w-full mt-2 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium"
                           >
-                            Принять доплату ₸{wsRemainder.toLocaleString()}
+                            {order.payment_type === 'on_delivery'
+                              ? `Принять оплату ₸${wsRemainder.toLocaleString()}`
+                              : `Принять доплату ₸${wsRemainder.toLocaleString()}`}
                           </button>
                         )}
                       </>
