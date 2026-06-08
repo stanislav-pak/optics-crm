@@ -5,22 +5,9 @@ const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
 
 async function notifyBranch(branchId: string, title: string, body: string) {
   try {
-    const { data: employees } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('branch_id', branchId)
-      .eq('is_active', true);
-
-    if (!employees?.length) return;
-
-    // send-push принимает одного сотрудника за раз
-    await Promise.all(
-      employees.map(emp =>
-        supabase.functions.invoke('send-push', {
-          body: { employee_id: emp.id, title, body },
-        })
-      )
-    );
+    await supabase.functions.invoke('send-push', {
+      body: { branch_id: branchId, title, body },
+    });
   } catch (e) {
     console.error('notifyBranch error:', e);
   }
