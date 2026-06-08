@@ -58,7 +58,7 @@ function AppContent() {
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
-  const [touchStartX, setTouchStartX] = useState(0);
+  const touchStartXRef = useRef(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
@@ -716,9 +716,9 @@ function AppContent() {
       ) : isAdmin && adminView === 'expenses' ? (
         <div
           className="flex-1 flex flex-col overflow-hidden"
-          onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
+          onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX; }}
           onTouchEnd={(e) => {
-            if (e.changedTouches[0].clientX - touchStartX > 80) {
+            if (e.changedTouches[0].clientX - touchStartXRef.current > 80) {
               setMobileView('list');
             }
           }}
