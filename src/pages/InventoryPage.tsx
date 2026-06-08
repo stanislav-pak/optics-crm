@@ -42,6 +42,7 @@ interface InventoryPageProps {
   onWorkshopBadgeChange?: (count: number) => void;
   onBadgeChange?: (count: number) => void;
   resetBadgeKey?: number;
+  readyMode?: boolean;
 }
 
 // ---- Excel export helpers ----
@@ -77,7 +78,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey, readyMode }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const lastMovementsViewedRef = useRef<string>(
     localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
@@ -336,6 +337,18 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (resetBadgeKey === undefined) return;
     setReadOrderIds(new Set());
   }, [resetBadgeKey]);
+
+  // readyMode: пометить все готовые заказы прочитанными при входе на вкладку
+  useEffect(() => {
+    if (!readyMode) return;
+    sales.forEach(s => {
+      const wo = saleWorkshopOrders[s.id];
+      if (wo && (wo.status === 'ready' || wo.status === 'confirmed') && !readWorkshopOrderIds.has(s.id)) {
+        markWorkshopOrderAsRead(s.id);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyMode, sales.length]);
 
   // Принудительный рефреш ревизий при переключении на вкладку
   useEffect(() => {
@@ -1270,25 +1283,32 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             ? saleEmployees.filter(e => e.branch_id === saleFilterBranch)
             : saleEmployees;
 
-          const filteredSales = sales.filter(s => {
-            if (saleFilterBranch && (s as any).branch_id !== saleFilterBranch) return false;
-            if (saleFilterEmployee && (s.employee as any)?.id !== saleFilterEmployee) return false;
-            const sDate = s.created_at.split('T')[0];
-            if (saleFilterDate === 'today' && sDate !== todayStr) return false;
-            if (saleFilterDate === 'week' && new Date(sDate) < weekAgo) return false;
-            if (saleFilterDate === 'month' && new Date(sDate) < monthAgo) return false;
-            if (saleFilterDate === 'custom') {
-              if (saleFilterDateFrom && sDate < saleFilterDateFrom) return false;
-              if (saleFilterDateTo && sDate > saleFilterDateTo) return false;
-            }
-            if (saleProductSearch) {
-              const found = s.items?.some(i =>
-                (i.product as any)?.name?.toLowerCase().includes(saleProductSearch.toLowerCase())
-              );
-              if (!found) return false;
-            }
-            return true;
-          });
+          const filteredSales = readyMode
+            ? sales
+                .filter(s => {
+                  const wo = saleWorkshopOrders[s.id];
+                  return wo && (wo.status === 'ready' || wo.status === 'confirmed');
+                })
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            : sales.filter(s => {
+                if (saleFilterBranch && (s as any).branch_id !== saleFilterBranch) return false;
+                if (saleFilterEmployee && (s.employee as any)?.id !== saleFilterEmployee) return false;
+                const sDate = s.created_at.split('T')[0];
+                if (saleFilterDate === 'today' && sDate !== todayStr) return false;
+                if (saleFilterDate === 'week' && new Date(sDate) < weekAgo) return false;
+                if (saleFilterDate === 'month' && new Date(sDate) < monthAgo) return false;
+                if (saleFilterDate === 'custom') {
+                  if (saleFilterDateFrom && sDate < saleFilterDateFrom) return false;
+                  if (saleFilterDateTo && sDate > saleFilterDateTo) return false;
+                }
+                if (saleProductSearch) {
+                  const found = s.items?.some(i =>
+                    (i.product as any)?.name?.toLowerCase().includes(saleProductSearch.toLowerCase())
+                  );
+                  if (!found) return false;
+                }
+                return true;
+              });
 
           const hasFilters = !!(saleFilterBranch || saleFilterEmployee || saleFilterDate !== 'all' || saleProductSearch);
           const resetFilters = () => {
@@ -1312,7 +1332,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             <div className="space-y-4">
 
               {/* Кнопка + итог */}
-              <div className="flex items-center justify-between gap-3">
+              {!readyMode && <div className="flex items-center justify-between gap-3">
                 {hasFilters ? (
                   <p className="text-xs text-gray-400">
                     Показано: <span className="font-medium text-gray-600">{filteredSales.length}</span> из {sales.length}
@@ -1343,10 +1363,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     Новая продажа
                   </button>
                 </div>
-              </div>
+              </div>}
 
               {/* Фильтры */}
-              <div className="space-y-3">
+              {!readyMode && <div className="space-y-3">
 
                 {/* Филиал + Менеджер (только для admin) */}
                 {role === 'admin' && (
@@ -1432,12 +1452,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </button>
                   </div>
                 )}
-              </div>
+              </div>}
 
               {/* Список продаж */}
               {filteredSales.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
-                  {hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
+                  {readyMode ? 'Нет готовых заказов' : hasFilters ? 'Нет продаж по выбранным фильтрам' : 'Продаж нет'}
                 </div>
               ) : (
                 <div key={salesRefreshKey} className="space-y-3">
