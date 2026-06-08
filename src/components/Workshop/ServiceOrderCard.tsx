@@ -26,7 +26,6 @@ interface Props {
 }
 
 export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange }: Props) {
-  const [showConfirm, setShowConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -58,15 +57,6 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
     isMaster
       ? order.status === 'new'         ? { label: 'Принять в работу', status: 'in_progress' }
       : order.status === 'in_progress' ? { label: 'Отметить готовым', status: 'ready' }
-      : null
-      : null;
-
-  // Кнопка действия менеджера
-  // "Выдать клиенту" убрана из карточки — выдача происходит через модал продажи
-  const managerNextAction: { label: string; status: ServiceOrderStatus; needsConfirm: boolean } | null =
-    !isMaster
-      ? order.status === 'ready' && order.payment_type !== 'full'
-        ? { label: 'Подтвердить получение', status: 'confirmed', needsConfirm: false }
       : null
       : null;
 
@@ -240,37 +230,6 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
           {/* Менеджер не управляет заказами из карточки — только просмотр */}
         </div>
       </div>
-
-      {/* Диалог подтверждения выдачи клиенту */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-modal="true">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
-            <h3 className="text-base font-semibold text-gray-900">Подтвердите выдачу</h3>
-            <p className="text-sm text-gray-600">
-              {remaining > 0
-                ? `Получена оплата ₸${remaining.toLocaleString()} от ${order.client_name}. Выдать заказ?`
-                : `Заказ полностью оплачен. Выдать ${order.client_name}?`}
-            </p>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  onStatusChange(order.id, 'done', total);
-                }}
-                className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
-              >
-                {remaining > 0 ? 'Выдать и закрыть' : 'Выдать'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Диалог подтверждения отмены */}
       {showCancelConfirm && (

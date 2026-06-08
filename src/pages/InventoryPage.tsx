@@ -2376,6 +2376,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       </>
                     )}
 
+                    {/* Кнопка выдачи клиенту — для confirmed и ready+full */}
+                    {(order.status === 'confirmed' ||
+                      (order.status === 'ready' && order.payment_type === 'full')) && (
+                      <button
+                        onClick={handleDeliverToClient}
+                        className="w-full mt-2 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+                      >
+                        Выдать клиенту
+                      </button>
+                    )}
+
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Статус:</span>
                       <span>{WS_STATUS_RU[order.status] ?? order.status}</span>

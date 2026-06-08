@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import {
-  fetchServices,
   fetchOrdersByCreatedBranch,
   updateServiceOrderStatus,
 } from '../../services/workshop';
-import type { Service, ServiceOrder, ServiceOrderStatus } from '../../types';
-import AddServiceOrderModal from './AddServiceOrderModal';
+import type { ServiceOrder, ServiceOrderStatus } from '../../types';
 import ServiceOrderCard from './ServiceOrderCard';
 
 interface Props {
@@ -28,12 +25,10 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled',   label: 'Отменены' },
 ];
 
-export default function WorkshopManagerView({ branchId, employeeId, role }: Props) {
+export default function WorkshopManagerView({ branchId, role }: Props) {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -58,12 +53,8 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
   async function loadAll() {
     setLoading(true);
     try {
-      const [ord, svc] = await Promise.all([
-        fetchOrdersByCreatedBranch(branchId),
-        fetchServices(null),
-      ]);
+      const ord = await fetchOrdersByCreatedBranch(branchId);
       setOrders(ord.filter(o => VISIBLE_STATUSES.includes(o.status)));
-      setServices(svc);
     } catch (e) {
       console.error('WorkshopManagerView loadAll:', e);
     }
@@ -111,13 +102,6 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold text-gray-900">Услуги мастерской</h1>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800 transition-colors"
-          >
-            <Plus size={16} />
-            Новый заказ
-          </button>
         </div>
 
         {/* Фильтры статуса */}
@@ -154,7 +138,7 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
             <p className="text-sm font-medium text-gray-700">Заказов нет</p>
             <p className="text-xs text-gray-400 mt-1">
               {statusFilter === 'all'
-                ? 'Нажмите «+ Новый заказ» чтобы добавить'
+                ? 'Нет заказов готовых к выдаче'
                 : `Нет заказов со статусом «${STATUS_FILTERS.find(f => f.value === statusFilter)?.label}»`}
             </p>
           </div>
@@ -170,18 +154,6 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
         )}
       </div>
 
-      {showAddModal && (
-        <AddServiceOrderModal
-          branchId={branchId}
-          employeeId={employeeId}
-          services={services}
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-            loadAll();
-          }}
-        />
-      )}
     </div>
   );
 }
