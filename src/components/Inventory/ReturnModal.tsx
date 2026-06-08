@@ -83,7 +83,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
     if (!selectedSale) { setWorkshopOrder(null); return; }
     supabase
       .from('service_orders')
-      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at, remaining_paid_at')
+      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at, remaining_paid_at, payment_type, prepayment_method')
       .eq('sale_id', selectedSale.id)
       .not('status', 'in', '("cancelled")')
       .maybeSingle()
@@ -135,20 +135,23 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
       }
       // 2. Отмена заказа мастерской + возврат предоплаты (если выбрано)
       if (returnWorkshop && workshopOrder) {
-        await supabase
+        const { error: workshopError } = await supabase
           .from('service_orders')
           .update({
             status: 'cancelled',
             previous_status: workshopOrder.status,
-            prepayment_refunded_at: new Date().toISOString(),
-            prepayment_refund_method: 'cash',
+            prepayment_refunded_at: workshopOrder.original_prepayment > 0
+              ? new Date().toISOString() : null,
+            prepayment_refund_method: workshopOrder.prepayment_method ?? 'cash',
             updated_at: new Date().toISOString(),
           })
           .eq('id', workshopOrder.id);
+        if (workshopError) throw new Error(`Ошибка отмены мастерской: ${workshopError.message}`);
       }
       window.dispatchEvent(new CustomEvent('sale-returned', {
         detail: { saleId: selectedSale?.id },
       }));
+      window.dispatchEvent(new CustomEvent('workshop-order-updated'));
       onSuccess();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
