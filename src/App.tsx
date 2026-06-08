@@ -58,6 +58,7 @@ function AppContent() {
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
@@ -384,7 +385,8 @@ function AppContent() {
             <p className="text-xs text-[#8696a0] truncate">{ROLE_LABELS[employee.role] ?? employee.role}</p>
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-0.5">
+        <div className="flex items-center gap-1">
+          <div className="grid grid-cols-5 gap-0.5">
           {isAdmin && !isMobile && (
             <>
               <button onClick={() => { setAdminView('dashboard'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
@@ -518,6 +520,7 @@ function AppContent() {
             </>
           )}
 
+          </div>
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Выйти">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
@@ -711,7 +714,15 @@ function AppContent() {
           </div>
         </div>
       ) : isAdmin && adminView === 'expenses' ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div
+          className="flex-1 flex flex-col overflow-hidden"
+          onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
+          onTouchEnd={(e) => {
+            if (e.changedTouches[0].clientX - touchStartX > 80) {
+              setAdminView('dashboard');
+            }
+          }}
+        >
           {isMobile && <MobilePageHeader title="Расходы" />}
           <div className="h-full overflow-y-auto">
             <ExpensesTab
