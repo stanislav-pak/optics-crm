@@ -1445,6 +1445,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                               (wo.status === 'ready' && wo.payment_type === 'full')) && (
                               <div className="text-xs text-amber-500 font-medium">🟡 Готов к выдаче</div>
                             )}
+                            {wo.status === 'ready' && wo.payment_type !== 'full' && (
+                              <div className="text-xs text-amber-500 font-medium">🟡 Готов (принять доплату)</div>
+                            )}
                           </div>
                         );
                       })()}
