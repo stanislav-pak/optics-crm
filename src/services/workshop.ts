@@ -193,9 +193,9 @@ export async function updateServiceOrderStatus(
         ).catch(console.error);
       }
 
-      if (status === 'cancelled') {
+      if (status === 'cancelled' && orderData.created_branch_id) {
         notifyBranch(
-          WORKSHOP_BRANCH_ID,
+          orderData.created_branch_id,
           'Заказ отменён',
           `${orderData.client_name} — ${orderData.service_name}`
         ).catch(console.error);
