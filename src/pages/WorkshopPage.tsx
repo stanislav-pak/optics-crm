@@ -50,7 +50,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   const [showServicesManager, setShowServicesManager] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
   const [lastReadAt, setLastReadAt] = useState<string>(() =>
-    localStorage.getItem('workshop_last_read_at') || new Date(0).toISOString()
+    localStorage.getItem('workshop_last_read_at') || new Date().toISOString()
   );
 
   // Кол-во новых непрочитанных заказов (status === 'new', созданных после последнего просмотра)
@@ -107,16 +107,19 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     };
   }, [onBack]);
 
-  // Badge: синхронизируем с OS и уведомляем родителя
+  // Badge OS (иконка PWA)
   useEffect(() => {
     if (badgeCount > 0) {
       (navigator as any).setAppBadge?.(badgeCount);
     } else {
       (navigator as any).clearAppBadge?.();
     }
-    onBadgeChange?.(badgeCount);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgeCount]);
+
+  // Уведомляем родителя (nav badge) при любом изменении badgeCount
+  useEffect(() => {
+    onBadgeChange?.(badgeCount);
+  }, [badgeCount, onBadgeChange]);
 
   // При скрытии вкладки или размонтировании — фиксируем время просмотра
   // При возврате (visible) — только очищаем значок иконки, lastReadAt не трогаем
