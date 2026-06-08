@@ -78,13 +78,13 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Фильтры */}
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        <div className="flex gap-2 flex-wrap">
+      <div className="space-y-2">
+        <div className="flex gap-1.5 px-4 py-2 border-b">
           {filterLabels.map(f => (
             <button
               key={f.key}
               onClick={() => setDateFilter(f.key)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 dateFilter === f.key
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
