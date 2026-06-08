@@ -84,6 +84,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
         const dx = e.changedTouches[0].clientX - swipeStartX.current;
         const dy = e.changedTouches[0].clientY - swipeStartY.current;
         if (dx > 80 && Math.abs(dy) < 60 && swipeStartX.current < window.innerWidth * 0.7) {
+          e.stopPropagation();
           onClose();
         }
       }}
