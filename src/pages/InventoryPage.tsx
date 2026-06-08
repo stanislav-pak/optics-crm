@@ -474,6 +474,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     await Promise.all([loadSales(), loadStats(), loadStock()]);
   }
 
+  async function handleDeliverToClient() {
+    if (!saleWorkshopOrder) return;
+    await updateServiceOrderStatus(saleWorkshopOrder.id, 'done');
+    setSaleWorkshopOrder(prev => prev ? { ...prev, status: 'done' } : prev);
+    window.dispatchEvent(new CustomEvent('workshop-payment-accepted'));
+    await loadSales();
+  }
+
   async function handleAcceptPayment() {
     if (!saleWorkshopOrder) return;
     const total = saleWorkshopOrder.service_price + saleWorkshopOrder.parts_price;
@@ -2360,6 +2368,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           </button>
                         )}
                       </>
+                    )}
+
+                    {/* Кнопка выдачи клиенту — для confirmed и ready+full */}
+                    {(order.status === 'confirmed' ||
+                      (order.status === 'ready' && order.payment_type === 'full')) && (
+                      <button
+                        onClick={handleDeliverToClient}
+                        className="w-full mt-2 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+                      >
+                        Выдать клиенту
+                      </button>
                     )}
 
                     <div className="flex justify-between text-sm text-gray-500">

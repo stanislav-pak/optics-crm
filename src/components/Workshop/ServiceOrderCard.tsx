@@ -62,14 +62,11 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
       : null;
 
   // Кнопка действия менеджера
+  // "Выдать клиенту" убрана из карточки — выдача происходит через модал продажи
   const managerNextAction: { label: string; status: ServiceOrderStatus; needsConfirm: boolean } | null =
     !isMaster
-      ? order.status === 'ready' && order.payment_type === 'full'
-        ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
-      : order.status === 'ready'
+      ? order.status === 'ready' && order.payment_type !== 'full'
         ? { label: 'Подтвердить получение', status: 'confirmed', needsConfirm: false }
-      : order.status === 'confirmed'
-        ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
       : null
       : null;
 
