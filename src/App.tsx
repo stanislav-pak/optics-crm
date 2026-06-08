@@ -54,6 +54,8 @@ function AppContent() {
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
   const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
+  const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -372,10 +374,15 @@ function AppContent() {
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </button>
               {employee?.branch_id !== '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
-              <button onClick={() => { setMobileView('shop'); setActiveChat(null); }}
+              <button onClick={() => { setMobileView('shop'); setActiveChat(null); setWorkshopBadgeResetKey(k => k + 1); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Магазин">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                <div className="relative">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                  {workshopBadgeCount > 0 && mobileView !== 'shop' && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </div>
               </button>
               )}
               <button onClick={() => { setMobileView('inventory'); setActiveChat(null); }}
@@ -506,9 +513,14 @@ function AppContent() {
             <span className="text-[10px] font-medium">CRM</span>
           </button>
           {employee?.branch_id !== '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
-          <button onClick={() => navigateTo('shop')}
+          <button onClick={() => { navigateTo('shop'); setWorkshopBadgeResetKey(k => k + 1); }}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'shop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+            <div className="relative">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              {workshopBadgeCount > 0 && mobileView !== 'shop' && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </div>
             <span className="text-[10px] font-medium">Магазин</span>
           </button>
           )}
@@ -650,6 +662,8 @@ function AppContent() {
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 defaultTab="sales"
                 storefront={true}
+                onWorkshopBadgeChange={setWorkshopBadgeCount}
+                resetBadgeKey={workshopBadgeResetKey}
               />
             </div>
           ) : shopSubView === 'workshop' ? (
@@ -763,6 +777,8 @@ function AppContent() {
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                     defaultTab="sales"
                     storefront={true}
+                    onWorkshopBadgeChange={setWorkshopBadgeCount}
+                    resetBadgeKey={workshopBadgeResetKey}
                   />
                 </div>
               ) : shopSubView === 'workshop' ? (

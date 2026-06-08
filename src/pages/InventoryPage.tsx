@@ -39,6 +39,8 @@ interface InventoryPageProps {
   defaultTab?: Tab;
   storefront?: boolean;
   onPendingTransfersChange?: (has: boolean) => void;
+  onWorkshopBadgeChange?: (count: number) => void;
+  resetBadgeKey?: number;
 }
 
 // ---- Excel export helpers ----
@@ -74,7 +76,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, resetBadgeKey }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const lastMovementsViewedRef = useRef<string>(
     localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
@@ -169,6 +171,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
   const [cashKey, setCashKey] = useState(0);
+  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(new Set());
+
+  // Кол-во непрочитанных workshop-заказов (ready/confirmed, ещё не открытых менеджером)
+  const workshopBadgeCount = Object.entries(saleWorkshopOrders).filter(
+    ([saleId, wo]) => (wo.status === 'ready' || wo.status === 'confirmed') && !readOrderIds.has(saleId)
+  ).length;
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
 
@@ -286,6 +294,34 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     return () => window.removeEventListener('sale-returned', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Badge: синхронизируем с OS и уведомляем родителя
+  useEffect(() => {
+    if (workshopBadgeCount > 0) {
+      (navigator as any).setAppBadge?.(workshopBadgeCount);
+    } else {
+      (navigator as any).clearAppBadge?.();
+    }
+    onWorkshopBadgeChange?.(workshopBadgeCount);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workshopBadgeCount]);
+
+  // При возврате фокуса вкладки — очищаем OS badge
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        (navigator as any).clearAppBadge?.();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
+
+  // Сбросить readOrderIds при смене ключа (вызывается из навигации при клике на Магазин)
+  useEffect(() => {
+    if (resetBadgeKey === undefined) return;
+    setReadOrderIds(new Set());
+  }, [resetBadgeKey]);
 
   // Принудительный рефреш ревизий при переключении на вкладку
   useEffect(() => {
@@ -1395,8 +1431,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     const saleBranch = branches.find(b => b.id === s.branch_id);
                     return (
                     <div key={s.id}
-                      className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
-                      onClick={() => setSelectedSale(s)}>
+                      className="relative bg-white border border-gray-100 rounded-xl p-4 space-y-3 cursor-pointer active:bg-gray-50"
+                      onClick={() => {
+                        setSelectedSale(s);
+                        const wo = saleWorkshopOrders[s.id];
+                        if (wo && (wo.status === 'ready' || wo.status === 'confirmed')) {
+                          setReadOrderIds(prev => new Set([...prev, s.id]));
+                        }
+                      }}>
+                      {saleWorkshopOrders[s.id] &&
+                        (saleWorkshopOrders[s.id].status === 'ready' || saleWorkshopOrders[s.id].status === 'confirmed') &&
+                        !readOrderIds.has(s.id) && (
+                          <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-white z-10" />
+                      )}
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="text-sm font-semibold text-gray-900">
