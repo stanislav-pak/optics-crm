@@ -207,8 +207,8 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
         </p>
 
         <div className="flex items-center gap-2">
-          {/* Кнопка отмены — только для активных заказов */}
-          {order.status !== 'cancelled' && order.status !== 'done' && (
+          {/* Кнопка отмены — только для мастера */}
+          {isMaster && order.status !== 'cancelled' && order.status !== 'done' && (
             <button
               onClick={() => setShowCancelConfirm(true)}
               className="text-[11px] px-2.5 py-1 border border-red-200 text-red-400 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
