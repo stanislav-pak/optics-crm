@@ -254,13 +254,45 @@ function AppContent() {
     };
   }, [employee?.branch_id]);
 
-  // Когда менеджер открывает карточку продажи — оптимистично снижаем badge
-  // (точное значение придёт от onBadgeChange InventoryPage)
+  // Фоновая подписка на готовые workshop-заказы для менеджеров магазина
+  // (работает независимо от активного экрана, как workshopOrderBadgeCount для мастерской)
   useEffect(() => {
-    const handleRead = () => { setInventoryWorkshopBadge(0); };
-    window.addEventListener('inventory-workshop-order-read', handleRead);
-    return () => window.removeEventListener('inventory-workshop-order-read', handleRead);
-  }, []);
+    const WBID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+    if (!employee?.branch_id || employee.branch_id === WBID) return;
+    const branchId = employee.branch_id;
+
+    const computeInventoryBadge = async () => {
+      const { data } = await supabase
+        .from('service_orders')
+        .select('sale_id')
+        .in('status', ['ready', 'confirmed'])
+        .not('sale_id', 'is', null)
+        .eq('created_branch_id', branchId);
+      if (!data) return;
+      try {
+        const saved = localStorage.getItem('inventory_workshop_read_ids');
+        const readIds: Set<string> = saved ? new Set(JSON.parse(saved)) : new Set();
+        setInventoryWorkshopBadge(data.filter(o => !readIds.has(o.sale_id)).length);
+      } catch {
+        setInventoryWorkshopBadge(data.length);
+      }
+    };
+
+    computeInventoryBadge();
+
+    const handleOrderRead = () => { computeInventoryBadge(); };
+    window.addEventListener('inventory-workshop-order-read', handleOrderRead);
+
+    const channel = supabase
+      .channel(`app-inventory-workshop-badge-${branchId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders', filter: `created_branch_id=eq.${branchId}` }, computeInventoryBadge)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('inventory-workshop-order-read', handleOrderRead);
+    };
+  }, [employee?.branch_id]);
 
   // Централизованный OS badge (иконка PWA)
   useEffect(() => {
