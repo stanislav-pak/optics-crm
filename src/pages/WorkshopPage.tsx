@@ -48,6 +48,10 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
   const [showAddModal, setShowAddModal] = useState(false);
   const [showServicesManager, setShowServicesManager] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
+  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(new Set());
+
+  // Кол-во новых непрочитанных заказов (status === 'new', ещё не открытых мастером)
+  const badgeCount = orders.filter(o => o.status === 'new' && !readOrderIds.has(o.id)).length;
 
   useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
 
@@ -97,6 +101,26 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
       document.removeEventListener('touchend', onEnd);
     };
   }, [onBack]);
+
+  // Badge: синхронизируем с OS
+  useEffect(() => {
+    if (badgeCount > 0) {
+      (navigator as any).setAppBadge?.(badgeCount);
+    } else {
+      (navigator as any).clearAppBadge?.();
+    }
+  }, [badgeCount]);
+
+  // При возврате фокуса вкладки — очищаем OS badge
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        (navigator as any).clearAppBadge?.();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
 
   async function loadAll() {
     setLoading(true);
@@ -317,14 +341,24 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
           ) : (
             filteredOrders
               .filter(o => o.status !== 'done')
-              .map(order => (
-                <ServiceOrderCard
-                  key={order.id}
-                  order={order}
-                  viewerBranchId={viewerBranchId}
-                  onStatusChange={handleStatusChange}
-                />
-              ))
+              .map(order => {
+                const isUnread = order.status === 'new' && !readOrderIds.has(order.id);
+                return (
+                  <div key={order.id} className="relative"
+                    onClick={() => {
+                      if (isUnread) setReadOrderIds(prev => new Set([...prev, order.id]));
+                    }}>
+                    {isUnread && (
+                      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-white z-10" />
+                    )}
+                    <ServiceOrderCard
+                      order={order}
+                      viewerBranchId={viewerBranchId}
+                      onStatusChange={handleStatusChange}
+                    />
+                  </div>
+                );
+              })
           )}
         </div>
       )}
