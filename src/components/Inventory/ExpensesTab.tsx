@@ -75,6 +75,17 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
     { key: 'custom', label: 'Период' },
   ];
 
+  if (showAddModal) {
+    return (
+      <AddExpenseModal
+        branchId={branchId}
+        employeeId={employeeId}
+        onClose={() => setShowAddModal(false)}
+        onCreated={() => { load(); setShowAddModal(false); }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Фильтры */}
@@ -207,14 +218,6 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
         </button>
       </div>
 
-      {showAddModal && (
-        <AddExpenseModal
-          branchId={branchId}
-          employeeId={employeeId}
-          onClose={() => setShowAddModal(false)}
-          onCreated={load}
-        />
-      )}
     </div>
   );
 }
