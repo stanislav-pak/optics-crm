@@ -56,6 +56,7 @@ function AppContent() {
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
+  const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -318,7 +319,12 @@ function AppContent() {
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Мастерская">
-                <Wrench className="w-3.5 h-3.5" />
+                <div className="relative">
+                  <Wrench className="w-3.5 h-3.5" />
+                  {workshopOrderBadgeCount > 0 && !isAdminBtnActive('workshop') && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </div>
               </button>
               )}
               <button onClick={() => setShowImport(true)}
@@ -399,7 +405,12 @@ function AppContent() {
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
                   className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                   title="Мастерская">
-                  <Wrench className="w-3.5 h-3.5" />
+                  <div className="relative">
+                    <Wrench className="w-3.5 h-3.5" />
+                    {workshopOrderBadgeCount > 0 && !isManagerBtnActive('workshop') && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                    )}
+                  </div>
                 </button>
               )}
             </>
@@ -453,7 +464,12 @@ function AppContent() {
             className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('workshop') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
             title="Мастерская"
           >
-            <Wrench className="w-5 h-5" />
+            <div className="relative">
+              <Wrench className="w-5 h-5" />
+              {workshopOrderBadgeCount > 0 && !isAdminBtnActive('workshop') && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </div>
           </button>
           )}
           {employee.role === 'admin' && (
@@ -537,7 +553,12 @@ function AppContent() {
           {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
             <button onClick={() => navigateTo('workshop')}
               className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
-              <Wrench className="w-5 h-5" />
+              <div className="relative">
+                <Wrench className="w-5 h-5" />
+                {workshopOrderBadgeCount > 0 && mobileView !== 'workshop' && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+              </div>
               <span className="text-[10px] font-medium">Мастерская</span>
             </button>
           )}
@@ -577,6 +598,7 @@ function AppContent() {
               branchId={null}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              onBadgeChange={setWorkshopOrderBadgeCount}
             />
           </div>
         </div>
@@ -687,6 +709,7 @@ function AppContent() {
                 branchId={employee.branch_id}
                 employeeId={employee.id}
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                onBadgeChange={setWorkshopOrderBadgeCount}
               />
             ) : (
               <WorkshopManagerView
@@ -808,6 +831,7 @@ function AppContent() {
                     branchId={isAdmin ? null : employee.branch_id}
                     employeeId={employee.id}
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                    onBadgeChange={setWorkshopOrderBadgeCount}
                   />
                 ) : (
                   <WorkshopManagerView

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { fetchServices, fetchServiceOrders, fetchCompletedOrders, updateServiceOrderStatus } from '../services/workshop';
@@ -14,6 +14,7 @@ interface WorkshopPageProps {
   employeeId: string;
   role: 'manager' | 'branch_admin' | 'admin';
   onBack?: () => void;
+  onBadgeChange?: (count: number) => void;
 }
 
 type StatusFilter = 'all' | ServiceOrderStatus;
@@ -37,7 +38,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled',   label: 'Отменены' },
 ];
 
-export default function WorkshopPage({ branchId, employeeId, role, onBack }: WorkshopPageProps) {
+export default function WorkshopPage({ branchId, employeeId, role, onBack, onBadgeChange }: WorkshopPageProps) {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<ServiceOrder[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -48,10 +49,17 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
   const [showAddModal, setShowAddModal] = useState(false);
   const [showServicesManager, setShowServicesManager] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
-  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(new Set());
+  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('workshop_read_orders');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const ordersRef = useRef<ServiceOrder[]>([]);
 
   // Кол-во новых непрочитанных заказов (status === 'new', ещё не открытых мастером)
   const badgeCount = orders.filter(o => o.status === 'new' && !readOrderIds.has(o.id)).length;
+
+  // Держим ordersRef актуальным для обработчиков без зависимостей
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
 
   useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
 
@@ -102,24 +110,47 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
     };
   }, [onBack]);
 
-  // Badge: синхронизируем с OS
+  // Badge: синхронизируем с OS и уведомляем родителя
   useEffect(() => {
     if (badgeCount > 0) {
       (navigator as any).setAppBadge?.(badgeCount);
     } else {
       (navigator as any).clearAppBadge?.();
     }
+    onBadgeChange?.(badgeCount);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgeCount]);
 
-  // При возврате фокуса вкладки — очищаем OS badge
+  // При возврате фокуса вкладки и при размонтировании — все непрочитанные помечаем прочитанными
   useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') {
-        (navigator as any).clearAppBadge?.();
+    const markAllRead = () => {
+      const unreadIds = ordersRef.current.filter(o => o.status === 'new').map(o => o.id);
+      if (unreadIds.length > 0) {
+        setReadOrderIds(prev => {
+          const newSet = new Set([...prev, ...unreadIds]);
+          localStorage.setItem('workshop_read_orders', JSON.stringify([...newSet]));
+          return newSet;
+        });
       }
+      (navigator as any).clearAppBadge?.();
+    };
+
+    const handler = () => {
+      if (document.visibilityState === 'visible') markAllRead();
     };
     document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handler);
+      // Размонтирование (уход из страницы) — сохраняем в localStorage напрямую
+      const unreadIds = ordersRef.current.filter(o => o.status === 'new').map(o => o.id);
+      if (unreadIds.length > 0) {
+        const saved = localStorage.getItem('workshop_read_orders');
+        const existing: Set<string> = saved ? new Set(JSON.parse(saved)) : new Set();
+        unreadIds.forEach(id => existing.add(id));
+        localStorage.setItem('workshop_read_orders', JSON.stringify([...existing]));
+      }
+    };
   }, []);
 
   async function loadAll() {
@@ -346,7 +377,13 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack }: Wor
                 return (
                   <div key={order.id} className="relative"
                     onClick={() => {
-                      if (isUnread) setReadOrderIds(prev => new Set([...prev, order.id]));
+                      if (isUnread) {
+                        setReadOrderIds(prev => {
+                          const newSet = new Set([...prev, order.id]);
+                          localStorage.setItem('workshop_read_orders', JSON.stringify([...newSet]));
+                          return newSet;
+                        });
+                      }
                     }}>
                     {isUnread && (
                       <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-white z-10" />
