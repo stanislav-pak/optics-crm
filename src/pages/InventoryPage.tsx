@@ -98,6 +98,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     parts_price: number;
     prepayment: number;
     status: string;
+    payment_type?: string | null;
     remaining_paid_at?: string | null;
   }>>({});
   const [revisions, setRevisions] = useState<Revision[]>([]);
@@ -406,16 +407,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       const { data: wsOrders } = await supabase
         .from('service_orders')
-        .select('sale_id, original_prepayment, service_price, parts_price, prepayment, status, remaining_paid_at')
+        .select('sale_id, original_prepayment, service_price, parts_price, prepayment, status, payment_type, remaining_paid_at')
         .in('sale_id', saleIds);
-      const map: Record<string, { original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; remaining_paid_at?: string | null }> = {};
-      (wsOrders ?? []).forEach((o: { sale_id: string; original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; remaining_paid_at?: string | null }) => {
+      const map: Record<string, { original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; payment_type?: string | null; remaining_paid_at?: string | null }> = {};
+      (wsOrders ?? []).forEach((o: { sale_id: string; original_prepayment: number; service_price: number; parts_price: number; prepayment: number; status: string; payment_type?: string | null; remaining_paid_at?: string | null }) => {
         if (o.sale_id) map[o.sale_id] = {
           original_prepayment: o.original_prepayment ?? 0,
           service_price: o.service_price,
           parts_price: o.parts_price,
           prepayment: o.prepayment,
           status: o.status,
+          payment_type: o.payment_type,
           remaining_paid_at: o.remaining_paid_at,
         };
       });

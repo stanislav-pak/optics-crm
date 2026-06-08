@@ -53,6 +53,8 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
     return () => { supabase.removeChannel(channel); };
   }, [branchId]);
 
+  const VISIBLE_STATUSES: ServiceOrderStatus[] = ['ready', 'confirmed'];
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -60,7 +62,7 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
         fetchOrdersByCreatedBranch(branchId),
         fetchServices(null),
       ]);
-      setOrders(ord);
+      setOrders(ord.filter(o => VISIBLE_STATUSES.includes(o.status)));
       setServices(svc);
     } catch (e) {
       console.error('WorkshopManagerView loadAll:', e);
@@ -71,7 +73,7 @@ export default function WorkshopManagerView({ branchId, employeeId, role }: Prop
   async function loadOrders() {
     try {
       const ord = await fetchOrdersByCreatedBranch(branchId);
-      setOrders(ord);
+      setOrders(ord.filter(o => VISIBLE_STATUSES.includes(o.status)));
     } catch (e) {
       console.error('WorkshopManagerView loadOrders:', e);
     }

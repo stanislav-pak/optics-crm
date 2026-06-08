@@ -237,20 +237,7 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
             </button>
           )}
 
-          {!isMaster && managerNextAction && (
-            <button
-              onClick={() => {
-                if (managerNextAction.needsConfirm) {
-                  setShowConfirm(true);
-                } else {
-                  onStatusChange(order.id, managerNextAction.status);
-                }
-              }}
-              className="text-[11px] px-2.5 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors font-medium"
-            >
-              {managerNextAction.label}
-            </button>
-          )}
+          {/* Менеджер не управляет заказами из карточки — только просмотр */}
         </div>
       </div>
 
