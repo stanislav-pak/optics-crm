@@ -724,7 +724,7 @@ function AppContent() {
           onTouchEnd={(e) => {
             const dx = e.changedTouches[0].clientX - touchStartXRef.current;
             const dy = e.changedTouches[0].clientY - touchStartYRef.current;
-            if (dx > 80 && Math.abs(dy) < 60 && touchStartXRef.current < 40) {
+            if (dx > 80 && Math.abs(dy) < 60 && touchStartXRef.current < window.innerWidth * 0.7) {
               setMobileView('list');
             }
           }}

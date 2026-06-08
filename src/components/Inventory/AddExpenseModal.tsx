@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Plus } from 'lucide-react';
 import {
   getExpenseCategories,
@@ -25,6 +25,9 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   const [newCategoryName, setNewCategoryName] = useState('');
   const [loading, setLoading] = useState(false);
   const [catLoading, setCatLoading] = useState(false);
+
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
 
   useEffect(() => {
     getExpenseCategories().then(setCategories).catch(console.error);
@@ -71,7 +74,20 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   }
 
   return (
-    <div className="flex flex-col h-full bg-white touch-pan-y overflow-x-hidden">
+    <div
+      className="flex flex-col h-full bg-white touch-pan-y overflow-x-hidden"
+      onTouchStart={(e) => {
+        swipeStartX.current = e.touches[0].clientX;
+        swipeStartY.current = e.touches[0].clientY;
+      }}
+      onTouchEnd={(e) => {
+        const dx = e.changedTouches[0].clientX - swipeStartX.current;
+        const dy = e.changedTouches[0].clientY - swipeStartY.current;
+        if (dx > 80 && Math.abs(dy) < 60 && swipeStartX.current < window.innerWidth * 0.7) {
+          onClose();
+        }
+      }}
+    >
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
           <ChevronLeft size={22} />
