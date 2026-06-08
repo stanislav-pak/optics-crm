@@ -28,6 +28,11 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   const [catLoading, setCatLoading] = useState(false);
 
   useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
     getExpenseCategories().then(setCategories).catch(console.error);
   }, []);
 
