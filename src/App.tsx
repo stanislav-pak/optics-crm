@@ -719,7 +719,7 @@ function AppContent() {
           onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
           onTouchEnd={(e) => {
             if (e.changedTouches[0].clientX - touchStartX > 80) {
-              setAdminView('dashboard');
+              setMobileView('list');
             }
           }}
         >
