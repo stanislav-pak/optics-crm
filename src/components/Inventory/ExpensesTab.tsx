@@ -76,7 +76,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Фильтры */}
       <div className="px-4 pt-3 pb-2 space-y-2">
         <div className="flex gap-2 flex-wrap">
@@ -140,7 +140,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
       )}
 
       {/* Список */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-24">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -198,7 +198,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
       </div>
 
       {/* Кнопка добавления */}
-      <div className="fixed bottom-20 left-0 right-0 px-4 z-10">
+      <div className="fixed bottom-20 left-0 right-0 px-4 z-10 flex-shrink-0">
         <button
           onClick={() => setShowAddModal(true)}
           className="w-full max-w-md mx-auto block py-3.5 rounded-2xl bg-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all"
