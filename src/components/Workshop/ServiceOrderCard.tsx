@@ -64,8 +64,12 @@ export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange
   // Кнопка действия менеджера
   const managerNextAction: { label: string; status: ServiceOrderStatus; needsConfirm: boolean } | null =
     !isMaster
-      ? order.status === 'ready'     ? { label: 'Подтвердить получение', status: 'confirmed', needsConfirm: false }
-      : order.status === 'confirmed' ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
+      ? order.status === 'ready' && order.payment_type === 'full'
+        ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
+      : order.status === 'ready'
+        ? { label: 'Подтвердить получение', status: 'confirmed', needsConfirm: false }
+      : order.status === 'confirmed'
+        ? { label: 'Выдать клиенту', status: 'done', needsConfirm: true }
       : null
       : null;
 
