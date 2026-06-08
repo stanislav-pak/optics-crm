@@ -118,25 +118,26 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgeCount]);
 
-  // При входе на страницу — помечаем всё как прочитанное
+  // При скрытии вкладки или размонтировании — фиксируем время просмотра
+  // При возврате (visible) — только очищаем значок иконки, lastReadAt не трогаем
   useEffect(() => {
-    const now = new Date().toISOString();
-    setLastReadAt(now);
-    localStorage.setItem('workshop_last_read_at', now);
-  }, []);
-
-  // При возврате фокуса вкладки — помечаем всё как прочитанное
-  useEffect(() => {
+    const markRead = () => {
+      const now = new Date().toISOString();
+      setLastReadAt(now);
+      localStorage.setItem('workshop_last_read_at', now);
+    };
     const handler = () => {
-      if (document.visibilityState === 'visible') {
-        const now = new Date().toISOString();
-        setLastReadAt(now);
-        localStorage.setItem('workshop_last_read_at', now);
+      if (document.visibilityState === 'hidden') {
+        markRead();
+      } else {
         (navigator as any).clearAppBadge?.();
       }
     };
     document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
+    return () => {
+      document.removeEventListener('visibilitychange', handler);
+      markRead(); // размонтирование = уход с экрана
+    };
   }, []);
 
   async function loadAll() {
