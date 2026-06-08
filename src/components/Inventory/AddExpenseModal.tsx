@@ -83,7 +83,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   }
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center" data-modal="true" onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
+    <div ref={overlayRef} className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center touch-pan-y" data-modal="true" onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
       <div data-modal-content="" className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
