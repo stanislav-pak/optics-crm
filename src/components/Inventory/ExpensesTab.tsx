@@ -87,7 +87,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white overflow-hidden">
+    <div className="flex flex-col h-full bg-white overflow-hidden touch-pan-y overflow-x-hidden">
       {/* Фильтры */}
       <div className="space-y-2">
         <div className="flex gap-1.5 px-4 py-2 border-b">

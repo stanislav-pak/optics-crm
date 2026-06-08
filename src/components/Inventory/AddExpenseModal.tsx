@@ -71,7 +71,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white touch-pan-y overflow-x-hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 flex-shrink-0">
         <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
           <ChevronLeft size={22} />
