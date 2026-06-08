@@ -72,8 +72,8 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" data-modal="true">
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center" data-modal="true">
+      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Новый расход</h2>
