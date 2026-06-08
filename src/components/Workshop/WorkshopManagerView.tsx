@@ -27,7 +27,7 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
       .channel(`workshop-manager-${branchId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_orders' },
+        { event: '*', schema: 'public', table: 'service_orders', filter: `created_branch_id=eq.${branchId}` },
         () => { loadOrders(); }
       )
       .subscribe();
@@ -35,13 +35,11 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [branchId]);
 
-  const VISIBLE_STATUSES: ServiceOrderStatus[] = ['ready', 'confirmed'];
-
   async function loadAll() {
     setLoading(true);
     try {
       const ord = await fetchOrdersByCreatedBranch(branchId);
-      setOrders(ord.filter(o => VISIBLE_STATUSES.includes(o.status)));
+      setOrders(ord);
     } catch (e) {
       console.error('WorkshopManagerView loadAll:', e);
     }
@@ -51,7 +49,7 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
   async function loadOrders() {
     try {
       const ord = await fetchOrdersByCreatedBranch(branchId);
-      setOrders(ord.filter(o => VISIBLE_STATUSES.includes(o.status)));
+      setOrders(ord);
     } catch (e) {
       console.error('WorkshopManagerView loadOrders:', e);
     }
