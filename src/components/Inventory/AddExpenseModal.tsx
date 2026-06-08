@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus } from 'lucide-react';
 import {
   getExpenseCategories,
@@ -25,6 +25,15 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   const [newCategoryName, setNewCategoryName] = useState('');
   const [loading, setLoading] = useState(false);
   const [catLoading, setCatLoading] = useState(false);
+
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const prevent = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener('touchmove', prevent, { passive: false });
+    return () => el.removeEventListener('touchmove', prevent);
+  }, []);
 
   useEffect(() => {
     getExpenseCategories().then(setCategories).catch(console.error);
@@ -71,7 +80,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center" data-modal="true" style={{ overscrollBehavior: 'none' }} onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
+    <div ref={overlayRef} className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center" data-modal="true" onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
