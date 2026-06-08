@@ -227,7 +227,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0 && !addWorkshop) return;
     setLoading(true);
     try {
       const cashAmount = paymentMethod === 'cash' ? total :
@@ -885,7 +885,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
               className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
               Отмена
             </button>
-            <button onClick={handleSubmit} disabled={loading || items.length === 0}
+            <button onClick={handleSubmit} disabled={loading || (items.length === 0 && !addWorkshop)}
               className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50">
               {loading ? 'Сохраняем...' : `Оформить продажу (₸${totalNow.toLocaleString()})`}
             </button>
