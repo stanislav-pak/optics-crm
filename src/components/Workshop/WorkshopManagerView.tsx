@@ -13,22 +13,9 @@ interface Props {
   role: 'manager' | 'branch_admin' | 'admin';
 }
 
-type StatusFilter = 'all' | ServiceOrderStatus;
-
-const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'all',         label: 'Все' },
-  { value: 'new',         label: 'Новые' },
-  { value: 'in_progress', label: 'В работе' },
-  { value: 'ready',       label: 'Готовы' },
-  { value: 'confirmed',   label: 'Подтверждено' },
-  { value: 'done',        label: 'Выданы' },
-  { value: 'cancelled',   label: 'Отменены' },
-];
-
 export default function WorkshopManagerView({ branchId, role }: Props) {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   useEffect(() => {
     loadAll();
@@ -83,10 +70,6 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
     ));
   }
 
-  const filteredOrders = statusFilter === 'all'
-    ? orders
-    : orders.filter(o => o.status === statusFilter);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -100,50 +83,19 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
 
       {/* Header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-semibold text-gray-900">Услуги мастерской</h1>
-        </div>
-
-        {/* Фильтры статуса */}
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_FILTERS.map(f => {
-            const count = f.value !== 'all'
-              ? orders.filter(o => o.status === f.value).length
-              : orders.length;
-            return (
-              <button
-                key={f.value}
-                onClick={() => setStatusFilter(f.value)}
-                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                  statusFilter === f.value
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {f.label}
-                {count > 0 && (
-                  <span className={`ml-1 ${statusFilter === f.value ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <h1 className="text-xl font-semibold text-gray-900">Услуги мастерской</h1>
       </div>
 
       {/* Список заказов */}
       <div className="flex-1 overflow-y-auto pb-20 p-4 space-y-3">
-        {filteredOrders.length === 0 ? (
+        {orders.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 text-center py-16">
             <p className="text-4xl mb-3">🔧</p>
             <p className="text-sm font-medium text-gray-700">Заказов нет</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {statusFilter === 'all'
-                ? 'Нет заказов готовых к выдаче'
-                : `Нет заказов со статусом «${STATUS_FILTERS.find(f => f.value === statusFilter)?.label}»`}
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Нет заказов готовых к выдаче</p>
           </div>
         ) : (
-          filteredOrders.map(order => (
+          orders.map(order => (
             <ServiceOrderCard
               key={order.id}
               order={order}
