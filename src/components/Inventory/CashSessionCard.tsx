@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { Banknote, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import { getExpensesForDate, calcExpenseSummary } from '../../services/expenses';
+import { getExpensesForDate } from '../../services/expenses';
 
 interface CashSession {
   id: string;
@@ -33,6 +33,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [cashExpenses, setCashExpenses] = useState(0);
+  const [cashExpenseItems, setCashExpenseItems] = useState<{name: string; amount: number}[]>([]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -170,10 +171,16 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
         .single();
       setSession((created || null) as CashSession | null);
     }
-    const todayStr = new Date().toISOString().slice(0, 10);
     const exps = await getExpensesForDate(branchId, todayStr);
-    const summary = calcExpenseSummary(exps);
-    setCashExpenses(summary.cash);
+    const cashExps = exps.filter(e => e.payment_method === 'cash');
+    const total = cashExps.reduce((s, e) => s + e.amount, 0);
+    setCashExpenses(total);
+    const byCat: Record<string, number> = {};
+    for (const e of cashExps) {
+      const key = e.category?.name ?? 'Прочее';
+      byCat[key] = (byCat[key] ?? 0) + e.amount;
+    }
+    setCashExpenseItems(Object.entries(byCat).map(([name, amount]) => ({ name, amount })));
     setLoading(false);
   };
 
@@ -266,15 +273,18 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
         </div>
 
         {cashExpenses > 0 && (
-          <div className="flex justify-between text-sm mt-2 pt-2 border-t">
-            <span className="text-red-500">Расходы (нал)</span>
-            <span className="text-red-500 font-medium">−{cashExpenses.toLocaleString('ru-KZ')} ₸</span>
-          </div>
-        )}
-        {cashExpenses > 0 && (
-          <div className="flex justify-between text-sm mt-1">
-            <span className="text-gray-600 font-medium">К сдаче наличными</span>
-            <span className="font-bold">{(session.system_cash - cashExpenses).toLocaleString('ru-KZ')} ₸</span>
+          <div className="border-t pt-2 mt-1 space-y-1.5">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Расходы наличными</p>
+            {cashExpenseItems.map(item => (
+              <div key={item.name} className="flex justify-between text-sm">
+                <span className="text-gray-600">{item.name}</span>
+                <span className="text-red-500">−{item.amount.toLocaleString('ru-KZ')} ₸</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-sm font-semibold border-t border-gray-100 pt-1.5">
+              <span className="text-gray-700">К сдаче наличными</span>
+              <span className="text-gray-900">{(session.system_cash - cashExpenses).toLocaleString('ru-KZ')} ₸</span>
+            </div>
           </div>
         )}
 
