@@ -40,6 +40,7 @@ interface InventoryPageProps {
   storefront?: boolean;
   onPendingTransfersChange?: (has: boolean) => void;
   onWorkshopBadgeChange?: (count: number) => void;
+  onBadgeChange?: (count: number) => void;
   resetBadgeKey?: number;
 }
 
@@ -76,7 +77,7 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, resetBadgeKey }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const lastMovementsViewedRef = useRef<string>(
     localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
@@ -173,9 +174,32 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [cashKey, setCashKey] = useState(0);
   const [readOrderIds, setReadOrderIds] = useState<Set<string>>(new Set());
 
+  // Персистентные прочитанные workshop-заказы (для nav badge, переживают навигацию)
+  const [readWorkshopOrderIds, setReadWorkshopOrderIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('inventory_workshop_read_ids');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markWorkshopOrderAsRead = (orderId: string) => {
+    setReadWorkshopOrderIds(prev => {
+      const next = new Set(prev);
+      next.add(orderId);
+      localStorage.setItem('inventory_workshop_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('inventory-workshop-order-read'));
+  };
+
   // Кол-во непрочитанных workshop-заказов (ready/confirmed, ещё не открытых менеджером)
   const workshopBadgeCount = Object.entries(saleWorkshopOrders).filter(
     ([saleId, wo]) => (wo.status === 'ready' || wo.status === 'confirmed') && !readOrderIds.has(saleId)
+  ).length;
+
+  // Персистентный badge для навигации (не сбрасывается при смене экрана)
+  const inventoryWorkshopBadge = Object.entries(saleWorkshopOrders).filter(
+    ([saleId, wo]) => (wo.status === 'ready' || wo.status === 'confirmed') && !readWorkshopOrderIds.has(saleId)
   ).length;
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
@@ -300,6 +324,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     onWorkshopBadgeChange?.(workshopBadgeCount);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workshopBadgeCount]);
+
+  // Персистентный badge → в навигацию родителя
+  useEffect(() => {
+    onBadgeChange?.(inventoryWorkshopBadge);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inventoryWorkshopBadge]);
 
   // Сбросить readOrderIds при смене ключа (вызывается из навигации при клике на Магазин)
   useEffect(() => {
@@ -1421,6 +1451,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         const wo = saleWorkshopOrders[s.id];
                         if (wo && (wo.status === 'ready' || wo.status === 'confirmed')) {
                           setReadOrderIds(prev => new Set([...prev, s.id]));
+                          markWorkshopOrderAsRead(s.id);
                         }
                       }}>
                       {saleWorkshopOrders[s.id] &&

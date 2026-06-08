@@ -58,6 +58,7 @@ function AppContent() {
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
+  const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
@@ -253,13 +254,21 @@ function AppContent() {
     };
   }, [employee?.branch_id]);
 
+  // Когда менеджер открывает карточку продажи — оптимистично снижаем badge
+  // (точное значение придёт от onBadgeChange InventoryPage)
+  useEffect(() => {
+    const handleRead = () => { setInventoryWorkshopBadge(0); };
+    window.addEventListener('inventory-workshop-order-read', handleRead);
+    return () => window.removeEventListener('inventory-workshop-order-read', handleRead);
+  }, []);
+
   // Централизованный OS badge (иконка PWA)
   useEffect(() => {
-    const total = unreadChatsCount + workshopOrderBadgeCount + workshopBadgeCount;
+    const total = unreadChatsCount + workshopOrderBadgeCount + inventoryWorkshopBadge;
     total > 0
       ? (navigator as any).setAppBadge?.(total)
       : (navigator as any).clearAppBadge?.();
-  }, [unreadChatsCount, workshopOrderBadgeCount, workshopBadgeCount]);
+  }, [unreadChatsCount, workshopOrderBadgeCount, inventoryWorkshopBadge]);
 
   // При возврате в приложение — очищаем иконку
   useEffect(() => {
@@ -440,7 +449,7 @@ function AppContent() {
                 title="Магазин">
                 <div className="relative">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                  {workshopBadgeCount > 0 && mobileView !== 'shop' && (
+                  {inventoryWorkshopBadge > 0 && mobileView !== 'shop' && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                   )}
                 </div>
@@ -588,7 +597,7 @@ function AppContent() {
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'shop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <div className="relative">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-              {workshopBadgeCount > 0 && mobileView !== 'shop' && (
+              {inventoryWorkshopBadge > 0 && mobileView !== 'shop' && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </div>
@@ -739,6 +748,7 @@ function AppContent() {
                 defaultTab="sales"
                 storefront={true}
                 onWorkshopBadgeChange={setWorkshopBadgeCount}
+                onBadgeChange={setInventoryWorkshopBadge}
                 resetBadgeKey={workshopBadgeResetKey}
               />
             </div>
@@ -854,6 +864,7 @@ function AppContent() {
                     defaultTab="sales"
                     storefront={true}
                     onWorkshopBadgeChange={setWorkshopBadgeCount}
+                    onBadgeChange={setInventoryWorkshopBadge}
                     resetBadgeKey={workshopBadgeResetKey}
                   />
                 </div>
