@@ -8,7 +8,8 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt } from 'lucide-react';
+import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
 import { ManagerCRMPanel } from './components/CRM/ManagerCRMPanel';
@@ -49,9 +50,9 @@ function AppContent() {
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'settings' | 'watchlist'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
-  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
   const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
@@ -411,6 +412,11 @@ function AppContent() {
                 title="Склад">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </button>
+              <button onClick={() => { setAdminView('expenses'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('expenses') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Расходы">
+                <Receipt className="w-3.5 h-3.5" />
+              </button>
               {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
@@ -496,6 +502,11 @@ function AppContent() {
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                   )}
                 </div>
+              </button>
+              <button onClick={() => { setMobileView('expenses'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('expenses') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Расходы">
+                <Receipt className="w-3.5 h-3.5" />
               </button>
               {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
@@ -697,6 +708,17 @@ function AppContent() {
             />
           </div>
         </div>
+      ) : isAdmin && adminView === 'expenses' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Расходы" />}
+          <div className="h-full overflow-y-auto">
+            <ExpensesTab
+              branchId={employee?.branch_id ?? ''}
+              employeeId={employee.id}
+              isAdmin={true}
+            />
+          </div>
+        </div>
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="Задачи" />}
@@ -812,6 +834,17 @@ function AppContent() {
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
               />
             )}
+          </div>
+        </div>
+
+      ) : isManager && !isMobile && !activeChat && mobileView === 'expenses' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="h-full overflow-y-auto">
+            <ExpensesTab
+              branchId={employee?.branch_id ?? ''}
+              employeeId={employee.id}
+              isAdmin={false}
+            />
           </div>
         </div>
 
