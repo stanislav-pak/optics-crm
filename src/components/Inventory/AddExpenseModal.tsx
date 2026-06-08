@@ -30,7 +30,10 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   useEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
-    const prevent = (e: TouchEvent) => e.preventDefault();
+    const prevent = (e: TouchEvent) => {
+      if ((e.target as Element).closest('[data-modal-content]')) return;
+      e.preventDefault();
+    };
     el.addEventListener('touchmove', prevent, { passive: false });
     return () => el.removeEventListener('touchmove', prevent);
   }, []);
@@ -81,7 +84,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
 
   return (
     <div ref={overlayRef} className="fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center" data-modal="true" onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85dvh] overflow-y-auto">
+      <div data-modal-content="" className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Новый расход</h2>
