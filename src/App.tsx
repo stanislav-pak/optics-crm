@@ -8,7 +8,7 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench, Receipt } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt, ChevronLeft } from 'lucide-react';
 import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
@@ -59,6 +59,7 @@ function AppContent() {
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
   const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
@@ -716,15 +717,25 @@ function AppContent() {
       ) : isAdmin && adminView === 'expenses' ? (
         <div
           className="flex-1 flex flex-col overflow-hidden"
-          onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX; }}
+          onTouchStart={(e) => {
+            touchStartXRef.current = e.touches[0].clientX;
+            touchStartYRef.current = e.touches[0].clientY;
+          }}
           onTouchEnd={(e) => {
-            if (e.changedTouches[0].clientX - touchStartXRef.current > 80) {
+            const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+            const dy = e.changedTouches[0].clientY - touchStartYRef.current;
+            if (dx > 80 && Math.abs(dy) < 60 && touchStartXRef.current < 40) {
               setMobileView('list');
             }
           }}
         >
-          {isMobile && <MobilePageHeader title="Расходы" />}
-          <div className="h-full overflow-y-auto">
+          <div className="flex items-center gap-3 px-4 py-3 bg-white border-b flex-shrink-0">
+            <button onClick={() => setMobileView('list')} className="text-gray-500">
+              <ChevronLeft size={22} />
+            </button>
+            <span className="font-semibold text-gray-900">Расходы</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
             <ExpensesTab
               branchId={employee?.branch_id ?? ''}
               employeeId={employee.id}
