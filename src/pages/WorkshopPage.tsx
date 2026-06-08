@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { fetchServices, fetchServiceOrders, fetchCompletedOrders, updateServiceOrderStatus } from '../services/workshop';
@@ -49,17 +49,14 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   const [showAddModal, setShowAddModal] = useState(false);
   const [showServicesManager, setShowServicesManager] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
-  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('workshop_read_orders');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
-  const ordersRef = useRef<ServiceOrder[]>([]);
+  const [lastReadAt, setLastReadAt] = useState<string>(() =>
+    localStorage.getItem('workshop_last_read_at') || new Date(0).toISOString()
+  );
 
-  // Кол-во новых непрочитанных заказов (status === 'new', ещё не открытых мастером)
-  const badgeCount = orders.filter(o => o.status === 'new' && !readOrderIds.has(o.id)).length;
-
-  // Держим ordersRef актуальным для обработчиков без зависимостей
-  useEffect(() => { ordersRef.current = orders; }, [orders]);
+  // Кол-во новых непрочитанных заказов (status === 'new', созданных после последнего просмотра)
+  const badgeCount = orders.filter(o =>
+    o.status === 'new' && new Date(o.created_at) > new Date(lastReadAt)
+  ).length;
 
   useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
 
@@ -121,36 +118,25 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgeCount]);
 
-  // При возврате фокуса вкладки и при размонтировании — все непрочитанные помечаем прочитанными
+  // При входе на страницу — помечаем всё как прочитанное
   useEffect(() => {
-    const markAllRead = () => {
-      const unreadIds = ordersRef.current.filter(o => o.status === 'new').map(o => o.id);
-      if (unreadIds.length > 0) {
-        setReadOrderIds(prev => {
-          const newSet = new Set([...prev, ...unreadIds]);
-          localStorage.setItem('workshop_read_orders', JSON.stringify([...newSet]));
-          return newSet;
-        });
-      }
-      (navigator as any).clearAppBadge?.();
-    };
+    const now = new Date().toISOString();
+    setLastReadAt(now);
+    localStorage.setItem('workshop_last_read_at', now);
+  }, []);
 
+  // При возврате фокуса вкладки — помечаем всё как прочитанное
+  useEffect(() => {
     const handler = () => {
-      if (document.visibilityState === 'visible') markAllRead();
+      if (document.visibilityState === 'visible') {
+        const now = new Date().toISOString();
+        setLastReadAt(now);
+        localStorage.setItem('workshop_last_read_at', now);
+        (navigator as any).clearAppBadge?.();
+      }
     };
     document.addEventListener('visibilitychange', handler);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handler);
-      // Размонтирование (уход из страницы) — сохраняем в localStorage напрямую
-      const unreadIds = ordersRef.current.filter(o => o.status === 'new').map(o => o.id);
-      if (unreadIds.length > 0) {
-        const saved = localStorage.getItem('workshop_read_orders');
-        const existing: Set<string> = saved ? new Set(JSON.parse(saved)) : new Set();
-        unreadIds.forEach(id => existing.add(id));
-        localStorage.setItem('workshop_read_orders', JSON.stringify([...existing]));
-      }
-    };
+    return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
   async function loadAll() {
@@ -373,16 +359,14 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
             filteredOrders
               .filter(o => o.status !== 'done')
               .map(order => {
-                const isUnread = order.status === 'new' && !readOrderIds.has(order.id);
+                const isUnread = order.status === 'new' && new Date(order.created_at) > new Date(lastReadAt);
                 return (
                   <div key={order.id} className="relative"
                     onClick={() => {
                       if (isUnread) {
-                        setReadOrderIds(prev => {
-                          const newSet = new Set([...prev, order.id]);
-                          localStorage.setItem('workshop_read_orders', JSON.stringify([...newSet]));
-                          return newSet;
-                        });
+                        const now = new Date().toISOString();
+                        setLastReadAt(now);
+                        localStorage.setItem('workshop_last_read_at', now);
                       }
                     }}>
                     {isUnread && (
