@@ -54,6 +54,7 @@ function AppContent() {
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
   const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
   const [workshopBadgeResetKey, setWorkshopBadgeResetKey] = useState(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
@@ -214,6 +215,54 @@ function AppContent() {
 
     return () => { supabase.removeChannel(channel); };
   }, [employee?.branch_id]);
+
+  // Realtime-подписка на новые заказы мастерской (работает независимо от активного экрана)
+  useEffect(() => {
+    const WBID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+    if (employee?.branch_id !== WBID) return;
+
+    const computeBadge = async () => {
+      const { data } = await supabase
+        .from('service_orders')
+        .select('id')
+        .eq('branch_id', WBID)
+        .eq('status', 'new');
+      if (!data) return;
+      try {
+        const saved = localStorage.getItem('workshop_read_ids');
+        const readIds: Set<string> = saved ? new Set(JSON.parse(saved)) : new Set();
+        setWorkshopOrderBadgeCount(data.filter(o => !readIds.has(o.id)).length);
+      } catch {
+        setWorkshopOrderBadgeCount(data.length);
+      }
+    };
+
+    computeBadge();
+
+    const channel = supabase
+      .channel('app-workshop-orders-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${WBID}` }, computeBadge)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [employee?.branch_id]);
+
+  // Централизованный OS badge (иконка PWA)
+  useEffect(() => {
+    const total = unreadChatsCount + workshopOrderBadgeCount + workshopBadgeCount;
+    total > 0
+      ? (navigator as any).setAppBadge?.(total)
+      : (navigator as any).clearAppBadge?.();
+  }, [unreadChatsCount, workshopOrderBadgeCount, workshopBadgeCount]);
+
+  // При возврате в приложение — очищаем иконку
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') (navigator as any).clearAppBadge?.();
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
 
   if (loading) {
     return (
@@ -502,7 +551,7 @@ function AppContent() {
       )}
       {isAdmin && <PendingManagers />}
       <div className="flex-1 overflow-hidden">
-        <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} />
+        <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} onUnreadChange={setUnreadChatsCount} />
       </div>
       {(employee.role === 'manager' || employee.role === 'branch_admin') && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
@@ -598,7 +647,6 @@ function AppContent() {
               branchId={null}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-              onBadgeChange={setWorkshopOrderBadgeCount}
             />
           </div>
         </div>
@@ -709,7 +757,6 @@ function AppContent() {
                 branchId={employee.branch_id}
                 employeeId={employee.id}
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                onBadgeChange={setWorkshopOrderBadgeCount}
               />
             ) : (
               <WorkshopManagerView
@@ -831,7 +878,6 @@ function AppContent() {
                     branchId={isAdmin ? null : employee.branch_id}
                     employeeId={employee.id}
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                    onBadgeChange={setWorkshopOrderBadgeCount}
                   />
                 ) : (
                   <WorkshopManagerView

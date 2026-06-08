@@ -122,23 +122,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     };
   }, [onBack]);
 
-  // App icon badge (PWA)
-  useEffect(() => {
-    badgeCount > 0
-      ? (navigator as any).setAppBadge?.(badgeCount)
-      : (navigator as any).clearAppBadge?.();
-  }, [badgeCount]);
-
-  // При возврате в приложение — очищаем иконку (in-app точки остаются)
-  useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') (navigator as any).clearAppBadge?.();
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
-
-  // Передаём счётчик в навигацию родителя
+  // Передаём счётчик родителю (OS badge централизован в App.tsx)
   useEffect(() => { onBadgeChange?.(badgeCount); }, [badgeCount]);
 
   async function loadAll() {

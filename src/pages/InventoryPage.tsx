@@ -295,27 +295,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Badge: синхронизируем с OS и уведомляем родителя
+  // Уведомляем родителя об изменении счётчика (OS badge централизован в App.tsx)
   useEffect(() => {
-    if (workshopBadgeCount > 0) {
-      (navigator as any).setAppBadge?.(workshopBadgeCount);
-    } else {
-      (navigator as any).clearAppBadge?.();
-    }
     onWorkshopBadgeChange?.(workshopBadgeCount);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workshopBadgeCount]);
-
-  // При возврате фокуса вкладки — очищаем OS badge
-  useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') {
-        (navigator as any).clearAppBadge?.();
-      }
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
 
   // Сбросить readOrderIds при смене ключа (вызывается из навигации при клике на Магазин)
   useEffect(() => {

@@ -3,19 +3,11 @@ import { supabase } from '../services/supabase';
 import { getChats } from '../services/chats';
 import type { Chat, ChatListFilters } from '../types';
 
-function updateBadge(count: number) {
-  if (count === 0) {
-    if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge();
-    else if ('setAppBadge' in navigator) (navigator as any).setAppBadge(0);
-  } else if ('setAppBadge' in navigator) {
-    (navigator as any).setAppBadge(count);
-  }
-}
-
 export function useChats(filters?: ChatListFilters) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchChats = useCallback(async () => {
     try {
@@ -23,7 +15,7 @@ export function useChats(filters?: ChatListFilters) {
       const data = await getChats(filters);
       setChats(data);
       const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
-      updateBadge(totalUnread);
+      setUnreadCount(totalUnread);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки чатов');
     } finally {
@@ -62,5 +54,5 @@ export function useChats(filters?: ChatListFilters) {
     };
   }, [fetchChats]);
 
-  return { chats, loading, error, refetch: fetchChats };
+  return { chats, loading, error, refetch: fetchChats, unreadCount };
 }

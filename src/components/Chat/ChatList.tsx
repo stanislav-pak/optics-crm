@@ -144,9 +144,10 @@ interface Employee { id: string; name: string; branch_id: string; }
 interface ChatListProps {
   activeChatId?: string;
   onChatSelect: (chat: Chat) => void;
+  onUnreadChange?: (count: number) => void;
 }
 
-export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
+export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatListProps) {
   const { employee } = useContext(AuthContext);
   const isAdmin = employee?.role === 'admin' || employee?.role === 'branch_admin';
   const isMobile = useIsMobile();
@@ -210,7 +211,9 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
     employee_id: filterEmployee !== 'all' ? filterEmployee : undefined,
   };
 
-  const { chats, loading, error } = useChats(filters);
+  const { chats, loading, error, unreadCount } = useChats(filters);
+
+  useEffect(() => { onUnreadChange?.(unreadCount); }, [unreadCount]);
 
   const { from: periodFrom, to: periodTo } = getPeriodDates(activePeriod, customFrom, customTo);
 
