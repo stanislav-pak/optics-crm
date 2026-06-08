@@ -52,7 +52,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop'>('list');
-  const [shopSubView, setShopSubView] = useState<'sales' | 'ready' | 'workshop' | 'payments'>('sales');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
@@ -301,13 +301,6 @@ function AppContent() {
       ? (navigator as any).setAppBadge?.(total)
       : (navigator as any).clearAppBadge?.();
   }, [unreadChatsCount, workshopOrderBadgeCount, inventoryWorkshopBadge]);
-
-  // Когда badge "Готовы" пропадает — переключить с вкладки 'ready' на 'sales'
-  useEffect(() => {
-    if (inventoryWorkshopBadge === 0 && shopSubView === 'ready') {
-      setShopSubView('sales');
-    }
-  }, [inventoryWorkshopBadge, shopSubView]);
 
   // При возврате в приложение — очищаем иконку
   useEffect(() => {
@@ -750,7 +743,7 @@ function AppContent() {
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Подраздел: Продажи | Готовы | Услуги мастерской | Доплаты */}
+          {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
           <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
             <button
               onClick={() => setShopSubView('sales')}
@@ -760,16 +753,6 @@ function AppContent() {
             >
               Продажи
             </button>
-            {inventoryWorkshopBadge > 0 && (
-              <button
-                onClick={() => setShopSubView('ready')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  shopSubView === 'ready' ? 'bg-red-500 text-white' : 'text-red-500 hover:bg-red-50'
-                }`}
-              >
-                Готовы ({inventoryWorkshopBadge})
-              </button>
-            )}
             <button
               onClick={() => setShopSubView('workshop')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -796,19 +779,6 @@ function AppContent() {
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 defaultTab="sales"
                 storefront={true}
-                onWorkshopBadgeChange={setWorkshopBadgeCount}
-                resetBadgeKey={workshopBadgeResetKey}
-              />
-            </div>
-          ) : shopSubView === 'ready' ? (
-            <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-              <InventoryPage
-                branchId={employee?.branch_id}
-                employeeId={employee.id}
-                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                defaultTab="sales"
-                storefront={true}
-                readyMode={true}
                 onWorkshopBadgeChange={setWorkshopBadgeCount}
                 resetBadgeKey={workshopBadgeResetKey}
               />
@@ -888,7 +858,7 @@ function AppContent() {
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
-              {/* Подраздел: Продажи | Готовы | Услуги мастерской | Доплаты */}
+              {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
               <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => setShopSubView('sales')}
@@ -898,16 +868,6 @@ function AppContent() {
                 >
                   Продажи
                 </button>
-                {inventoryWorkshopBadge > 0 && (
-                  <button
-                    onClick={() => setShopSubView('ready')}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      shopSubView === 'ready' ? 'bg-red-500 text-white' : 'text-red-500 hover:bg-red-50'
-                    }`}
-                  >
-                    Готовы ({inventoryWorkshopBadge})
-                  </button>
-                )}
                 <button
                   onClick={() => setShopSubView('workshop')}
                   className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -934,19 +894,6 @@ function AppContent() {
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                     defaultTab="sales"
                     storefront={true}
-                    onWorkshopBadgeChange={setWorkshopBadgeCount}
-                    resetBadgeKey={workshopBadgeResetKey}
-                  />
-                </div>
-              ) : shopSubView === 'ready' ? (
-                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-                  <InventoryPage
-                    branchId={employee?.branch_id}
-                    employeeId={employee.id}
-                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                    defaultTab="sales"
-                    storefront={true}
-                    readyMode={true}
                     onWorkshopBadgeChange={setWorkshopBadgeCount}
                     resetBadgeKey={workshopBadgeResetKey}
                   />
