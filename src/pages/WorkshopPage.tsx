@@ -49,13 +49,28 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   const [showAddModal, setShowAddModal] = useState(false);
   const [showServicesManager, setShowServicesManager] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
-  const [lastReadAt, setLastReadAt] = useState<string>(() =>
-    localStorage.getItem('workshop_last_read_at') || new Date().toISOString()
-  );
+  const [readOrderIds, setReadOrderIds] = useState<Set<string>>(() => {
+    try {
+      // Очищаем старые ключи от прошлых версий
+      localStorage.removeItem('workshop_last_read_at');
+      localStorage.removeItem('workshop_read_orders');
+      const saved = localStorage.getItem('workshop_read_ids');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
 
-  // Кол-во новых непрочитанных заказов (status === 'new', созданных после последнего просмотра)
-  const badgeCount = orders.filter(o =>
-    o.status === 'new' && new Date(o.created_at) > new Date(lastReadAt)
+  const markAsRead = (orderId: string) => {
+    setReadOrderIds(prev => {
+      const next = new Set(prev);
+      next.add(orderId);
+      localStorage.setItem('workshop_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  // Непрочитанный = status 'new' И id НЕТ в readOrderIds
+  const badgeCount = orders.filter(
+    o => o.status === 'new' && !readOrderIds.has(o.id)
   ).length;
 
   useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
@@ -107,41 +122,24 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     };
   }, [onBack]);
 
-  // Badge OS (иконка PWA)
+  // App icon badge (PWA)
   useEffect(() => {
-    if (badgeCount > 0) {
-      (navigator as any).setAppBadge?.(badgeCount);
-    } else {
-      (navigator as any).clearAppBadge?.();
-    }
+    badgeCount > 0
+      ? (navigator as any).setAppBadge?.(badgeCount)
+      : (navigator as any).clearAppBadge?.();
   }, [badgeCount]);
 
-  // Уведомляем родителя (nav badge) при любом изменении badgeCount
+  // При возврате в приложение — очищаем иконку (in-app точки остаются)
   useEffect(() => {
-    onBadgeChange?.(badgeCount);
-  }, [badgeCount, onBadgeChange]);
-
-  // При скрытии вкладки или размонтировании — фиксируем время просмотра
-  // При возврате (visible) — только очищаем значок иконки, lastReadAt не трогаем
-  useEffect(() => {
-    const markRead = () => {
-      const now = new Date().toISOString();
-      setLastReadAt(now);
-      localStorage.setItem('workshop_last_read_at', now);
-    };
     const handler = () => {
-      if (document.visibilityState === 'hidden') {
-        markRead();
-      } else {
-        (navigator as any).clearAppBadge?.();
-      }
+      if (document.visibilityState === 'visible') (navigator as any).clearAppBadge?.();
     };
     document.addEventListener('visibilitychange', handler);
-    return () => {
-      document.removeEventListener('visibilitychange', handler);
-      markRead(); // размонтирование = уход с экрана
-    };
+    return () => document.removeEventListener('visibilitychange', handler);
   }, []);
+
+  // Передаём счётчик в навигацию родителя
+  useEffect(() => { onBadgeChange?.(badgeCount); }, [badgeCount]);
 
   async function loadAll() {
     setLoading(true);
@@ -363,16 +361,10 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
             filteredOrders
               .filter(o => o.status !== 'done')
               .map(order => {
-                const isUnread = order.status === 'new' && new Date(order.created_at) > new Date(lastReadAt);
+                const isUnread = order.status === 'new' && !readOrderIds.has(order.id);
                 return (
                   <div key={order.id} className="relative"
-                    onClick={() => {
-                      if (isUnread) {
-                        const now = new Date().toISOString();
-                        setLastReadAt(now);
-                        localStorage.setItem('workshop_last_read_at', now);
-                      }
-                    }}>
+                    onClick={() => { if (isUnread) markAsRead(order.id); }}>
                     {isUnread && (
                       <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-white z-10" />
                     )}
