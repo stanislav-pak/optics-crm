@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { Banknote, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { getExpensesForDate, calcExpenseSummary } from '../../services/expenses';
 
 interface CashSession {
   id: string;
@@ -31,6 +32,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [actualCash, setActualCash] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cashExpenses, setCashExpenses] = useState(0);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -168,6 +170,10 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
         .single();
       setSession((created || null) as CashSession | null);
     }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const exps = await getExpensesForDate(branchId, todayStr);
+    const summary = calcExpenseSummary(exps);
+    setCashExpenses(summary.cash);
     setLoading(false);
   };
 
@@ -212,7 +218,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const discrepancy = session.cash_discrepancy;
   const hasDiscrepancy = discrepancy !== null && Math.abs(discrepancy) > 0;
   const previewDiff = actualCash
-    ? session.system_cash - parseFloat(actualCash)
+    ? (session.system_cash - cashExpenses) - parseFloat(actualCash)
   : null;
 
   return (
@@ -258,6 +264,19 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
             <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(session.system_total)}</p>
           </div>
         </div>
+
+        {cashExpenses > 0 && (
+          <div className="flex justify-between text-sm mt-2 pt-2 border-t">
+            <span className="text-red-500">Расходы (нал)</span>
+            <span className="text-red-500 font-medium">−{cashExpenses.toLocaleString('ru-KZ')} ₸</span>
+          </div>
+        )}
+        {cashExpenses > 0 && (
+          <div className="flex justify-between text-sm mt-1">
+            <span className="text-gray-600 font-medium">К сдаче наличными</span>
+            <span className="font-bold">{(session.system_cash - cashExpenses).toLocaleString('ru-KZ')} ₸</span>
+          </div>
+        )}
 
         {isClosed && session.actual_cash !== null && (
           <div className="border-t border-gray-100 pt-3 space-y-1.5 text-sm">
