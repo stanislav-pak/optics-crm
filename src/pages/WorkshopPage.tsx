@@ -19,6 +19,7 @@ interface WorkshopPageProps {
 
 type StatusFilter = 'all' | ServiceOrderStatus;
 type PageTab = 'orders' | 'journal';
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
 const ADMIN_BRANCHES = [
   { id: 'ff42784a-5de9-458e-baf6-1ca3c8d0b79f', name: 'Жандосова' },
@@ -48,6 +49,9 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   const [journalBranchFilter, setJournalBranchFilter] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showServicesManager, setShowServicesManager] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
   const [readOrderIds, setReadOrderIds] = useState<Set<string>>(() => {
     try {
@@ -191,9 +195,32 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     setShowAddModal(true);
   }
 
-  const filteredOrders = statusFilter === 'all'
-    ? orders
-    : orders.filter(o => o.status === statusFilter);
+  const filteredOrders = (() => {
+    let result = statusFilter === 'all'
+      ? orders
+      : orders.filter(o => o.status === statusFilter);
+
+    if (dateFilter !== 'all') {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      if (dateFilter === 'today') {
+        result = result.filter(o => o.created_at.split('T')[0] === todayStr);
+      } else if (dateFilter === 'week') {
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        result = result.filter(o => new Date(o.created_at) >= weekAgo);
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        result = result.filter(o => new Date(o.created_at) >= monthAgo);
+      } else if (dateFilter === 'custom') {
+        if (dateFrom) result = result.filter(o => o.created_at.split('T')[0] >= dateFrom);
+        if (dateTo) result = result.filter(o => o.created_at.split('T')[0] <= dateTo);
+      }
+    }
+
+    return result;
+  })();
 
   // viewerBranchId для карточек в WorkshopPage — всегда мастерская
   const viewerBranchId = WORKSHOP_BRANCH_ID;
@@ -283,25 +310,53 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
 
         {/* Фильтры статуса — только в «Заказы» */}
         {pageTab === 'orders' && (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-            {STATUS_FILTERS.filter(f => f.value !== 'done').map(f => {
-              const count = f.value !== 'all'
-                ? orders.filter(o => o.status === f.value).length
-                : orders.filter(o => o.status !== 'done').length;
-              return (
-                <button key={f.value}
-                  onClick={() => setStatusFilter(f.value)}
-                  className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                    statusFilter === f.value ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}>
-                  {f.label}
-                  {count > 0 && (
-                    <span className={`ml-1 ${statusFilter === f.value ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              {STATUS_FILTERS.filter(f => f.value !== 'done').map(f => {
+                const count = f.value !== 'all'
+                  ? orders.filter(o => o.status === f.value).length
+                  : orders.filter(o => o.status !== 'done').length;
+                return (
+                  <button key={f.value}
+                    onClick={() => setStatusFilter(f.value)}
+                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                      statusFilter === f.value ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>
+                    {f.label}
+                    {count > 0 && (
+                      <span className={`ml-1 ${statusFilter === f.value ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Фильтры по датам */}
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+              {(['all', 'today', 'week', 'month', 'custom'] as DateFilter[]).map(f => {
+                const labels: Record<DateFilter, string> = { all: 'Все', today: 'Сегодня', week: 'Неделя', month: 'Месяц', custom: 'Период' };
+                return (
+                  <button key={f}
+                    onClick={() => setDateFilter(f)}
+                    className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                      dateFilter === f ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>
+                    {labels[f]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Кастомный период */}
+            {dateFilter === 'custom' && (
+              <div className="flex gap-2">
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+            )}
+          </>
         )}
 
         {/* Фильтр по филиалу — только в «Журнал» */}
