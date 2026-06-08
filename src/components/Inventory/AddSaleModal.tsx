@@ -63,6 +63,10 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [newWsServicePrice, setNewWsServicePrice] = useState(0);
   const [creatingWsService, setCreatingWsService] = useState(false);
 
+  // Локальные raw-строки для числовых полей товаров (iOS: свободный ввод без зажима)
+  const [rawQuantity, setRawQuantity] = useState<Record<string, string>>({});
+  const [rawPrice, setRawPrice] = useState<Record<string, string>>({});
+
   // client UI state
   const [clientsLoading, setClientsLoading] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
@@ -224,7 +228,14 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
     }));
   };
 
-  const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
+  const removeItem = (idx: number) => {
+    const productId = items[idx]?.product_id;
+    setItems(prev => prev.filter((_, i) => i !== idx));
+    if (productId) {
+      setRawQuantity(prev => { const next = { ...prev }; delete next[productId]; return next; });
+      setRawPrice(prev => { const next = { ...prev }; delete next[productId]; return next; });
+    }
+  };
 
   const handleSubmit = async () => {
     if (items.length === 0 && !addWorkshop) return;
@@ -502,39 +513,52 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Количество</label>
                     <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                      <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity - 1); }}
-                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">−</button>
+                      <button type="button" onMouseDown={e => {
+                        e.preventDefault();
+                        setRawQuantity(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                        updateItem(idx, 'quantity', item.quantity - 1);
+                      }} className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">−</button>
                       <input type="text" inputMode="numeric"
-                        value={item.quantity === 0 ? '' : String(item.quantity)}
-                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
-                        onFocus={(e) => {
+                        value={rawQuantity[item.product_id] ?? (item.quantity === 0 ? '' : String(item.quantity))}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9]/g, '');
+                          setRawQuantity(prev => ({ ...prev, [item.product_id]: raw }));
+                          const num = parseInt(raw);
+                          if (num > 0) updateItem(idx, 'quantity', num);
+                        }}
+                        onFocus={e => {
+                          setRawQuantity(prev => ({ ...prev, [item.product_id]: item.quantity === 0 ? '' : String(item.quantity) }));
                           const input = e.target;
                           setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
-                            e.preventDefault();
-                            updateItem(idx, 'quantity', 0);
-                          }
+                        onBlur={() => {
+                          setRawQuantity(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
                         }}
                         className="flex-1 text-center text-sm py-2 border-0 focus:outline-none min-w-0" />
-                      <button type="button" onMouseDown={e => { e.preventDefault(); updateItem(idx, 'quantity', item.quantity + 1); }}
-                        className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">+</button>
+                      <button type="button" onMouseDown={e => {
+                        e.preventDefault();
+                        setRawQuantity(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                        updateItem(idx, 'quantity', item.quantity + 1);
+                      }} className="px-3 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium">+</button>
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Цена продажи ₸</label>
-                    <input type="text" inputMode="numeric" value={item.price === 0 ? '' : String(item.price)}
-                      onChange={e => updateItem(idx, 'price', parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
-                      onFocus={(e) => {
+                    <input type="text" inputMode="numeric"
+                      value={rawPrice[item.product_id] ?? (item.price === 0 ? '' : String(item.price))}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                        setRawPrice(prev => ({ ...prev, [item.product_id]: raw }));
+                        const num = parseFloat(raw);
+                        if (!isNaN(num) && num >= 0) updateItem(idx, 'price', num);
+                      }}
+                      onFocus={e => {
+                        setRawPrice(prev => ({ ...prev, [item.product_id]: item.price === 0 ? '' : String(item.price) }));
                         const input = e.target;
                         setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
-                          e.preventDefault();
-                          updateItem(idx, 'price', 0);
-                        }
+                      onBlur={() => {
+                        setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
                       }}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                   </div>
