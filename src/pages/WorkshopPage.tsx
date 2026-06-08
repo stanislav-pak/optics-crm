@@ -64,6 +64,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
       const next = new Set(prev);
       next.add(orderId);
       localStorage.setItem('workshop_read_ids', JSON.stringify([...next]));
+      window.dispatchEvent(new CustomEvent('workshop-order-read'));
       return next;
     });
   };

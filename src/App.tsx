@@ -239,12 +239,18 @@ function AppContent() {
 
     computeBadge();
 
+    const handleOrderRead = () => { computeBadge(); };
+    window.addEventListener('workshop-order-read', handleOrderRead);
+
     const channel = supabase
       .channel('app-workshop-orders-badge')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${WBID}` }, computeBadge)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('workshop-order-read', handleOrderRead);
+    };
   }, [employee?.branch_id]);
 
   // Централизованный OS badge (иконка PWA)
