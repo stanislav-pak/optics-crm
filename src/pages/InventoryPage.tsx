@@ -31,7 +31,7 @@ import ExpensesTab from '../components/Inventory/ExpensesTab';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'expenses';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
 
 interface InventoryPageProps {
   branchId: string;
@@ -593,7 +593,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'writeoffs', label: 'Списания' },
     { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
-    { key: 'expenses', label: 'Расходы' },
   ];
 
   async function handleDeleteRevision(id: string, e: React.MouseEvent) {
@@ -2181,13 +2180,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           );
         })()}
 
-        {tab === 'expenses' && (
-          <ExpensesTab
-            branchId={activeBranchId}
-            employeeId={employeeId}
-            isAdmin={role === 'admin'}
-          />
-        )}
+
       </div>
 
       {selectedProduct && (
