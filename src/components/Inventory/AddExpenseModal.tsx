@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus } from 'lucide-react';
 import {
   getExpenseCategories,
@@ -70,7 +71,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" data-modal="true">
       <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -211,6 +212,7 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
