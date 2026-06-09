@@ -1324,11 +1324,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 ) : (
                   <span />
                 )}
-                <div className="flex gap-2 px-3">
+                <div className="flex gap-2 px-4 w-full">
                   <button
+                    className="flex-1"
                     onClick={() => openAddSale('preorder')}
                     style={{
-                      flex: 1, background: '#f59e0b', color: '#fff',
+                      background: '#f59e0b', color: '#fff',
                       whiteSpace: 'nowrap', height: '44px',
                       borderRadius: '8px', fontSize: '14px',
                       fontWeight: 500, border: 'none', cursor: 'pointer',
@@ -1337,9 +1338,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     + Предзаказ
                   </button>
                   <button
+                    className="flex-1"
                     onClick={() => openAddSale('sale')}
                     style={{
-                      flex: 1, background: '#10b981', color: '#fff',
+                      background: '#10b981', color: '#fff',
                       whiteSpace: 'nowrap', height: '44px',
                       borderRadius: '8px', fontSize: '14px',
                       fontWeight: 500, border: 'none', cursor: 'pointer',
