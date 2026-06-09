@@ -41,7 +41,7 @@ function ListScreen({ onSelect }: ListScreenProps) {
 
     const results = await Promise.all(
       branches.map(b =>
-        getAdminCashData(b.id, d).catch(() => null)
+        getAdminCashData(b.id, d + 'T00:00:00', d + 'T23:59:59').catch(() => null)
       )
     );
     setRows(branches.map((b, i) => ({ branch: b, data: results[i], loading: false })));
@@ -123,7 +123,7 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
 
   useEffect(() => {
     setLoading(true);
-    getAdminCashData(branch.id, date)
+    getAdminCashData(branch.id, date + 'T00:00:00', date + 'T23:59:59')
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [branch.id, date]);

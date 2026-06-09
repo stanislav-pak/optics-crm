@@ -4,6 +4,8 @@ import type { Branch } from '../types';
 export interface AdminCashData {
   salesCash: number;
   salesKaspi: number;
+  salesCount: number;
+  avgCheck: number;
   workshopPrepaidCash: number;
   workshopPrepaidKaspi: number;
   workshopRemainingCash: number;
@@ -20,16 +22,16 @@ export interface AdminCashData {
   session: { status: string; actual_cash: number | null; cash_discrepancy: number | null } | null;
 }
 
-export async function getAdminCashData(branchId: string, date: string): Promise<AdminCashData> {
-  const dateStart = date + 'T00:00:00';
-  const dateEnd = date + 'T23:59:59';
+export async function getAdminCashData(branchId: string, dateStart: string, dateEnd: string): Promise<AdminCashData> {
+  const dateFrom = dateStart.split('T')[0];
+  const dateTo = dateEnd.split('T')[0];
 
   const [salesRes, prepaidRes, remainingRes, refundsRes, returnMovementsRes, expensesRes, sessionRes] =
     await Promise.all([
       // 1. Sales
       supabase
         .from('sales')
-        .select('paid_cash, paid_kaspi')
+        .select('paid_cash, paid_kaspi, status')
         .eq('branch_id', branchId)
         .in('status', ['paid', 'refunded', 'partially_refunded'])
         .gte('created_at', dateStart)
@@ -77,20 +79,27 @@ export async function getAdminCashData(branchId: string, date: string): Promise<
         .from('expenses')
         .select('amount, payment_method, category:expense_categories(name)')
         .eq('branch_id', branchId)
-        .eq('date', date),
+        .gte('date', dateFrom)
+        .lte('date', dateTo),
 
-      // 7. Cash session
+      // 7. Cash session (последняя за период)
       supabase
         .from('cash_sessions')
         .select('status, actual_cash, cash_discrepancy')
         .eq('branch_id', branchId)
-        .eq('date', date)
+        .gte('date', dateFrom)
+        .lte('date', dateTo)
+        .order('date', { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ]);
 
   // 1. Sales totals
-  const salesCash = (salesRes.data ?? []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
-  const salesKaspi = (salesRes.data ?? []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+  const salesRows = salesRes.data ?? [];
+  const salesCash = salesRows.reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
+  const salesKaspi = salesRows.reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+  const salesCount = salesRows.filter(x => x.status === 'paid').length;
+  const avgCheck = salesCount > 0 ? (salesCash + salesKaspi) / salesCount : 0;
 
   // 2. Workshop prepayments
   const workshopPrepaidCash = (prepaidRes.data ?? [])
@@ -167,6 +176,8 @@ export async function getAdminCashData(branchId: string, date: string): Promise<
   return {
     salesCash,
     salesKaspi,
+    salesCount,
+    avgCheck,
     workshopPrepaidCash,
     workshopPrepaidKaspi,
     workshopRemainingCash,
@@ -182,6 +193,20 @@ export async function getAdminCashData(branchId: string, date: string): Promise<
     systemTotal,
     session: sessionRes.data ?? null,
   };
+}
+
+export async function getAdminStockValue(branchId: string): Promise<number> {
+  const { data } = await supabase
+    .from('stock')
+    .select('quantity, products(price)')
+    .eq('branch_id', branchId)
+    .gt('quantity', 0);
+
+  if (!data) return 0;
+  return data.reduce((sum, row: any) => {
+    const price = row.products?.price ?? 0;
+    return sum + (row.quantity * price);
+  }, 0);
 }
 
 export async function getAdminBranches(): Promise<Branch[]> {
