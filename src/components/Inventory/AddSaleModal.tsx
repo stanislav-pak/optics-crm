@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
 import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
+import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
 import { formatPhone } from '@/utils/formatters';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -24,11 +25,12 @@ interface Props {
   employeeId: string;
   onClose: () => void;
   onSuccess: () => void;
+  initialTab?: 'sale' | 'preorder';
 }
 
 type ClientSnap = Pick<Client, 'id' | 'phone'> & { name?: string; branch?: { name: string } | null };
 
-export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess }: Props) {
+export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess, initialTab }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<ClientSnap[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -76,6 +78,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   const [nameSuggestions, setNameSuggestions] = useState<ClientSnap[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [newClientSaving, setNewClientSaving] = useState(false);
+
+  // Режим: продажа / предзаказ
+  const [mode, setMode] = useState<'sale' | 'preorder'>(initialTab ?? 'sale');
+
+  // Состояния предзаказа
+  const [preorderPaymentType, setPreorderPaymentType] = useState<'none' | 'prepaid' | 'full'>('none');
+  const [prepaymentAmount, setPrepaymentAmount] = useState('');
+  const [prepaymentMethod, setPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [expectedDate, setExpectedDate] = useState('');
+  const [preorderNotes, setPreorderNotes] = useState('');
 
   useEffect(() => {
     getProducts(branchId).then(data =>
@@ -238,6 +250,40 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
   };
 
   const handleSubmit = async () => {
+    if (mode === 'preorder') {
+      setLoading(true);
+      try {
+        const orderClientName = selectedClient?.name ?? newClientName ?? undefined;
+        const orderClientPhone = selectedClient?.phone ?? newClientPhone ?? undefined;
+        await createOrder({
+          branch_id: branchId,
+          created_by: employeeId,
+          client_id: clientId || null,
+          client_name: orderClientName,
+          client_phone: orderClientPhone,
+          payment_type: preorderPaymentType,
+          prepayment_amount: preorderPaymentType === 'prepaid' ? parseFloat(prepaymentAmount || '0') : 0,
+          prepayment_method: preorderPaymentType === 'prepaid' ? prepaymentMethod : null,
+          total_amount: total,
+          expected_date: expectedDate || null,
+          notes: preorderNotes.trim() || undefined,
+          items: items.map(i => ({
+            product_id: i.product_id || null,
+            product_name: i.product_name,
+            quantity: i.quantity,
+            price: i.price,
+          })),
+        });
+        window.dispatchEvent(new CustomEvent('preorder-created'));
+        onClose();
+      } catch (e: any) {
+        alert('Ошибка: ' + (e?.message || JSON.stringify(e)));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (items.length === 0 && !addWorkshop) return;
     setLoading(true);
     try {
@@ -344,6 +390,34 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 className="text-base font-semibold text-gray-900">Новая продажа</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="px-5 pt-3 pb-1">
+            <div className="flex gap-1 rounded-lg p-[3px]" style={{ background: '#2a3942', borderRadius: 8 }}>
+              <button
+                type="button"
+                onClick={() => setMode('sale')}
+                className="flex-1 py-1.5 text-sm font-medium rounded-md transition-colors"
+                style={{
+                  background: mode === 'sale' ? '#10b981' : 'transparent',
+                  color: mode === 'sale' ? '#fff' : '#8696a0',
+                }}
+              >
+                Продажа
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('preorder')}
+                className="flex-1 py-1.5 text-sm font-medium rounded-md transition-colors"
+                style={{
+                  background: mode === 'preorder' ? '#f59e0b' : 'transparent',
+                  color: mode === 'preorder' ? '#fff' : '#8696a0',
+                }}
+              >
+                Предзаказ
+              </button>
+            </div>
           </div>
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
@@ -864,7 +938,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
             </div>
 
             {/* Итого */}
-            {(items.length > 0 || addWorkshop) && (
+            {mode === 'sale' && (items.length > 0 || addWorkshop) && (
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 {/* Детализация суммы */}
                 <div className="space-y-1.5">
@@ -993,6 +1067,93 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
                 )}
               </div>
             )}
+
+            {/* Поля предзаказа */}
+            {mode === 'preorder' && (
+              <div className="space-y-3 pt-1">
+                {/* Тип оплаты */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Тип оплаты</label>
+                  <div className="flex gap-2">
+                    {(['none', 'prepaid', 'full'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setPreorderPaymentType(t)}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+                        style={{
+                          background: preorderPaymentType === t ? '#f59e0b' : 'transparent',
+                          color: preorderPaymentType === t ? '#fff' : '#6b7280',
+                          borderColor: preorderPaymentType === t ? '#f59e0b' : '#e5e7eb',
+                        }}
+                      >
+                        {t === 'none' ? 'Без' : t === 'prepaid' ? 'Частичная' : 'Полная'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Предоплата */}
+                {preorderPaymentType === 'prepaid' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={prepaymentAmount}
+                        onChange={e => setPrepaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                        placeholder="0"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Способ</label>
+                      <div className="flex gap-1 h-[38px]">
+                        {(['cash', 'kaspi'] as const).map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setPrepaymentMethod(m)}
+                            className="flex-1 rounded-lg text-xs font-medium border transition-colors"
+                            style={{
+                              background: prepaymentMethod === m ? '#f59e0b' : 'transparent',
+                              color: prepaymentMethod === m ? '#fff' : '#6b7280',
+                              borderColor: prepaymentMethod === m ? '#f59e0b' : '#e5e7eb',
+                            }}
+                          >
+                            {m === 'cash' ? 'Нал' : 'Kaspi'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ожидаемая дата */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Ожидаемая дата</label>
+                  <input
+                    type="date"
+                    value={expectedDate}
+                    onChange={e => setExpectedDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+
+                {/* Заметки */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Заметки</label>
+                  <textarea
+                    value={preorderNotes}
+                    onChange={e => setPreorderNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Дополнительная информация..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -1001,9 +1162,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess 
               className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
               Отмена
             </button>
-            <button onClick={handleSubmit} disabled={loading || (items.length === 0 && !addWorkshop)}
-              className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-              {loading ? 'Сохраняем...' : `Оформить продажу (₸${totalNow.toLocaleString()})`}
+            <button
+              onClick={handleSubmit}
+              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop)}
+              className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+              style={{ background: mode === 'preorder' ? '#f59e0b' : '#16a34a' }}
+            >
+              {loading
+                ? 'Сохраняем...'
+                : mode === 'preorder'
+                  ? `Создать предзаказ${total > 0 ? ` (₸${total.toLocaleString()})` : ''}`
+                  : `Оформить продажу (₸${totalNow.toLocaleString()})`
+              }
             </button>
           </div>
         </div>
