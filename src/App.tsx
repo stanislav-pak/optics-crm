@@ -8,7 +8,8 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench, Receipt, ChevronLeft } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote } from 'lucide-react';
+import AdminCashView from './components/Admin/AdminCashView';
 import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
@@ -50,7 +51,7 @@ function AppContent() {
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'settings' | 'watchlist'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
   const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses'>('sales');
@@ -420,6 +421,11 @@ function AppContent() {
                 title="Расходы">
                 <Receipt className="w-3.5 h-3.5" />
               </button>
+              <button onClick={() => { setAdminView('cash'); setActiveChat(null); }}
+                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('cash') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                title="Касса">
+                <Banknote className="w-3.5 h-3.5" />
+              </button>
               {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
@@ -570,6 +576,13 @@ function AppContent() {
             title="Расходы"
           >
             <Receipt className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => { setAdminView('cash'); setActiveChat(null); setMobileView('main'); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${isAdminBtnActive('cash') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
+            title="Касса"
+          >
+            <Banknote className="w-5 h-5" />
           </button>
           {employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' && (
           <button
@@ -742,6 +755,10 @@ function AppContent() {
               isAdmin={true}
             />
           </div>
+        </div>
+      ) : isAdmin && adminView === 'cash' ? (
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+          <AdminCashView />
         </div>
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
