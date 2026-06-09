@@ -118,61 +118,26 @@ export async function getOrCreateDirectChat(
   otherEmployeeId: string
 ): Promise<InternalChat | null> {
   try {
-    // Шаг 1: найти мои direct-чаты
-    const { data: myMemberships } = await supabase
-      .from('internal_chat_members')
-      .select('chat_id, internal_chats(id, type)')
-      .eq('employee_id', myEmployeeId);
+    // Вызываем SECURITY DEFINER функцию
+    const { data: chatId, error } = await supabase
+      .rpc('create_or_get_direct_chat', {
+        p_employee_id_1: myEmployeeId,
+        p_employee_id_2: otherEmployeeId,
+      });
 
-    const myDirectChatIds = (myMemberships || [])
-      .filter((m: { internal_chats?: { type?: string } }) => m.internal_chats?.type === 'direct')
-      .map((m: { chat_id: string }) => m.chat_id);
-
-    // Шаг 2: есть ли среди них чат с другим сотрудником
-    if (myDirectChatIds.length > 0) {
-      const { data: shared } = await supabase
-        .from('internal_chat_members')
-        .select('chat_id')
-        .eq('employee_id', otherEmployeeId)
-        .in('chat_id', myDirectChatIds)
-        .maybeSingle();
-
-      if (shared?.chat_id) {
-        const { data: existingChat } = await supabase
-          .from('internal_chats')
-          .select('*, members:internal_chat_members(id, chat_id, employee_id, last_read_at, employee:employees(id, name, role, branch_id))')
-          .eq('id', shared.chat_id)
-          .single();
-        return existingChat as InternalChat;
-      }
+    if (error || !chatId) {
+      console.error('create_or_get_direct_chat error:', error);
+      return null;
     }
 
-    // Шаг 3: создать новый direct-чат
-    const { data: newChat, error: chatError } = await supabase
+    // Загружаем полные данные чата
+    const { data: chat } = await supabase
       .from('internal_chats')
-      .insert({ type: 'direct', created_by: myEmployeeId })
-      .select()
+      .select('*, internal_chat_members(employee_id, last_read_at, employees(id,name,role,branch_id))')
+      .eq('id', chatId)
       .single();
 
-    if (chatError || !newChat) {
-      console.error('Failed to create chat:', chatError);
-      return null;
-    }
-
-    // Шаг 4: добавить обоих участников
-    const { error: membersError } = await supabase
-      .from('internal_chat_members')
-      .insert([
-        { chat_id: newChat.id, employee_id: myEmployeeId },
-        { chat_id: newChat.id, employee_id: otherEmployeeId },
-      ]);
-
-    if (membersError) {
-      console.error('Failed to add members:', membersError);
-      return null;
-    }
-
-    return newChat as InternalChat;
+    return chat as InternalChat;
   } catch (e) {
     console.error('getOrCreateDirectChat error:', e);
     return null;
