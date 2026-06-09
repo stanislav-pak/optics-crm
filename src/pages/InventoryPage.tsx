@@ -149,6 +149,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [rvProductSearch, setRvProductSearch] = useState('');
   const [showAddPurchase, setShowAddPurchase] = useState(false);
   const [showAddSale, setShowAddSale] = useState(false);
+  const [addSaleInitialTab, setAddSaleInitialTab] = useState<'sale' | 'preorder'>('sale');
+  const openAddSale = (tab: 'sale' | 'preorder') => { setAddSaleInitialTab(tab); setShowAddSale(true); };
   const [showRevision, setShowRevision] = useState(false);
   const [showSuppliers, setShowSuppliers] = useState(false);
   const [continueRevisionId, setContinueRevisionId] = useState<string | undefined>(undefined);
@@ -1323,26 +1325,25 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <span />
                 )}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <ExportBtn onClick={() => {
-                    const rows = filteredSales.map(s => ({
-                      'Дата': new Date(s.created_at).toLocaleDateString('ru-RU'),
-                      'Клиент': (s.client as any)?.name || (s.client as any)?.phone || '—',
-                      'Сотрудник': (s.employee as any)?.name ?? '—',
-                      'Товары': s.items?.map(i => `${(i.product as any)?.name} ×${i.quantity}`).join('; ') ?? '—',
-                      'Итого': s.total,
-                      'Наличными': s.paid_cash || 0,
-                      'Kaspi QR': s.paid_kaspi || 0,
-                      'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : 'Смешанная',
-                      'Статус': STATUS_RU[s.status] ?? s.status,
-                    }));
-                    xlsxExport(rows, `продажи_${xlsxDate()}.xlsx`);
-                  }} />
                   <button
-                    onClick={() => setShowAddSale(true)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700"
+                    onClick={() => openAddSale('preorder')}
+                    style={{
+                      background: '#f59e0b22', border: '1px solid #f59e0b66',
+                      borderRadius: '8px', padding: '10px 12px', color: '#f59e0b',
+                      fontSize: '13px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
                   >
-                    <Plus size={16} />
-                    Новая продажа
+                    + Предзаказ
+                  </button>
+                  <button
+                    onClick={() => openAddSale('sale')}
+                    style={{
+                      background: '#10b981', border: 'none', borderRadius: '8px',
+                      padding: '10px 12px', color: '#fff',
+                      fontSize: '13px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    + Новая продажа
                   </button>
                 </div>
               </div>
@@ -1434,6 +1435,27 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Шапка списка продаж */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500">
+                  {filteredSales.length} {filteredSales.length === 1 ? 'продажа' : filteredSales.length < 5 ? 'продажи' : 'продаж'}
+                </span>
+                <ExportBtn onClick={() => {
+                  const rows = filteredSales.map(s => ({
+                    'Дата': new Date(s.created_at).toLocaleDateString('ru-RU'),
+                    'Клиент': (s.client as any)?.name || (s.client as any)?.phone || '—',
+                    'Сотрудник': (s.employee as any)?.name ?? '—',
+                    'Товары': s.items?.map(i => `${(i.product as any)?.name} ×${i.quantity}`).join('; ') ?? '—',
+                    'Итого': s.total,
+                    'Наличными': s.paid_cash || 0,
+                    'Kaspi QR': s.paid_kaspi || 0,
+                    'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : 'Смешанная',
+                    'Статус': STATUS_RU[s.status] ?? s.status,
+                  }));
+                  xlsxExport(rows, `продажи_${xlsxDate()}.xlsx`);
+                }} />
               </div>
 
               {/* Список продаж */}
@@ -2670,6 +2692,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           employeeId={employeeId}
           onClose={() => setShowAddSale(false)}
           onSuccess={loadAll}
+          initialTab={addSaleInitialTab}
         />
       )}
       {showSuppliers && (

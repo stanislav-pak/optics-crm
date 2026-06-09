@@ -19,6 +19,7 @@ import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import InventoryPage from './pages/InventoryPage';
+import OrdersListView from './components/Inventory/OrdersListView';
 import WorkshopPage from './pages/WorkshopPage';
 import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
 import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
@@ -54,7 +55,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
-  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses'>('sales');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses' | 'orders'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
@@ -806,19 +807,27 @@ function AppContent() {
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
-          <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0">
+          {/* Подраздел: Продажи | Услуги мастерской | Доплаты | Предзаказы */}
+          <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
             <button
               onClick={() => setShopSubView('sales')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               Продажи
             </button>
             <button
+              onClick={() => setShopSubView('orders')}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              Предзаказы
+            </button>
+            <button
               onClick={() => setShopSubView('workshop')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -827,7 +836,7 @@ function AppContent() {
             </button>
             <button
               onClick={() => setShopSubView('payments')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -835,7 +844,7 @@ function AppContent() {
             </button>
             <button
               onClick={() => setShopSubView('expenses')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -854,6 +863,10 @@ function AppContent() {
                 onWorkshopBadgeChange={setWorkshopBadgeCount}
                 resetBadgeKey={workshopBadgeResetKey}
               />
+            </div>
+          ) : shopSubView === 'orders' ? (
+            <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+              <OrdersListView branchId={employee?.branch_id ?? ''} />
             </div>
           ) : shopSubView === 'workshop' ? (
             <WorkshopManagerView
@@ -936,7 +949,7 @@ function AppContent() {
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
-              {/* Подраздел: Продажи | Услуги мастерской | Доплаты */}
+              {/* Подраздел: Продажи | Предзаказы | Услуги мастерской | Доплаты | Расходы */}
               <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => setShopSubView('sales')}
@@ -945,6 +958,14 @@ function AppContent() {
                   }`}
                 >
                   Продажи
+                </button>
+                <button
+                  onClick={() => setShopSubView('orders')}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  Предзаказы
                 </button>
                 <button
                   onClick={() => setShopSubView('workshop')}
@@ -984,6 +1005,10 @@ function AppContent() {
                     onWorkshopBadgeChange={setWorkshopBadgeCount}
                     resetBadgeKey={workshopBadgeResetKey}
                   />
+                </div>
+              ) : shopSubView === 'orders' ? (
+                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                  <OrdersListView branchId={employee?.branch_id ?? ''} />
                 </div>
               ) : shopSubView === 'workshop' ? (
                 <WorkshopManagerView
