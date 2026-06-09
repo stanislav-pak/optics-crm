@@ -758,7 +758,7 @@ function AppContent() {
         </div>
       ) : isAdmin && adminView === 'cash' ? (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-          <AdminCashView />
+          <AdminCashView onBack={isMobile ? () => setMobileView('list') : () => setAdminView('dashboard')} />
         </div>
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">

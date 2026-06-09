@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, AlertTriangle, CheckCircle, Clock, Minus } from 'lucide-react';
 import type { Branch } from '../../types';
-import { getAdminBranches, getAdminCashData, type AdminCashData } from '../../services/cashAdmin';
+import { getAdminBranches, getAdminCashData, getAdminStockValue, type AdminCashData } from '../../services/cashAdmin';
+
+type PeriodTab = 'today' | 'week' | 'month' | 'custom';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-KZ', {
@@ -15,24 +17,110 @@ function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
 
+function getDateRange(
+  period: PeriodTab,
+  customStart: string,
+  customEnd: string
+): { start: string; end: string } {
+  const today = todayStr();
+  if (period === 'today') {
+    return { start: today + 'T00:00:00', end: today + 'T23:59:59' };
+  }
+  if (period === 'week') {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const from = d.toISOString().split('T')[0];
+    return { start: from + 'T00:00:00', end: today + 'T23:59:59' };
+  }
+  if (period === 'month') {
+    const d = new Date();
+    const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    return { start: from + 'T00:00:00', end: today + 'T23:59:59' };
+  }
+  // custom
+  const s = customStart || today;
+  const e = customEnd || today;
+  return { start: s + 'T00:00:00', end: e + 'T23:59:59' };
+}
+
 interface BranchRow {
   branch: Branch;
   data: AdminCashData | null;
   loading: boolean;
 }
 
+// ─── Табы периода ─────────────────────────────────────────────────────────
+
+interface PeriodTabsProps {
+  period: PeriodTab;
+  onChange: (p: PeriodTab) => void;
+  customStart: string;
+  customEnd: string;
+  onCustomStart: (v: string) => void;
+  onCustomEnd: (v: string) => void;
+}
+
+function PeriodTabs({ period, onChange, customStart, customEnd, onCustomStart, onCustomEnd }: PeriodTabsProps) {
+  const tabs: { key: PeriodTab; label: string }[] = [
+    { key: 'today', label: 'Сегодня' },
+    { key: 'week', label: 'Неделя' },
+    { key: 'month', label: 'Месяц' },
+    { key: 'custom', label: 'Период' },
+  ];
+  return (
+    <div className="px-4 pb-3 space-y-2">
+      <div className="flex gap-1.5">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              period === t.key ? 'bg-emerald-500 text-white' : 'bg-[#2a3942] text-[#8696a0]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {period === 'custom' && (
+        <div className="flex gap-2 items-center">
+          <input
+            type="date"
+            value={customStart}
+            onChange={e => onCustomStart(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <span className="text-gray-400 text-xs">—</span>
+          <input
+            type="date"
+            value={customEnd}
+            onChange={e => onCustomEnd(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Экран 1: список филиалов ──────────────────────────────────────────────
 
 interface ListScreenProps {
   onSelect: (branch: Branch) => void;
+  onBack?: () => void;
 }
 
-function ListScreen({ onSelect }: ListScreenProps) {
-  const [date, setDate] = useState(todayStr());
+function ListScreen({ onSelect, onBack }: ListScreenProps) {
+  const [period, setPeriod] = useState<PeriodTab>('today');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [rows, setRows] = useState<BranchRow[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
-  const loadAll = useCallback(async (d: string) => {
+  const loadAll = useCallback(async (start: string, end: string) => {
     setLoadingBranches(true);
     const branches = await getAdminBranches();
     const initial: BranchRow[] = branches.map(b => ({ branch: b, data: null, loading: true }));
@@ -40,28 +128,71 @@ function ListScreen({ onSelect }: ListScreenProps) {
     setLoadingBranches(false);
 
     const results = await Promise.all(
-      branches.map(b =>
-        getAdminCashData(b.id, d + 'T00:00:00', d + 'T23:59:59').catch(() => null)
-      )
+      branches.map(b => getAdminCashData(b.id, start, end).catch(() => null))
     );
     setRows(branches.map((b, i) => ({ branch: b, data: results[i], loading: false })));
   }, []);
 
-  useEffect(() => { loadAll(date); }, [date, loadAll]);
+  useEffect(() => {
+    if (period === 'custom' && (!customStart || !customEnd)) return;
+    const { start, end } = getDateRange(period, customStart, customEnd);
+    loadAll(start, end);
+  }, [period, customStart, customEnd, loadAll]);
+
+  const loadedRows = rows.filter(r => !r.loading && r.data);
+  const totalCash = loadedRows.reduce((s, r) => s + (r.data?.systemCash ?? 0), 0);
+  const totalKaspi = loadedRows.reduce((s, r) => s + (r.data?.systemKaspi ?? 0), 0);
+  const totalAll = totalCash + totalKaspi;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+    <div
+      className="flex flex-col h-full"
+      onTouchStart={e => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+      }}
+      onTouchEnd={e => {
+        e.stopPropagation();
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        if (dx > 80 && Math.abs(dy) < 60 && touchStartX.current < window.innerWidth * 0.7) {
+          onBack?.();
+        }
+      }}
+    >
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-gray-900">Касса</h1>
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
       </div>
 
+      <PeriodTabs
+        period={period}
+        onChange={setPeriod}
+        customStart={customStart}
+        customEnd={customEnd}
+        onCustomStart={setCustomStart}
+        onCustomEnd={setCustomEnd}
+      />
+
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+        {/* Сводная карточка всех филиалов */}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+          <p className="font-semibold text-gray-900 mb-3">Все филиалы</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white/60 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Нал</p>
+              <p className="text-sm font-bold text-gray-900">{fmt(totalCash)}</p>
+            </div>
+            <div className="bg-white/60 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi</p>
+              <p className="text-sm font-bold text-gray-900">{fmt(totalKaspi)}</p>
+            </div>
+            <div className="bg-emerald-500/20 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-emerald-700 uppercase tracking-wide">Итого</p>
+              <p className="text-sm font-bold text-emerald-800">{fmt(totalAll)}</p>
+            </div>
+          </div>
+        </div>
+
         {loadingBranches ? (
           <div className="flex justify-center py-10">
             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -117,16 +248,29 @@ interface DetailScreenProps {
 }
 
 function DetailScreen({ branch, onBack }: DetailScreenProps) {
-  const [date, setDate] = useState(todayStr());
+  const [period, setPeriod] = useState<PeriodTab>('today');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [data, setData] = useState<AdminCashData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stockValue, setStockValue] = useState<number | null>(null);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   useEffect(() => {
+    getAdminStockValue(branch.id)
+      .then(v => setStockValue(v))
+      .catch(() => setStockValue(null));
+  }, [branch.id]);
+
+  useEffect(() => {
+    if (period === 'custom' && (!customStart || !customEnd)) return;
+    const { start, end } = getDateRange(period, customStart, customEnd);
     setLoading(true);
-    getAdminCashData(branch.id, date + 'T00:00:00', date + 'T23:59:59')
+    getAdminCashData(branch.id, start, end)
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [branch.id, date]);
+  }, [branch.id, period, customStart, customEnd]);
 
   const hasWorkshop =
     data &&
@@ -138,28 +282,43 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
   const hasExpenses = data && (data.expensesCash + data.expensesKaspi) > 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      onTouchStart={e => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+      }}
+      onTouchEnd={e => {
+        e.stopPropagation();
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        if (dx > 80 && Math.abs(dy) < 60 && touchStartX.current < window.innerWidth * 0.7) {
+          onBack();
+        }
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h1 className="text-base font-bold text-gray-900">{branch.name}</h1>
-        </div>
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h1 className="text-base font-bold text-gray-900 flex-1 truncate">{branch.name}</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <PeriodTabs
+        period={period}
+        onChange={setPeriod}
+        customStart={customStart}
+        customEnd={customEnd}
+        onCustomStart={setCustomStart}
+        onCustomEnd={setCustomEnd}
+      />
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
         {loading ? (
           <div className="flex justify-center py-10">
             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -176,7 +335,26 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
             <Section title="Продажи">
               <Row label="Наличные" value={data.salesCash} />
               <Row label="Kaspi" value={data.salesKaspi} />
+              {data.salesCount > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Кол-во продаж</span>
+                    <span className="font-medium text-gray-900">{data.salesCount}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Средний чек</span>
+                    <span className="font-medium text-gray-900">{fmt(data.avgCheck)}</span>
+                  </div>
+                </>
+              )}
             </Section>
+
+            {/* Склад филиала */}
+            {stockValue !== null && (
+              <Section title="Склад филиала">
+                <Row label="Остаток товара" value={stockValue} />
+              </Section>
+            )}
 
             {/* Мастерская */}
             {hasWorkshop && (
@@ -350,7 +528,11 @@ function Row({ label, value, red, bold }: RowProps) {
 
 // ─── Основной компонент ───────────────────────────────────────────────────
 
-export default function AdminCashView() {
+interface Props {
+  onBack?: () => void;
+}
+
+export default function AdminCashView({ onBack }: Props) {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
 
   if (selectedBranch) {
@@ -362,5 +544,5 @@ export default function AdminCashView() {
     );
   }
 
-  return <ListScreen onSelect={setSelectedBranch} />;
+  return <ListScreen onSelect={setSelectedBranch} onBack={onBack} />;
 }
