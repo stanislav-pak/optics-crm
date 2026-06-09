@@ -245,14 +245,8 @@ export async function markAsRead(chatId: string, employeeId: string): Promise<vo
 }
 
 export async function getAllEmployees(): Promise<
-  { id: string; name: string; role: string; branch_id: string }[]
+  { id: string; name: string; role: string; branch_id: string; branch_name: string }[]
 > {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('id, name, role, branch_id')
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) throw error;
-  return (data ?? []) as { id: string; name: string; role: string; branch_id: string }[];
+  const { data } = await supabase.rpc('get_employees_for_chat');
+  return (data || []) as { id: string; name: string; role: string; branch_id: string; branch_name: string }[];
 }

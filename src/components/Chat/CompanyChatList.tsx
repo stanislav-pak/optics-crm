@@ -246,7 +246,9 @@ export default function CompanyChatList({ currentEmployee, onBack }: Props) {
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm text-[#e9edef] truncate">{emp.name}</p>
-                <p className="text-xs text-[#8696a0]">{roleLabel(emp.role)}</p>
+                <span style={{ fontSize: '11px', color: '#8696a0' }}>
+                  {emp.branch_name} · {emp.role === 'admin' ? 'Администратор' : emp.role === 'manager' ? 'Менеджер' : 'Мастер'}
+                </span>
               </div>
             </button>
           ))}
