@@ -8,7 +8,7 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote, MessageSquare } from 'lucide-react';
 import AdminCashView from './components/Admin/AdminCashView';
 import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
@@ -24,6 +24,7 @@ import WorkshopPage from './pages/WorkshopPage';
 import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
 import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
+import CompanyChatList from './components/Chat/CompanyChatList';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 
@@ -66,6 +67,7 @@ function AppContent() {
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
+  const [showCompanyChat, setShowCompanyChat] = useState(false);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
 
@@ -628,8 +630,19 @@ function AppContent() {
         </div>
       )}
       {isAdmin && <PendingManagers />}
-      <div className="flex-1 overflow-hidden">
-        <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} onUnreadChange={setUnreadChatsCount} />
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="px-3 py-1.5 bg-[#111b21] flex items-center justify-end border-b border-white/5 flex-shrink-0">
+          <button
+            onClick={() => setShowCompanyChat(true)}
+            className="flex items-center gap-1.5 bg-[#2a3942] px-2.5 py-1.5 rounded-lg text-[#10b981] text-xs font-medium"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Чат компании
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <ChatList activeChatId={activeChat?.id} onChatSelect={handleChatSelect} onUnreadChange={setUnreadChatsCount} />
+        </div>
       </div>
       {(employee.role === 'manager' || employee.role === 'branch_admin') && isMobile && (
         <div className="flex bg-[#202c33] border-t border-white/10 flex-shrink-0">
@@ -1069,6 +1082,12 @@ function AppContent() {
           {(mobileView === 'chat' || (mobileView === 'main' && isAdmin)) && MainArea}
         </div>
         {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
+        {showCompanyChat && (
+          <CompanyChatList
+            currentEmployee={employee}
+            onBack={() => setShowCompanyChat(false)}
+          />
+        )}
       </AuthContext.Provider>
     );
   }
@@ -1080,6 +1099,12 @@ function AppContent() {
         {MainArea}
       </div>
       {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
+      {showCompanyChat && (
+        <CompanyChatList
+          currentEmployee={employee}
+          onBack={() => setShowCompanyChat(false)}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
