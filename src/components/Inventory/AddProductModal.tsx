@@ -347,40 +347,50 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               </div>
 
               {showNewPolicy ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    autoFocus
-                    value={newPolicyName}
-                    onChange={e => setNewPolicyName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreatePolicy(); if (e.key === 'Escape') { setShowNewPolicy(false); setNewPolicyName(''); } }}
-                    placeholder="Название политики"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div className="flex gap-1">
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Строка 1: input */}
+                  <div style={{ display: 'flex' }}>
+                    <input
+                      autoFocus
+                      value={newPolicyName}
+                      onChange={e => setNewPolicyName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleCreatePolicy(); if (e.key === 'Escape') { setShowNewPolicy(false); setNewPolicyName(''); } }}
+                      placeholder="Название политики"
+                      style={{ width: '100%' }}
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {/* Строка 2: цвета + OK + × */}
+                  <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
                     {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(c => (
                       <button
                         key={c}
                         type="button"
                         onMouseDown={e => { e.preventDefault(); setNewPolicyColor(c); }}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform ${newPolicyColor === c ? 'border-gray-800 scale-110' : 'border-transparent'}`}
-                        style={{ backgroundColor: c }}
+                        style={{
+                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                          backgroundColor: c, cursor: 'pointer',
+                          border: newPolicyColor === c ? '2px solid #1f2937' : '2px solid transparent',
+                          transform: newPolicyColor === c ? 'scale(1.15)' : 'scale(1)',
+                          transition: 'transform 0.1s',
+                        }}
                       />
                     ))}
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); handleCreatePolicy(); }}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                    >
+                      ОК
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); setShowNewPolicy(false); setNewPolicyName(''); }}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); handleCreatePolicy(); }}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                  >
-                    ОК
-                  </button>
-                  <button
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); setShowNewPolicy(false); setNewPolicyName(''); }}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"
-                  >
-                    ✕
-                  </button>
                 </div>
               ) : (
                 <button
