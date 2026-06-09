@@ -388,12 +388,14 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">Новая продажа</h2>
+            <h2 className="text-base font-semibold text-gray-900">
+              {initialTab === 'preorder' ? 'Новый предзаказ' : 'Новая продажа'}
+            </h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
           </div>
 
-          {/* Tab switcher */}
-          <div className="px-5 pt-3 pb-1">
+          {/* Tab switcher — скрыт если открыт сразу в режиме предзаказа */}
+          {initialTab !== 'preorder' && <div className="px-5 pt-3 pb-1">
             <div className="flex gap-1 rounded-lg p-[3px]" style={{ background: '#2a3942', borderRadius: 8 }}>
               <button
                 type="button"
@@ -418,7 +420,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                 Предзаказ
               </button>
             </div>
-          </div>
+          </div>}
 
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
