@@ -211,10 +211,14 @@ export default function CompanyChatList({ currentEmployee, onBack }: Props) {
       setEmpListLoading(true);
       try {
         const chat = await getOrCreateDirectChat(currentEmployee.id, empId);
-        setShowEmployeeList(false);
+        if (!chat) {
+          alert('Не удалось открыть чат. Попробуйте ещё раз.');
+          return;
+        }
         setSelectedChat(chat);
+        setShowEmployeeList(false);
       } catch {
-        // ошибка
+        alert('Не удалось открыть чат. Попробуйте ещё раз.');
       } finally {
         setEmpListLoading(false);
       }
