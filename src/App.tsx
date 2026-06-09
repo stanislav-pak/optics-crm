@@ -949,7 +949,7 @@ function AppContent() {
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
-              {/* Подраздел: Продажи | Предзаказы | Услуги мастерской | Доплаты | Расходы */}
+              {/* Подраздел: Продажи | Предзаказы | Мастерская | Доплаты | Расходы */}
               <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => setShopSubView('sales')}
