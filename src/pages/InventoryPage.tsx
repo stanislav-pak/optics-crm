@@ -1328,9 +1328,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <button
                     onClick={() => openAddSale('preorder')}
                     style={{
-                      background: '#f59e0b22', border: '1px solid #f59e0b66',
-                      borderRadius: '8px', padding: '10px 12px', color: '#f59e0b',
-                      fontSize: '13px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                      flex: 1, background: '#f59e0b', border: 'none',
+                      borderRadius: '8px', padding: '11px 0', color: '#fff',
+                      fontSize: '14px', fontWeight: 500, cursor: 'pointer',
                     }}
                   >
                     + Предзаказ
@@ -1338,9 +1338,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <button
                     onClick={() => openAddSale('sale')}
                     style={{
-                      background: '#10b981', border: 'none', borderRadius: '8px',
-                      padding: '10px 12px', color: '#fff',
-                      fontSize: '13px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+                      flex: 1, background: '#10b981', border: 'none',
+                      borderRadius: '8px', padding: '11px 0', color: '#fff',
+                      fontSize: '14px', fontWeight: 500, cursor: 'pointer',
                     }}
                   >
                     + Новая продажа
