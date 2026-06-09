@@ -143,6 +143,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [retFilterBranch, setRetFilterBranch] = useState('');
   const [retProductSearch, setRetProductSearch] = useState('');
   const [retExpanded, setRetExpanded] = useState<Set<string>>(new Set());
+  // Фильтры приходов
+  const [poDateFilter, setPoDateFilter] = useState('all');
+  const [poDateFrom, setPoDateFrom] = useState('');
+  const [poDateTo, setPoDateTo] = useState('');
   // Фильтры ревизий
   const [rvFilterStatus, setRvFilterStatus] = useState('all');
   const [rvDateFilter, setRvDateFilter] = useState('all');
@@ -1210,17 +1214,83 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
         {/* ПРИХОДЫ */}
         {tab === 'purchases' && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().split('T')[0];
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
+
           // Объединённый список: накладные + завершённые входящие перемещения, сортировка по дате
           type Entry =
             | { kind: 'purchase'; date: string; po: PurchaseOrder }
             | { kind: 'transfer'; date: string; mv: any };
-          const unified: Entry[] = [
+          const allEntries: Entry[] = [
             ...purchases.map(po => ({ kind: 'purchase' as const, date: po.created_at, po })),
             ...completedTransfers.map(mv => ({ kind: 'transfer' as const, date: mv.created_at, mv })),
           ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+          const unified = allEntries.filter(entry => {
+            const d = entry.date.split('T')[0];
+            if (poDateFilter === 'today' && d !== todayStr) return false;
+            if (poDateFilter === 'week' && new Date(d) < weekAgo) return false;
+            if (poDateFilter === 'month' && new Date(d) < monthAgo) return false;
+            if (poDateFilter === 'custom') {
+              if (poDateFrom && d < poDateFrom) return false;
+              if (poDateTo && d > poDateTo) return false;
+            }
+            return true;
+          });
+
+          const poDateOptions = [
+            { value: 'all', label: 'Всё время' },
+            { value: 'today', label: 'Сегодня' },
+            { value: 'week', label: 'Неделя' },
+            { value: 'month', label: 'Месяц' },
+            { value: 'custom', label: 'Период' },
+          ];
+
           return (
             <div className="space-y-4">
+              {/* Фильтр по дате */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {poDateOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setPoDateFilter(o.value)}
+                    style={{
+                      flexShrink: 0, whiteSpace: 'nowrap',
+                      padding: '3px 8px', borderRadius: '999px',
+                      fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                      border: poDateFilter === o.value ? 'none' : '1px solid #e5e7eb',
+                      backgroundColor: poDateFilter === o.value ? '#2563eb' : '#fff',
+                      color: poDateFilter === o.value ? '#fff' : '#4b5563',
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {poDateFilter === 'custom' && (
+                <div className="flex gap-2 items-center">
+                  <input type="date" value={poDateFrom} onChange={e => setPoDateFrom(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400 text-sm flex-shrink-0">—</span>
+                  <input type="date" value={poDateTo} onChange={e => setPoDateTo(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+              {poDateFilter !== 'all' && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-400">
+                    Показано: <span className="font-medium text-gray-600">{unified.length}</span> из {allEntries.length}
+                  </p>
+                  <button
+                    onClick={() => { setPoDateFilter('all'); setPoDateFrom(''); setPoDateTo(''); }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <ExportBtn onClick={() => {
                   const rows: Record<string, unknown>[] = [];
