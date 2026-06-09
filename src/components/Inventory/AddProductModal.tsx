@@ -269,34 +269,43 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
           {/* Ценовая политика — только если группа заполнена */}
           {productGroup.trim() && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">Ценовая политика</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Ценовая политика</label>
+              <div
+                className="border border-gray-200 rounded-lg overflow-y-auto"
+                style={{ maxHeight: 200 }}
+              >
                 {pricePolicies.map(p => (
                   <button
                     key={p.id}
                     type="button"
                     onMouseDown={e => { e.preventDefault(); setSelectedPolicyId(selectedPolicyId === p.id ? '' : p.id); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors border-b border-gray-100 last:border-0 ${
                       selectedPolicyId === p.id
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-50'
                     }`}
                   >
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                    {p.name}
+                    <span className={`flex-1 text-left ${selectedPolicyId === p.id ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
+                      {p.name}
+                    </span>
+                    <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                      selectedPolicyId === p.id
+                        ? 'border-blue-500 bg-blue-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {selectedPolicyId === p.id && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </span>
                   </button>
                 ))}
-                {!showNewPolicy && (
-                  <button
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); setShowNewPolicy(true); }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"
-                  >
-                    + Новая политика
-                  </button>
+                {pricePolicies.length === 0 && !showNewPolicy && (
+                  <p className="text-xs text-gray-400 text-center py-3">Политик нет</p>
                 )}
               </div>
-              {showNewPolicy && (
+
+              {showNewPolicy ? (
                 <div className="mt-2 flex items-center gap-2">
                   <input
                     autoFocus
@@ -332,6 +341,14 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
                     ✕
                   </button>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); setShowNewPolicy(true); }}
+                  className="mt-1.5 w-full text-xs text-gray-400 hover:text-blue-600 py-1 text-left pl-1"
+                >
+                  + Новая политика
+                </button>
               )}
             </div>
           )}
