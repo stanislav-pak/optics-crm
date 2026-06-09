@@ -24,7 +24,6 @@ import WorkshopPage from './pages/WorkshopPage';
 import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
 import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
-import { PricePoliciesSettings } from './components/Dashboard/PricePoliciesSettings';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 
@@ -706,8 +705,6 @@ function AppContent() {
         <div className="flex-1 flex flex-col overflow-hidden overflow-y-auto bg-[#0b141a]">
           {isMobile && <MobilePageHeader title="Настройки" />}
           <AutoArchiveSettings onBack={handleBackToList} />
-          <div className="border-t border-white/5" />
-          <PricePoliciesSettings />
         </div>
       ) : isAdmin && adminView === 'inventory' ? (
         <div className="flex-1 flex flex-col overflow-hidden">

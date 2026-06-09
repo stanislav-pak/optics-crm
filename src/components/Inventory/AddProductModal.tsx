@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode } from 'lucide-react';
-import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
-import { getPricePolicies, getProductGroups, createPricePolicy } from '../../services/pricePolicies';
-import type { PricePolicy } from '../../services/pricePolicies';
+import { createProduct, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -49,13 +47,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const [showNewBrand, setShowNewBrand] = useState(false);
 
   const [productGroup, setProductGroup] = useState('');
-  const [selectedPolicyId, setSelectedPolicyId] = useState('');
-  const [pricePolicies, setPricePolicies] = useState<PricePolicy[]>([]);
   const [productGroups, setProductGroups] = useState<string[]>([]);
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
-  const [showNewPolicy, setShowNewPolicy] = useState(false);
-  const [newPolicyName, setNewPolicyName] = useState('');
-  const [newPolicyColor, setNewPolicyColor] = useState('#3B82F6');
 
   const handleGenerateBarcode = () => {
     setForm(f => ({ ...f, barcode: generateBarcode(crypto.randomUUID()) }));
@@ -64,7 +57,6 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   useEffect(() => {
     getCategories().then(data => setCategories(sortAlpha(data))).catch(e => console.error('getCategories failed:', e));
     getBrands().then(data => setBrands(sortAlpha(data))).catch(e => console.error('getBrands failed:', e));
-    getPricePolicies().then(setPricePolicies).catch(() => {});
     getProductGroups().then(setProductGroups).catch(() => {});
   }, []);
 
@@ -103,17 +95,6 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
     setShowNewCategory(false);
   };
 
-  const handleCreatePolicy = async () => {
-    if (!newPolicyName.trim()) return;
-    const policy = await createPricePolicy(newPolicyName.trim(), newPolicyColor);
-    if (policy) {
-      setPricePolicies(prev => [...prev, policy]);
-      setSelectedPolicyId(policy.id);
-    }
-    setNewPolicyName('');
-    setShowNewPolicy(false);
-  };
-
   const handleCreateBrand = async (name: string) => {
     const { data, error } = await supabase.from('brands').insert({ name }).select().single();
     if (error) throw error;
@@ -140,7 +121,6 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
       unit: form.unit,
       attributes,
       product_group: productGroup.trim() || null,
-      price_policy_id: selectedPolicyId || null,
       is_active: true,
       branch_id: branchId,
       created_by: employeeId,
@@ -150,8 +130,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
       await createProduct(payload);
       onSuccess();
       onClose();
-    } catch (e: any) {
-      setSubmitError(e?.message ?? String(e));
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -256,14 +236,14 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
             <label className="block text-xs font-medium text-gray-500 mb-1">Группа товаров</label>
             <input
               value={productGroup}
-              onChange={e => { setProductGroup(e.target.value); if (!e.target.value) setSelectedPolicyId(''); }}
+              onChange={e => setProductGroup(e.target.value)}
               onFocus={() => setShowGroupDropdown(true)}
               onBlur={() => setTimeout(() => setShowGroupDropdown(false), 150)}
-              placeholder="Например: Оправы, Линзы Zeiss"
+              placeholder="Например: До 2 000 ₸, До 5 000 ₸"
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoComplete="off"
             />
-            <p className="text-xs text-gray-400 mt-1">Оставьте пустым для обычного товара</p>
+            <p className="text-xs text-gray-400 mt-1">Группа объединяет товары одного ценового диапазона</p>
 
             {showGroupDropdown && (() => {
               const filtered = productGroups.filter(g =>
@@ -306,103 +286,6 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               );
             })()}
           </div>
-
-          {/* Ценовая политика — только если группа заполнена */}
-          {productGroup.trim() && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Ценовая политика</label>
-              <div
-                className="border border-gray-200 rounded-lg overflow-y-auto"
-                style={{ maxHeight: 200 }}
-              >
-                {pricePolicies.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); setSelectedPolicyId(selectedPolicyId === p.id ? '' : p.id); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors border-b border-gray-100 last:border-0 ${
-                      selectedPolicyId === p.id
-                        ? 'bg-blue-50'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                    <span className={`flex-1 text-left ${selectedPolicyId === p.id ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
-                      {p.name}
-                    </span>
-                    <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                      selectedPolicyId === p.id
-                        ? 'border-blue-500 bg-blue-500'
-                        : 'border-gray-300'
-                    }`}>
-                      {selectedPolicyId === p.id && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </span>
-                  </button>
-                ))}
-                {pricePolicies.length === 0 && !showNewPolicy && (
-                  <p className="text-xs text-gray-400 text-center py-3">Политик нет</p>
-                )}
-              </div>
-
-              {showNewPolicy ? (
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {/* Строка 1: input */}
-                  <div style={{ display: 'flex' }}>
-                    <input
-                      autoFocus
-                      value={newPolicyName}
-                      onChange={e => setNewPolicyName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleCreatePolicy(); if (e.key === 'Escape') { setShowNewPolicy(false); setNewPolicyName(''); } }}
-                      placeholder="Название политики"
-                      style={{ width: '100%' }}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  {/* Строка 2: цвета + OK + × */}
-                  <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
-                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        onMouseDown={e => { e.preventDefault(); setNewPolicyColor(c); }}
-                        style={{
-                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                          backgroundColor: c, cursor: 'pointer',
-                          border: newPolicyColor === c ? '2px solid #1f2937' : '2px solid transparent',
-                          transform: newPolicyColor === c ? 'scale(1.15)' : 'scale(1)',
-                          transition: 'transform 0.1s',
-                        }}
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      onMouseDown={e => { e.preventDefault(); handleCreatePolicy(); }}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                    >
-                      ОК
-                    </button>
-                    <button
-                      type="button"
-                      onMouseDown={e => { e.preventDefault(); setShowNewPolicy(false); setNewPolicyName(''); }}
-                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onMouseDown={e => { e.preventDefault(); setShowNewPolicy(true); }}
-                  className="mt-1.5 w-full text-xs text-gray-400 hover:text-blue-600 py-1 text-left pl-1"
-                >
-                  + Новая политика
-                </button>
-              )}
-            </div>
-          )}
 
           {/* SKU */}
           <div>

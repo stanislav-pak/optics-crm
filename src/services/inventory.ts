@@ -17,8 +17,7 @@ export async function getProducts(branchId?: string) {
       *,
       category:product_categories(id, name, slug),
       brand:brands(id, name),
-      stock(quantity, branch_id),
-      price_policy:price_policies(name, color)
+      stock(quantity, branch_id)
     `)
     .eq('is_active', true)
     .order('name');
@@ -898,4 +897,26 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
     total_value: totalValue,
     movements_today: movementsRes.count ?? 0,
   };
+}
+
+// ============================================
+// ГРУППЫ ТОВАРОВ
+// ============================================
+
+export async function getProductGroups(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('product_group')
+    .eq('is_active', true)
+    .not('product_group', 'is', null);
+
+  if (error) throw error;
+
+  const groups = [...new Set(
+    (data as { product_group: string }[])
+      .map(r => r.product_group)
+      .filter(Boolean)
+  )];
+
+  return groups.sort((a, b) => a.localeCompare(b, 'ru'));
 }
