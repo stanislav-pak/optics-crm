@@ -807,50 +807,56 @@ function AppContent() {
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'shop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Подраздел: Продажи | Услуги мастерской | Доплаты | Предзаказы */}
-          <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
-            <button
-              onClick={() => setShopSubView('sales')}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Продажи
-            </button>
-            <button
-              onClick={() => setShopSubView('orders')}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Предзаказы
-            </button>
-            <button
-              onClick={() => setShopSubView('workshop')}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              <Wrench size={12} />
-              Мастерская
-            </button>
-            <button
-              onClick={() => setShopSubView('payments')}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
-            </button>
-            <button
-              onClick={() => setShopSubView('expenses')}
-              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              <Receipt size={12} />
-              Расходы
-            </button>
+          {/* Подраздел: Продажи | Предзаказы | Мастерская | Доплаты | Расходы */}
+          <div className="bg-white border-b border-gray-100 px-3 pt-2 pb-1 space-y-1 flex-shrink-0">
+            {/* Ряд 1 — 2 вкладки по центру */}
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={() => setShopSubView('sales')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                Продажи
+              </button>
+              <button
+                onClick={() => setShopSubView('orders')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                Предзаказы
+              </button>
+            </div>
+            {/* Ряд 2 — 3 вкладки на всю ширину */}
+            <div className="flex justify-around">
+              <button
+                onClick={() => setShopSubView('workshop')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <Wrench size={12} />
+                Мастерская
+              </button>
+              <button
+                onClick={() => setShopSubView('payments')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
+              </button>
+              <button
+                onClick={() => setShopSubView('expenses')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <Receipt size={12} />
+                Расходы
+              </button>
+            </div>
           </div>
           {shopSubView === 'sales' ? (
             <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
@@ -950,49 +956,55 @@ function AppContent() {
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader title="Магазин" />
               {/* Подраздел: Продажи | Предзаказы | Мастерская | Доплаты | Расходы */}
-              <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
-                <button
-                  onClick={() => setShopSubView('sales')}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  Продажи
-                </button>
-                <button
-                  onClick={() => setShopSubView('orders')}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  Предзаказы
-                </button>
-                <button
-                  onClick={() => setShopSubView('workshop')}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  <Wrench size={12} />
-                  Мастерская
-                </button>
-                <button
-                  onClick={() => setShopSubView('payments')}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
-                </button>
-                <button
-                  onClick={() => setShopSubView('expenses')}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  <Receipt size={12} />
-                  Расходы
-                </button>
+              <div className="bg-white border-b border-gray-100 px-3 pt-2 pb-1 space-y-1 flex-shrink-0">
+                {/* Ряд 1 — 2 вкладки по центру */}
+                <div className="flex justify-center gap-2">
+                  <button
+                    onClick={() => setShopSubView('sales')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    Продажи
+                  </button>
+                  <button
+                    onClick={() => setShopSubView('orders')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    Предзаказы
+                  </button>
+                </div>
+                {/* Ряд 2 — 3 вкладки на всю ширину */}
+                <div className="flex justify-around">
+                  <button
+                    onClick={() => setShopSubView('workshop')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Wrench size={12} />
+                    Мастерская
+                  </button>
+                  <button
+                    onClick={() => setShopSubView('payments')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    Доплаты{pendingPaymentsCount > 0 && ` (${pendingPaymentsCount})`}
+                  </button>
+                  <button
+                    onClick={() => setShopSubView('expenses')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Receipt size={12} />
+                    Расходы
+                  </button>
+                </div>
               </div>
               {shopSubView === 'sales' ? (
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
