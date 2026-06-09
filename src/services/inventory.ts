@@ -17,7 +17,8 @@ export async function getProducts(branchId?: string) {
       *,
       category:product_categories(id, name, slug),
       brand:brands(id, name),
-      stock(quantity, branch_id)
+      stock(quantity, branch_id),
+      price_policy:price_policies(name, color)
     `)
     .eq('is_active', true)
     .order('name');

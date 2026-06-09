@@ -939,25 +939,28 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             {groupProds.map(p => {
                               const qty = stock.find(s => s.product_id === p.id)?.quantity ?? 0;
                               const isLow = qty <= p.min_stock;
-                              const policy = pricePolicies.find(pp => pp.id === p.price_policy_id);
+                              // Используем joined данные из продукта, с фолбэком на state
+                              const policyData = p.price_policy ?? pricePolicies.find(pp => pp.id === p.price_policy_id);
                               return (
                                 <div
                                   key={p.id}
                                   className={`flex items-center gap-2 pl-8 pr-4 py-2.5 hover:bg-gray-50 cursor-pointer border-l-4 border-amber-200 ${highlightedProductId === p.id ? 'bg-blue-50' : ''}`}
                                   onClick={() => setSelectedProduct(p)}
                                 >
-                                  {policy
-                                    ? <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: policy.color }} />
+                                  {policyData
+                                    ? <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: policyData.color }} />
                                     : <span className="w-2.5 flex-shrink-0" />
                                   }
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-2">
-                                      <span className="text-sm text-gray-800 truncate flex-1">{p.name}</span>
+                                      <span className="text-sm font-medium text-gray-900 truncate flex-1">
+                                        {policyData ? policyData.name : p.name}
+                                      </span>
                                       {p.barcode && <span className="text-xs text-gray-400 flex-shrink-0 font-mono">{p.barcode}</span>}
                                       <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">₸{p.price.toLocaleString()}</span>
                                       <span className={`text-sm font-semibold flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>{qty} {p.unit}</span>
                                     </div>
-                                    {policy && <p className="text-xs text-gray-400 mt-0.5">{policy.name}</p>}
+                                    {policyData && <p className="text-xs text-gray-400 mt-0.5">{p.name}</p>}
                                   </div>
                                 </div>
                               );

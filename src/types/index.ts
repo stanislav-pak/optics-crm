@@ -263,6 +263,7 @@ export interface Product {
   category?: ProductCategory;
   brand?: Brand;
   stock?: Stock[];
+  price_policy?: { name: string; color: string } | null;
 }
 
 // �������� ��� ������ ����� �������
