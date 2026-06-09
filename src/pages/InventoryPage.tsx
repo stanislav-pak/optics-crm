@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -6,6 +6,8 @@ import {
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers,
 } from '../services/inventory';
+import { getPricePolicies } from '../services/pricePolicies';
+import type { PricePolicy } from '../services/pricePolicies';
 import { supabase } from '../services/supabase';
 import type {
   Product, Stock, InventoryStats, StockAlert,
@@ -185,6 +187,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     } catch { return new Set(); }
   });
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [pricePolicies, setPricePolicies] = useState<PricePolicy[]>([]);
+
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
       const next = new Set(prev);
@@ -206,6 +211,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   ).length;
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+
+  useEffect(() => {
+    getPricePolicies().then(setPricePolicies).catch(() => {});
+  }, []);
 
   // Загружаем связанный заказ мастерской при открытии детали продажи
   useEffect(() => {
@@ -881,49 +890,112 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">Товары не найдены</div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {filteredProducts.map(p => {
-                    const stockItem = stock.find(s => s.product_id === p.id);
-                    const qty = stockItem?.quantity ?? 0;
-                    const isLow = qty <= p.min_stock;
-                    const meta = [
-                      (p.category as any)?.name,
-                      (p.brand as any)?.name,
-                      p.sku,
-                      p.barcode,
-                    ].filter(Boolean).join(' · ');
+              ) : (() => {
+                const grouped: Record<string, Product[]> = {};
+                const ungrouped: Product[] = [];
+                filteredProducts.forEach(p => {
+                  if (p.product_group) {
+                    if (!grouped[p.product_group]) grouped[p.product_group] = [];
+                    grouped[p.product_group].push(p);
+                  } else {
+                    ungrouped.push(p);
+                  }
+                });
 
-                    return (
-                      <div key={p.id} className={`flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer ${highlightedProductId === p.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`} onClick={() => setSelectedProduct(p)}>
-                        <div className="flex-1 min-w-0">
-                          {/* Строка 1: название · цены · остаток */}
-                          <div className="flex items-baseline justify-between gap-2">
-                            <p className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</p>
-                            <span className="text-sm text-gray-400 flex-shrink-0 tabular-nums">
-                              {p.cost_price > 0 ? `${p.cost_price.toLocaleString()}/` : ''}{p.price.toLocaleString()}
-                            </span>
-                            <span className={`text-sm font-medium flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
-                              {qty} {p.unit}
-                            </span>
-                          </div>
-                          {/* Строка 2: мета */}
-                          {meta && <p className="text-xs text-gray-400 truncate mt-0.5">{meta}</p>}
-                        </div>
-                        {role !== 'manager' && (
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteProduct(p.id); }}
-                            className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
-                            title="Удалить товар"
+                const toggleGroup = (name: string) => {
+                  setExpandedGroups(prev => {
+                    const next = new Set(prev);
+                    if (next.has(name)) next.delete(name);
+                    else next.add(name);
+                    return next;
+                  });
+                };
+
+                return (
+                  <div className="divide-y divide-gray-100">
+                    {Object.entries(grouped).map(([groupName, groupProds]) => {
+                      const isExpanded = expandedGroups.has(groupName);
+                      return (
+                        <Fragment key={`group-${groupName}`}>
+                          <div
+                            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 cursor-pointer select-none hover:bg-amber-100 active:bg-amber-100"
+                            onClick={() => toggleGroup(groupName)}
                           >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0">ГРУППА</span>
+                            <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{groupProds.length} шт всего</span>
+                            <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
+                          </div>
+                          {isExpanded && groupProds.map(p => {
+                            const qty = stock.find(s => s.product_id === p.id)?.quantity ?? 0;
+                            const isLow = qty <= p.min_stock;
+                            const policy = pricePolicies.find(pp => pp.id === p.price_policy_id);
+                            return (
+                              <div
+                                key={p.id}
+                                className={`flex items-center gap-2 pl-8 pr-4 py-2.5 hover:bg-gray-50 cursor-pointer border-l-4 border-amber-200 ${highlightedProductId === p.id ? 'bg-blue-50' : ''}`}
+                                onClick={() => setSelectedProduct(p)}
+                              >
+                                {policy
+                                  ? <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: policy.color }} />
+                                  : <span className="w-2.5 flex-shrink-0" />
+                                }
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-sm text-gray-800 truncate flex-1">{p.name}</span>
+                                    {p.barcode && <span className="text-xs text-gray-400 flex-shrink-0 font-mono">{p.barcode}</span>}
+                                    <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">₸{p.price.toLocaleString()}</span>
+                                    <span className={`text-sm font-semibold flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>{qty} {p.unit}</span>
+                                  </div>
+                                  {policy && <p className="text-xs text-gray-400 mt-0.5">{policy.name}</p>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </Fragment>
+                      );
+                    })}
+
+                    {ungrouped.map(p => {
+                      const stockItem = stock.find(s => s.product_id === p.id);
+                      const qty = stockItem?.quantity ?? 0;
+                      const isLow = qty <= p.min_stock;
+                      const meta = [
+                        (p.category as any)?.name,
+                        (p.brand as any)?.name,
+                        p.sku,
+                        p.barcode,
+                      ].filter(Boolean).join(' · ');
+
+                      return (
+                        <div key={p.id} className={`flex items-center px-4 py-3 hover:bg-gray-50 gap-3 cursor-pointer ${highlightedProductId === p.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`} onClick={() => setSelectedProduct(p)}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <p className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</p>
+                              <span className="text-sm text-gray-400 flex-shrink-0 tabular-nums">
+                                {p.cost_price > 0 ? `${p.cost_price.toLocaleString()}/` : ''}{p.price.toLocaleString()}
+                              </span>
+                              <span className={`text-sm font-medium flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
+                                {qty} {p.unit}
+                              </span>
+                            </div>
+                            {meta && <p className="text-xs text-gray-400 truncate mt-0.5">{meta}</p>}
+                          </div>
+                          {role !== 'manager' && (
+                            <button
+                              onClick={e => { e.stopPropagation(); deleteProduct(p.id); }}
+                              className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"
+                              title="Удалить товар"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

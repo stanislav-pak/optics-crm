@@ -257,6 +257,8 @@ export interface Product {
   branch_id?: string;
   created_by?: string;
   created_at: string;
+  product_group?: string | null;
+  price_policy_id?: string | null;
   // Relations
   category?: ProductCategory;
   brand?: Brand;

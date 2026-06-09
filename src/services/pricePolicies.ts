@@ -32,6 +32,14 @@ export async function deletePricePolicy(id: string): Promise<void> {
   await supabase.from('price_policies').delete().eq('id', id);
 }
 
+export async function getProductsByPolicy(policyId: string): Promise<number> {
+  const { count } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('price_policy_id', policyId);
+  return count || 0;
+}
+
 export async function getProductGroups(): Promise<string[]> {
   const { data } = await supabase
     .from('products')
