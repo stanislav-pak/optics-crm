@@ -99,11 +99,27 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode?.includes(search) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
-  ).slice(0, 8);
+  const q = search.toLowerCase().trim();
+  const matchesSearch = (p: Product) =>
+    !q ||
+    p.name.toLowerCase().includes(q) ||
+    (p.barcode ?? '').includes(search) ||
+    (p.sku ?? '').toLowerCase().includes(q) ||
+    (p.product_group ?? '').toLowerCase().includes(q);
+
+  const filteredAll = products.filter(matchesSearch);
+  const dropdownGrouped: Record<string, Product[]> = {};
+  const dropdownUngrouped: Product[] = [];
+  for (const p of filteredAll) {
+    if (p.product_group) {
+      if (!dropdownGrouped[p.product_group]) dropdownGrouped[p.product_group] = [];
+      dropdownGrouped[p.product_group].push(p);
+    } else {
+      dropdownUngrouped.push(p);
+    }
+  }
+  const dropdownGroupNames = Object.keys(dropdownGrouped).sort((a, b) => a.localeCompare(b, 'ru'));
+  const hasDropdownResults = dropdownGroupNames.length > 0 || dropdownUngrouped.length > 0;
 
   const handleBarcodeDetected = async (barcode: string) => {
     try {
@@ -359,23 +375,62 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             </div>
 
             {showSearch && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
-                {filteredProducts.length === 0 ? (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                {!hasDropdownResults ? (
                   <div className="px-4 py-3 text-sm text-gray-400">Не найдено</div>
-                ) : filteredProducts.map(p => (
-                  <button
-                    key={p.id}
-                    onTouchStart={e => { e.preventDefault(); addItem(p); }}
-                    onClick={() => addItem(p)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm text-gray-900">{p.name}</p>
-                      <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'} · ₸{p.cost_price.toLocaleString()}</p>
-                    </div>
-                    <Plus size={14} className="text-blue-500 flex-shrink-0 ml-2" />
-                  </button>
-                ))}
+                ) : (
+                  <>
+                    {dropdownGroupNames.map(groupName => (
+                      <div key={groupName}>
+                        {/* Заголовок группы */}
+                        <div style={{ padding: '6px 12px 2px', fontSize: 11, color: '#8696a0', background: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                          Группа · {groupName}
+                        </div>
+                        {/* Варианты группы */}
+                        {dropdownGrouped[groupName].map(p => (
+                          <button
+                            key={p.id}
+                            onTouchStart={e => { e.preventDefault(); addItem(p); }}
+                            onClick={() => addItem(p)}
+                            className="w-full text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                            style={{ padding: '8px 12px 8px 20px' }}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                              <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'} · ₸{p.cost_price.toLocaleString()}</p>
+                            </div>
+                            <Plus size={14} className="text-blue-500 flex-shrink-0 ml-2" />
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+
+                    {/* Разделитель если есть и группы и обычные товары */}
+                    {dropdownGroupNames.length > 0 && dropdownUngrouped.length > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-1.5">
+                        <div className="flex-1 h-px bg-gray-100" />
+                        <span style={{ fontSize: 11, color: '#8696a0' }}>Товары</span>
+                        <div className="flex-1 h-px bg-gray-100" />
+                      </div>
+                    )}
+
+                    {/* Обычные товары без группы */}
+                    {dropdownUngrouped.map(p => (
+                      <button
+                        key={p.id}
+                        onTouchStart={e => { e.preventDefault(); addItem(p); }}
+                        onClick={() => addItem(p)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 truncate">{p.name}</p>
+                          <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'} · ₸{p.cost_price.toLocaleString()}</p>
+                        </div>
+                        <Plus size={14} className="text-blue-500 flex-shrink-0 ml-2" />
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
