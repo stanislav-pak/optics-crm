@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode } from 'lucide-react';
 import { createProduct, getCategories, getBrands, generateBarcode } from '../../services/inventory';
+import { getPricePolicies, getProductGroups, createPricePolicy } from '../../services/pricePolicies';
+import type { PricePolicy } from '../../services/pricePolicies';
 import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -46,6 +48,14 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [showNewBrand, setShowNewBrand] = useState(false);
 
+  const [productGroup, setProductGroup] = useState('');
+  const [selectedPolicyId, setSelectedPolicyId] = useState('');
+  const [pricePolicies, setPricePolicies] = useState<PricePolicy[]>([]);
+  const [productGroups, setProductGroups] = useState<string[]>([]);
+  const [showNewPolicy, setShowNewPolicy] = useState(false);
+  const [newPolicyName, setNewPolicyName] = useState('');
+  const [newPolicyColor, setNewPolicyColor] = useState('#3B82F6');
+
   const handleGenerateBarcode = () => {
     setForm(f => ({ ...f, barcode: generateBarcode(crypto.randomUUID()) }));
   };
@@ -53,6 +63,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   useEffect(() => {
     getCategories().then(data => setCategories(sortAlpha(data))).catch(e => console.error('getCategories failed:', e));
     getBrands().then(data => setBrands(sortAlpha(data))).catch(e => console.error('getBrands failed:', e));
+    getPricePolicies().then(setPricePolicies).catch(() => {});
+    getProductGroups().then(setProductGroups).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -90,6 +102,17 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
     setShowNewCategory(false);
   };
 
+  const handleCreatePolicy = async () => {
+    if (!newPolicyName.trim()) return;
+    const policy = await createPricePolicy(newPolicyName.trim(), newPolicyColor);
+    if (policy) {
+      setPricePolicies(prev => [...prev, policy]);
+      setSelectedPolicyId(policy.id);
+    }
+    setNewPolicyName('');
+    setShowNewPolicy(false);
+  };
+
   const handleCreateBrand = async (name: string) => {
     const { data, error } = await supabase.from('brands').insert({ name }).select().single();
     if (error) throw error;
@@ -115,6 +138,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
       min_stock: parseInt(form.min_stock || '0'),
       unit: form.unit,
       attributes,
+      product_group: productGroup.trim() || null,
+      price_policy_id: selectedPolicyId || null,
       is_active: true,
       branch_id: branchId,
       created_by: employeeId,
@@ -224,6 +249,92 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
               />
             </div>
           </div>
+
+          {/* Группа товаров */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Группа товаров</label>
+            <input
+              list="product-groups-list"
+              value={productGroup}
+              onChange={e => { setProductGroup(e.target.value); if (!e.target.value) setSelectedPolicyId(''); }}
+              placeholder="Например: Оправы, Линзы Zeiss"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <datalist id="product-groups-list">
+              {productGroups.map(g => <option key={g} value={g} />)}
+            </datalist>
+            <p className="text-xs text-gray-400 mt-1">Оставьте пустым для обычного товара</p>
+          </div>
+
+          {/* Ценовая политика — только если группа заполнена */}
+          {productGroup.trim() && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-2">Ценовая политика</label>
+              <div className="flex flex-wrap gap-2">
+                {pricePolicies.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); setSelectedPolicyId(selectedPolicyId === p.id ? '' : p.id); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                      selectedPolicyId === p.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                    {p.name}
+                  </button>
+                ))}
+                {!showNewPolicy && (
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); setShowNewPolicy(true); }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                  >
+                    + Новая политика
+                  </button>
+                )}
+              </div>
+              {showNewPolicy && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={newPolicyName}
+                    onChange={e => setNewPolicyName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreatePolicy(); if (e.key === 'Escape') { setShowNewPolicy(false); setNewPolicyName(''); } }}
+                    placeholder="Название политики"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex gap-1">
+                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); setNewPolicyColor(c); }}
+                        className={`w-6 h-6 rounded-full border-2 transition-transform ${newPolicyColor === c ? 'border-gray-800 scale-110' : 'border-transparent'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); handleCreatePolicy(); }}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                  >
+                    ОК
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); setShowNewPolicy(false); setNewPolicyName(''); }}
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* SKU */}
           <div>
