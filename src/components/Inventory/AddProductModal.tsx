@@ -52,6 +52,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
   const [selectedPolicyId, setSelectedPolicyId] = useState('');
   const [pricePolicies, setPricePolicies] = useState<PricePolicy[]>([]);
   const [productGroups, setProductGroups] = useState<string[]>([]);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const [showNewPolicy, setShowNewPolicy] = useState(false);
   const [newPolicyName, setNewPolicyName] = useState('');
   const [newPolicyColor, setNewPolicyColor] = useState('#3B82F6');
@@ -251,19 +252,59 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
           </div>
 
           {/* Группа товаров */}
-          <div>
+          <div className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">Группа товаров</label>
             <input
-              list="product-groups-list"
               value={productGroup}
               onChange={e => { setProductGroup(e.target.value); if (!e.target.value) setSelectedPolicyId(''); }}
+              onFocus={() => setShowGroupDropdown(true)}
+              onBlur={() => setTimeout(() => setShowGroupDropdown(false), 150)}
               placeholder="Например: Оправы, Линзы Zeiss"
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="off"
             />
-            <datalist id="product-groups-list">
-              {productGroups.map(g => <option key={g} value={g} />)}
-            </datalist>
             <p className="text-xs text-gray-400 mt-1">Оставьте пустым для обычного товара</p>
+
+            {showGroupDropdown && (() => {
+              const filtered = productGroups.filter(g =>
+                g.toLowerCase().includes(productGroup.toLowerCase())
+              );
+              return (
+                <div
+                  className="absolute left-0 right-0 z-30 rounded-lg overflow-hidden"
+                  style={{
+                    top: 'calc(100% - 16px)',
+                    border: '1px solid #2a3942',
+                    background: '#1d2b35',
+                    maxHeight: 150,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {filtered.length === 0 ? (
+                    <div style={{ padding: '8px 12px', fontSize: 13, color: '#8696a0' }}>
+                      Введите название новой группы
+                    </div>
+                  ) : (
+                    filtered.map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setProductGroup(g);
+                          setShowGroupDropdown(false);
+                        }}
+                        style={{ padding: '8px 12px', fontSize: 13, color: '#e9edef', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2a3942'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                      >
+                        {g}
+                      </button>
+                    ))
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Ценовая политика — только если группа заполнена */}
