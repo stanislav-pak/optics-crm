@@ -375,7 +375,11 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             </div>
 
             {showSearch && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+              <div
+                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg"
+                style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', maxHeight: '280px' }}
+                onTouchMove={e => e.stopPropagation()}
+              >
                 {!hasDropdownResults ? (
                   <div className="px-4 py-3 text-sm text-gray-400">Не найдено</div>
                 ) : (
@@ -390,7 +394,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                         {dropdownGrouped[groupName].map(p => (
                           <button
                             key={p.id}
-                            onTouchStart={e => { e.preventDefault(); addItem(p); }}
                             onClick={() => addItem(p)}
                             className="w-full text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                             style={{ padding: '8px 12px 8px 20px' }}
@@ -418,7 +421,6 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                     {dropdownUngrouped.map(p => (
                       <button
                         key={p.id}
-                        onTouchStart={e => { e.preventDefault(); addItem(p); }}
                         onClick={() => addItem(p)}
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                       >
