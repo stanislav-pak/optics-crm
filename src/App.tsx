@@ -811,7 +811,7 @@ function AppContent() {
           <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
             <button
               onClick={() => setShopSubView('sales')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -819,7 +819,7 @@ function AppContent() {
             </button>
             <button
               onClick={() => setShopSubView('orders')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -827,16 +827,16 @@ function AppContent() {
             </button>
             <button
               onClick={() => setShopSubView('workshop')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               <Wrench size={12} />
-              Услуги мастерской
+              Мастерская
             </button>
             <button
               onClick={() => setShopSubView('payments')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -844,7 +844,7 @@ function AppContent() {
             </button>
             <button
               onClick={() => setShopSubView('expenses')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -953,7 +953,7 @@ function AppContent() {
               <div className="bg-white border-b border-gray-100 px-4 py-2 flex gap-2 flex-shrink-0 overflow-x-auto">
                 <button
                   onClick={() => setShopSubView('sales')}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'sales' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
@@ -961,7 +961,7 @@ function AppContent() {
                 </button>
                 <button
                   onClick={() => setShopSubView('orders')}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'orders' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
@@ -969,16 +969,16 @@ function AppContent() {
                 </button>
                 <button
                   onClick={() => setShopSubView('workshop')}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'workshop' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
                   <Wrench size={12} />
-                  Услуги мастерской
+                  Мастерская
                 </button>
                 <button
                   onClick={() => setShopSubView('payments')}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'payments' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
@@ -986,7 +986,7 @@ function AppContent() {
                 </button>
                 <button
                   onClick={() => setShopSubView('expenses')}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     shopSubView === 'expenses' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
