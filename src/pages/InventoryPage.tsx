@@ -921,6 +921,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   {/* Группы — каждая своя карточка */}
                   {Object.entries(grouped).map(([groupName, groupProds]) => {
                     const isExpanded = expandedGroups.has(groupName);
+
+                    // Итоги группы
+                    const totalQty = groupProds.reduce((sum, p) => {
+                      const qty = stock.find(s => s.product_id === p.id)?.quantity ?? 0;
+                      return sum + qty;
+                    }, 0);
+                    const totalValue = groupProds.reduce((sum, p) => {
+                      const qty = stock.find(s => s.product_id === p.id)?.quantity ?? 0;
+                      return sum + qty * p.price;
+                    }, 0);
+
                     return (
                       <div key={`group-${groupName}`} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         {/* Заголовок группы */}
@@ -930,7 +941,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         >
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0">ГРУППА</span>
                           <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
-                          <span className="text-xs text-gray-400 flex-shrink-0">{groupProds.length} шт всего</span>
+                          <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">
+                            {totalQty.toLocaleString()} шт · ₸{totalValue.toLocaleString()}
+                          </span>
                           <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
                         </div>
                         {/* Варианты */}
@@ -965,6 +978,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                 </div>
                               );
                             })}
+                            {/* Футер группы */}
+                            <div style={{ borderTop: '1px solid #f3f4f6', padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: '#8696a0', fontSize: 12 }}>Итого</span>
+                              <span className="text-xs font-medium text-gray-700 tabular-nums">
+                                {totalQty.toLocaleString()} шт · ₸{totalValue.toLocaleString()}
+                              </span>
+                            </div>
                           </div>
                         )}
                       </div>
