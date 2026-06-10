@@ -35,8 +35,8 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
   const otherMember = chat.type === 'direct'
     ? chat.members?.find(m => m.employee_id !== currentEmployeeId)
     : null;
-
-  const otherEmployee = otherMember?.employee;
+  const otherName = otherMember?.employees?.name || 'Сотрудник';
+  const otherRole = otherMember?.employees?.role;
 
   // Загружаем сообщения и отмечаем прочитанными
   useEffect(() => {
@@ -99,7 +99,12 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
     setSending(true);
     setText('');
     try {
-      await sendInternalMessage(chat.id, currentEmployeeId, content);
+      const msg = await sendInternalMessage(chat.id, currentEmployeeId, content);
+      if (msg) {
+        setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
+      } else {
+        setText(content);
+      }
     } catch {
       setText(content);
     } finally {
@@ -124,16 +129,16 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
             {/* Аватар */}
             <div className="w-9 h-9 rounded-full bg-[#2a3942] flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-semibold text-[#e9edef]">
-                {(otherEmployee?.name ?? '?')[0].toUpperCase()}
+                {otherName[0].toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[#e9edef] truncate">
-                {otherEmployee?.name ?? 'Сотрудник'}
+                {otherName}
               </p>
-              <p className="text-xs truncate" style={{ color: roleColor(otherEmployee?.role) }}>
-                {otherEmployee?.role === 'admin' ? 'Администратор'
-                  : otherEmployee?.role === 'branch_admin' ? 'Менеджер филиала'
+              <p className="text-xs truncate" style={{ color: roleColor(otherRole) }}>
+                {otherRole === 'admin' ? 'Администратор'
+                  : otherRole === 'branch_admin' ? 'Менеджер филиала'
                   : 'Менеджер'}
               </p>
             </div>

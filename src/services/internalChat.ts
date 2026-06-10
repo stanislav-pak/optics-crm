@@ -22,6 +22,7 @@ export interface InternalChatMember {
   employee_id: string;
   last_read_at?: string;
   employee?: { id: string; name: string; role: string; branch_id: string };
+  employees?: { id: string; name: string; role: string; branch_id: string };
 }
 
 export interface InternalMessage {
@@ -94,48 +95,28 @@ export async function createGroupChat(
   return chat as InternalChat;
 }
 
-export async function getInternalMessages(
-  chatId: string,
-  limit = 50
-): Promise<InternalMessage[]> {
-  const { data, error } = await supabase
-    .from('internal_messages')
-    .select('*, sender:employees(id, name)')
-    .eq('chat_id', chatId)
-    .order('created_at', { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
-  return (data ?? []) as InternalMessage[];
+export async function getInternalMessages(chatId: string, limit = 50): Promise<InternalMessage[]> {
+  const { data, error } = await supabase.rpc('get_internal_messages', {
+    p_chat_id: chatId,
+    p_limit: limit
+  });
+  if (error) { console.error('getInternalMessages error:', error); return []; }
+  const msgs = (data as InternalMessage[]) || [];
+  return msgs.reverse(); // ASC order
 }
 
 export async function sendInternalMessage(
   chatId: string,
   senderId: string,
   content: string
-): Promise<InternalMessage> {
-  const { data: message, error: msgError } = await supabase
-    .from('internal_messages')
-    .insert({ chat_id: chatId, sender_id: senderId, content })
-    .select('*, sender:employees(id, name)')
-    .single();
-
-  if (msgError) throw msgError;
-
-  // Обновляем updated_at чата
-  await supabase
-    .from('internal_chats')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', chatId);
-
-  // Обновляем last_read_at для отправителя
-  await supabase
-    .from('internal_chat_members')
-    .update({ last_read_at: new Date().toISOString() })
-    .eq('chat_id', chatId)
-    .eq('employee_id', senderId);
-
-  return message as InternalMessage;
+): Promise<InternalMessage | null> {
+  const { data, error } = await supabase.rpc('send_internal_message', {
+    p_chat_id: chatId,
+    p_sender_id: senderId,
+    p_content: content
+  });
+  if (error) { console.error('sendInternalMessage error:', error); return null; }
+  return data as InternalMessage;
 }
 
 export async function markAsRead(chatId: string, employeeId: string): Promise<void> {
