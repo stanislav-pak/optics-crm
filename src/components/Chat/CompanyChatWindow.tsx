@@ -51,7 +51,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
       const msgs = typeof data === 'string' ? JSON.parse(data) : data;
       setMessages(sortMessages(Array.isArray(msgs) ? msgs : []));
       await markAsRead(chat.id, currentEmployeeId);
-      onMessageRead?.();
+      setTimeout(() => onMessageRead?.(), 300);
     };
     init();
   }, [chat.id]);
@@ -83,7 +83,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
           return sortMessages([...prev, msgWithSender]);
         });
         await markAsRead(chat.id, currentEmployeeId);
-        onMessageRead?.();
+        setTimeout(() => onMessageRead?.(), 300);
       })
       .subscribe();
 
@@ -106,6 +106,21 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
     }, 5000);
     return () => clearInterval(poll);
   }, [chat.id]);
+
+  // Обновляем прочитанные при фокусе на вкладке
+  useEffect(() => {
+    const onFocus = async () => {
+      await markAsRead(chat.id, currentEmployeeId);
+      setTimeout(() => onMessageRead?.(), 300);
+    };
+    const onVisibility = () => { if (!document.hidden) onFocus(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [chat.id, currentEmployeeId]);
 
   // Свайп вправо → onBack
   useEffect(() => {

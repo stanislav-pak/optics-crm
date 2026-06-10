@@ -324,7 +324,19 @@ function AppContent() {
     const { data } = await supabase.rpc('get_unread_internal_count', {
       p_employee_id: employee.id
     });
-    setInternalUnread(data || 0);
+    const count = data || 0;
+    setInternalUnread(count);
+    if ('setAppBadge' in navigator) {
+      count > 0
+        ? (navigator as any).setAppBadge(count)
+        : (navigator as any).clearAppBadge();
+    }
+  };
+
+  const openCompanyChat = () => {
+    setShowCompanyChat(true);
+    setInternalUnread(0);
+    if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge();
   };
 
   useEffect(() => {
@@ -338,7 +350,11 @@ function AppContent() {
   }, [employee?.id]);
 
   useEffect(() => {
-    if (!showCompanyChat) loadInternalUnread();
+    if (!showCompanyChat) {
+      setTimeout(() => loadInternalUnread(), 500);
+    } else {
+      setInternalUnread(0);
+    }
   }, [showCompanyChat]);
 
   if (loading) {
@@ -655,7 +671,7 @@ function AppContent() {
       {isAdmin && <PendingManagers />}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="px-3 py-1.5 bg-[#111b21] flex items-center justify-end border-b border-white/5 flex-shrink-0">
-          <button onClick={() => { setShowCompanyChat(true); }}
+          <button onClick={openCompanyChat}
             className="relative flex items-center gap-1.5 bg-[#2a3942] px-2.5 py-1.5 rounded-lg text-[#10b981] text-xs font-medium">
             <MessageSquare className="w-3.5 h-3.5" />
             Чат компании
