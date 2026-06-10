@@ -310,29 +310,6 @@ function AppContent() {
       : (navigator as any).clearAppBadge?.();
   }, [unreadChatsCount, workshopOrderBadgeCount, inventoryWorkshopBadge]);
 
-  // Очищаем badge иконки при открытии/фокусе приложения
-  useEffect(() => {
-    const clearBadge = () => {
-      if ('clearAppBadge' in navigator) {
-        (navigator as any).clearAppBadge().catch(() => {});
-      }
-    };
-
-    clearBadge();
-
-    const onVisibility = () => {
-      if (!document.hidden) clearBadge();
-    };
-
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', clearBadge);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', clearBadge);
-    };
-  }, []);
-
   const loadInternalUnread = async () => {
     if (!employee?.id) return;
     const { data } = await supabase.rpc('get_unread_internal_count', {
@@ -342,9 +319,11 @@ function AppContent() {
     setInternalUnread(count);
     localStorage.setItem('internalUnreadCount', String(count));
     if ('setAppBadge' in navigator) {
-      count > 0
-        ? (navigator as any).setAppBadge(count)
-        : (navigator as any).clearAppBadge();
+      if (count > 0) {
+        (navigator as any).setAppBadge(count).catch(() => {});
+      } else {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
     }
   };
 
@@ -355,14 +334,6 @@ function AppContent() {
   };
 
   useEffect(() => {
-    // При монтировании — сначала быстро из кэша
-    const cached = localStorage.getItem('internalUnreadCount');
-    if (cached) {
-      const n = parseInt(cached);
-      setInternalUnread(n);
-      if (n > 0 && 'setAppBadge' in navigator) (navigator as any).setAppBadge(n);
-    }
-    // Потом обновляем с сервера
     loadInternalUnread();
     const interval = setInterval(loadInternalUnread, 30000);
     const channel = supabase.channel('internal-unread')
