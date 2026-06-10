@@ -2,28 +2,26 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
+  let data = {};
+  try {
+    data = event.data?.json() || {};
+  } catch (e) {}
+
   const title = data.title || 'NewLine';
-  const options = {
-    body: data.body || '',
-    icon: data.icon || '/icon-192.png',
-    badge: '/icon-192.png',
-    data: { url: data.url || '/' }
-  };
+  const badgeCount = data.badge_count ?? 1; // fallback 1 если нет в payload
+
+  // Устанавливаем badge ДО показа уведомления
+  if ('setAppBadge' in self.registration) {
+    self.registration.setAppBadge(badgeCount).catch(() => {});
+  }
 
   event.waitUntil(
-    (async () => {
-      // Устанавливаем badge — в отдельном try/catch чтобы не сломать уведомление
-      if (data.badge_count !== undefined) {
-        try {
-          await self.registration.setAppBadge(data.badge_count);
-        } catch (e) {
-          // iOS не поддерживает — игнорируем
-        }
-      }
-      // Показываем уведомление всегда
-      await self.registration.showNotification(title, options);
-    })()
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      icon: data.icon || '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url || '/' }
+    })
   );
 });
 
