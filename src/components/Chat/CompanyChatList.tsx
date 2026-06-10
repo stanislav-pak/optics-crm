@@ -35,6 +35,16 @@ function roleLabel(role: string): string {
   return 'Менеджер';
 }
 
+function getChatName(chat: InternalChat, currentEmployeeId: string): string {
+  if (chat.type === 'group') return chat.name || 'Группа';
+  const other = chat.members?.find((m: any) => m.employee_id !== currentEmployeeId);
+  return other?.employees?.name || 'Сотрудник';
+}
+
+function getChatAvatar(chat: InternalChat, currentEmployeeId: string): string {
+  return getChatName(chat, currentEmployeeId).slice(0, 2).toUpperCase();
+}
+
 export default function CompanyChatList({ currentEmployee, onBack, onMessageRead }: Props) {
   const [chats, setChats] = useState<InternalChat[]>([]);
   const [selectedChat, setSelectedChat] = useState<InternalChat | null>(null);
@@ -59,6 +69,12 @@ export default function CompanyChatList({ currentEmployee, onBack, onMessageRead
       .then(setChats)
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  const reloadChats = async () => {
+    const data = await getMyInternalChats(currentEmployee.id);
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    setChats(Array.isArray(parsed) ? parsed : []);
   };
 
   useEffect(() => {
@@ -104,7 +120,8 @@ export default function CompanyChatList({ currentEmployee, onBack, onMessageRead
       <CompanyChatWindow
         chat={selectedChat}
         currentEmployeeId={currentEmployee.id}
-        onBack={() => { setSelectedChat(null); loadChats(); onMessageRead?.(); }}
+        onBack={() => { setSelectedChat(null); reloadChats(); onMessageRead?.(); }}
+        onMessageRead={onMessageRead}
       />
     );
   }
@@ -350,9 +367,8 @@ export default function CompanyChatList({ currentEmployee, onBack, onMessageRead
                 <p className="text-sm text-[#8696a0] text-center py-6">Нет личных чатов</p>
               )}
               {directChats.map(chat => {
-                const other = chat.members?.find(m => m.employee_id !== currentEmployee.id);
-                const name = other?.employee?.name ?? 'Сотрудник';
-                const role = other?.employee?.role ?? '';
+                const name = getChatName(chat, currentEmployee.id);
+                const avatar = getChatAvatar(chat, currentEmployee.id);
                 return (
                   <button
                     key={chat.id}
@@ -360,7 +376,7 @@ export default function CompanyChatList({ currentEmployee, onBack, onMessageRead
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2a3942] transition-colors border-b border-white/[0.04]"
                   >
                     <div className="w-11 h-11 rounded-full bg-[#2a3942] flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-semibold text-[#e9edef]">{initials(name)}</span>
+                      <span className="text-sm font-semibold text-[#e9edef]">{avatar}</span>
                     </div>
                     <div className="flex-1 min-w-0 text-left">
                       <div className="flex items-center justify-between gap-2">
@@ -369,9 +385,7 @@ export default function CompanyChatList({ currentEmployee, onBack, onMessageRead
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">
                         <p className="text-xs text-[#8696a0] truncate">
-                          {chat.last_message
-                            ? chat.last_message.content
-                            : roleLabel(role)}
+                          {chat.last_message ? chat.last_message.content : ''}
                         </p>
                         {(chat.unread_count ?? 0) > 0 && (
                           <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 bg-[#00a884] text-white text-[10px] font-bold rounded-full flex items-center justify-center">

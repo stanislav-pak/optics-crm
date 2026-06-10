@@ -12,6 +12,7 @@ interface Props {
   chat: InternalChat;
   currentEmployeeId: string;
   onBack: () => void;
+  onMessageRead?: () => void;
 }
 
 function formatTime(iso: string): string {
@@ -24,11 +25,11 @@ function roleColor(role?: string): string {
   return '#34d399';
 }
 
-export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: Props) {
+export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onMessageRead }: Props) {
   const [messages, setMessages] = useState<InternalMessage[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef({ x: 0, y: 0 });
 
   // Определяем собеседника для direct-чата
@@ -44,31 +45,43 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
       const data = await getInternalMessages(chat.id);
       const msgs = typeof data === 'string' ? JSON.parse(data) : data;
       setMessages(Array.isArray(msgs) ? msgs : []);
-      setTimeout(() => bottomRef.current?.scrollIntoView(), 100);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView(), 100);
     };
     load();
     markAsRead(chat.id, currentEmployeeId).catch(() => {});
+    onMessageRead?.();
   }, [chat.id]);
 
   // Прокрутка вниз при новых сообщениях
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Realtime подписка
   useEffect(() => {
     const channel = supabase
-      .channel('internal-messages-' + chat.id)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'internal_messages', filter: 'chat_id=eq.' + chat.id },
-        async () => {
-          const data = await getInternalMessages(chat.id);
-          const msgs = typeof data === 'string' ? JSON.parse(data) : data;
-          setMessages(Array.isArray(msgs) ? msgs : []);
-          setTimeout(() => bottomRef.current?.scrollIntoView(), 100);
-        }
-      )
+      .channel('internal-' + chat.id)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'internal_messages',
+        filter: `chat_id=eq.${chat.id}`
+      }, async (payload) => {
+        const newMsg = payload.new as InternalMessage & Record<string, unknown>;
+        const { data: sender } = await supabase
+          .from('employees')
+          .select('id, name')
+          .eq('id', newMsg.sender_id)
+          .single();
+        const msgWithSender = { ...newMsg, sender } as InternalMessage;
+        setMessages(prev => {
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, msgWithSender];
+        });
+        setTimeout(() => messagesEndRef.current?.scrollIntoView(), 50);
+        await markAsRead(chat.id, currentEmployeeId);
+        onMessageRead?.();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -195,7 +208,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
             </div>
           );
         })}
-        <div ref={bottomRef} />
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Поле ввода */}
