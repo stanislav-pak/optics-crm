@@ -11,9 +11,9 @@ self.addEventListener('push', (event) => {
     (async () => {
       // 1. Бейдж — сначала, до показа уведомления (именно этот порядок работал)
       try {
-        const notifications = await self.registration.getNotifications();
-        if ('setAppBadge' in self.navigator) {
-          await self.navigator.setAppBadge(notifications.length + 1);
+        const badgeCount = data.badge_count || 1;
+        if ('setAppBadge' in self.registration) {
+          self.registration.setAppBadge(badgeCount);
         }
       } catch (_) {}
 
@@ -40,6 +40,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if ('clearAppBadge' in self.registration) {
+    self.registration.clearAppBadge();
+  }
   const url = event.notification.data?.url || '/';
   event.waitUntil(clients.openWindow(url));
 });
