@@ -38,79 +38,11 @@ export interface InternalMessage {
 // ============================================
 
 export async function getMyInternalChats(employeeId: string): Promise<InternalChat[]> {
-  // 1. Получаем все chat_id где текущий сотрудник является участником
-  const { data: memberRows, error: memberError } = await supabase
-    .from('internal_chat_members')
-    .select('chat_id, last_read_at')
-    .eq('employee_id', employeeId);
-
-  if (memberError) throw memberError;
-  if (!memberRows || memberRows.length === 0) return [];
-
-  const chatIds = memberRows.map(r => r.chat_id as string);
-
-  // 2. Загружаем чаты с участниками
-  const { data: chats, error: chatsError } = await supabase
-    .from('internal_chats')
-    .select(`
-      *,
-      members:internal_chat_members(
-        id, chat_id, employee_id, last_read_at,
-        employee:employees(id, name, role, branch_id)
-      )
-    `)
-    .in('id', chatIds);
-
-  if (chatsError) throw chatsError;
-  if (!chats) return [];
-
-  // 3 & 4. Для каждого чата загружаем последнее сообщение и считаем unread
-  const enriched = await Promise.all(
-    (chats as InternalChat[]).map(async chat => {
-      const { data: messages } = await supabase
-        .from('internal_messages')
-        .select('*, sender:employees(id, name)')
-        .eq('chat_id', chat.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      const lastMessage = messages?.[0] as InternalMessage | undefined;
-
-      const myMember = memberRows.find(r => r.chat_id === chat.id);
-      const lastReadAt = myMember?.last_read_at ?? null;
-
-      let unreadCount = 0;
-      if (lastReadAt) {
-        const { count } = await supabase
-          .from('internal_messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('chat_id', chat.id)
-          .neq('sender_id', employeeId)
-          .gt('created_at', lastReadAt);
-        unreadCount = count ?? 0;
-      } else {
-        const { count } = await supabase
-          .from('internal_messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('chat_id', chat.id)
-          .neq('sender_id', employeeId);
-        unreadCount = count ?? 0;
-      }
-
-      return {
-        ...chat,
-        last_message: lastMessage,
-        unread_count: unreadCount,
-      } as InternalChat;
-    })
-  );
-
-  // 5. Сортируем по дате последнего сообщения (desc)
-  return enriched.sort((a, b) => {
-    const aTime = a.last_message?.created_at ?? a.updated_at;
-    const bTime = b.last_message?.created_at ?? b.updated_at;
-    return bTime.localeCompare(aTime);
+  const { data, error } = await supabase.rpc('get_my_internal_chats', {
+    p_employee_id: employeeId
   });
+  if (error) { console.error('getMyInternalChats error:', error); return []; }
+  return (data as InternalChat[]) || [];
 }
 
 export async function getOrCreateDirectChat(
@@ -118,26 +50,22 @@ export async function getOrCreateDirectChat(
   otherEmployeeId: string
 ): Promise<InternalChat | null> {
   try {
-    // Используем SECURITY DEFINER функцию — обходит RLS
-    const { data: chatId, error } = await supabase
+    const { data: chatId, error: rpcError } = await supabase
       .rpc('create_or_get_direct_chat', {
         p_employee1_id: myEmployeeId,
         p_employee2_id: otherEmployeeId
       });
-
-    if (error || !chatId) {
-      console.error('create_or_get_direct_chat error:', error);
+    if (rpcError || !chatId) {
+      console.error('create_or_get_direct_chat error:', rpcError);
       return null;
     }
-
-    // Загружаем полный объект чата
-    const { data: chat } = await supabase
-      .from('internal_chats')
-      .select('*, internal_chat_members(employee_id, last_read_at, employees(id,name,role,branch_id))')
-      .eq('id', chatId)
-      .single();
-
-    return chat;
+    const { data: chatData, error: fetchError } = await supabase
+      .rpc('get_internal_chat_data', { p_chat_id: chatId });
+    if (fetchError || !chatData) {
+      console.error('get_internal_chat_data error:', fetchError);
+      return null;
+    }
+    return chatData as InternalChat;
   } catch (e) {
     console.error('getOrCreateDirectChat error:', e);
     return null;
