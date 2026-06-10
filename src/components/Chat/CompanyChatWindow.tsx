@@ -15,6 +15,12 @@ interface Props {
   onMessageRead?: () => void;
 }
 
+function sortMessages(msgs: InternalMessage[]): InternalMessage[] {
+  return [...msgs].sort((a, b) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+}
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
@@ -43,7 +49,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
     const init = async () => {
       const data = await getInternalMessages(chat.id);
       const msgs = typeof data === 'string' ? JSON.parse(data) : data;
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      setMessages(sortMessages(Array.isArray(msgs) ? msgs : []));
       await markAsRead(chat.id, currentEmployeeId);
       onMessageRead?.();
     };
@@ -74,7 +80,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
         const msgWithSender = { ...newMsg, sender } as InternalMessage;
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev;
-          return [...prev, msgWithSender];
+          return sortMessages([...prev, msgWithSender]);
         });
         await markAsRead(chat.id, currentEmployeeId);
         onMessageRead?.();
@@ -83,6 +89,23 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
 
     return () => { supabase.removeChannel(channel); };
   }, [chat.id, currentEmployeeId]);
+
+  // Polling fallback — на случай если Realtime не доставил событие
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      const data = await getInternalMessages(chat.id);
+      const msgs = typeof data === 'string' ? JSON.parse(data) : data;
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs = msgs.filter((m: InternalMessage) => !existingIds.has(m.id));
+          if (newMsgs.length === 0) return prev;
+          return sortMessages([...prev, ...newMsgs]);
+        });
+      }
+    }, 5000);
+    return () => clearInterval(poll);
+  }, [chat.id]);
 
   // Свайп вправо → onBack
   useEffect(() => {
@@ -108,7 +131,10 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
     setText('');
     const sent = await sendInternalMessage(chat.id, currentEmployeeId, content);
     if (sent) {
-      setMessages(prev => prev.find(m => m.id === sent.id) ? prev : [...prev, sent]);
+      setMessages(prev => {
+        if (prev.find(m => m.id === sent.id)) return prev;
+        return sortMessages([...prev, sent]);
+      });
     }
   };
 

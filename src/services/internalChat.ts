@@ -102,7 +102,7 @@ export async function getInternalMessages(chatId: string, limit = 50): Promise<I
   });
   if (error) { console.error('getInternalMessages error:', error); return []; }
   const msgs = (data as InternalMessage[]) || [];
-  return msgs.reverse(); // ASC order
+  return Array.isArray(msgs) ? msgs : [];
 }
 
 export async function sendInternalMessage(
