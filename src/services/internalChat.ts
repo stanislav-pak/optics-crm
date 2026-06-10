@@ -120,13 +120,11 @@ export async function sendInternalMessage(
 }
 
 export async function markAsRead(chatId: string, employeeId: string): Promise<void> {
-  const { error } = await supabase
-    .from('internal_chat_members')
-    .update({ last_read_at: new Date().toISOString() })
-    .eq('chat_id', chatId)
-    .eq('employee_id', employeeId);
-
-  if (error) throw error;
+  const { error } = await supabase.rpc('mark_internal_chat_read', {
+    p_chat_id: chatId,
+    p_employee_id: employeeId
+  });
+  if (error) console.error('markAsRead error:', error);
 }
 
 export async function getAllEmployees(): Promise<
