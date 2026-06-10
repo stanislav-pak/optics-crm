@@ -118,11 +118,11 @@ export async function getOrCreateDirectChat(
   otherEmployeeId: string
 ): Promise<InternalChat | null> {
   try {
-    // Вызываем SECURITY DEFINER функцию
+    // Используем SECURITY DEFINER функцию — обходит RLS
     const { data: chatId, error } = await supabase
       .rpc('create_or_get_direct_chat', {
-        p_employee_id_1: myEmployeeId,
-        p_employee_id_2: otherEmployeeId,
+        p_employee1_id: myEmployeeId,
+        p_employee2_id: otherEmployeeId
       });
 
     if (error || !chatId) {
@@ -130,14 +130,14 @@ export async function getOrCreateDirectChat(
       return null;
     }
 
-    // Загружаем полные данные чата
+    // Загружаем полный объект чата
     const { data: chat } = await supabase
       .from('internal_chats')
       .select('*, internal_chat_members(employee_id, last_read_at, employees(id,name,role,branch_id))')
       .eq('id', chatId)
       .single();
 
-    return chat as InternalChat;
+    return chat;
   } catch (e) {
     console.error('getOrCreateDirectChat error:', e);
     return null;
