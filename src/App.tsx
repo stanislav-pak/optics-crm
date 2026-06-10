@@ -340,6 +340,7 @@ function AppContent() {
     });
     const count = data || 0;
     setInternalUnread(count);
+    localStorage.setItem('internalUnreadCount', String(count));
     if ('setAppBadge' in navigator) {
       count > 0
         ? (navigator as any).setAppBadge(count)
@@ -354,6 +355,14 @@ function AppContent() {
   };
 
   useEffect(() => {
+    // При монтировании — сначала быстро из кэша
+    const cached = localStorage.getItem('internalUnreadCount');
+    if (cached) {
+      const n = parseInt(cached);
+      setInternalUnread(n);
+      if (n > 0 && 'setAppBadge' in navigator) (navigator as any).setAppBadge(n);
+    }
+    // Потом обновляем с сервера
     loadInternalUnread();
     const interval = setInterval(loadInternalUnread, 30000);
     const channel = supabase.channel('internal-unread')
