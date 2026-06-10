@@ -28,7 +28,6 @@ function roleColor(role?: string): string {
 export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onMessageRead }: Props) {
   const [messages, setMessages] = useState<InternalMessage[]>([]);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef({ x: 0, y: 0 });
 
@@ -41,15 +40,14 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
 
   // Загружаем сообщения и отмечаем прочитанными
   useEffect(() => {
-    const load = async () => {
+    const init = async () => {
       const data = await getInternalMessages(chat.id);
       const msgs = typeof data === 'string' ? JSON.parse(data) : data;
       setMessages(Array.isArray(msgs) ? msgs : []);
-      setTimeout(() => messagesEndRef.current?.scrollIntoView(), 100);
+      await markAsRead(chat.id, currentEmployeeId);
+      onMessageRead?.();
     };
-    load();
-    markAsRead(chat.id, currentEmployeeId).catch(() => {});
-    onMessageRead?.();
+    init();
   }, [chat.id]);
 
   // Прокрутка вниз при новых сообщениях
@@ -78,7 +76,6 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, msgWithSender];
         });
-        setTimeout(() => messagesEndRef.current?.scrollIntoView(), 50);
         await markAsRead(chat.id, currentEmployeeId);
         onMessageRead?.();
       })
@@ -107,20 +104,11 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
 
   const handleSend = async () => {
     const content = text.trim();
-    if (!content || sending) return;
-    setSending(true);
+    if (!content) return;
     setText('');
-    try {
-      const msg = await sendInternalMessage(chat.id, currentEmployeeId, content);
-      if (msg) {
-        setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
-      } else {
-        setText(content);
-      }
-    } catch {
-      setText(content);
-    } finally {
-      setSending(false);
+    const sent = await sendInternalMessage(chat.id, currentEmployeeId, content);
+    if (sent) {
+      setMessages(prev => prev.find(m => m.id === sent.id) ? prev : [...prev, sent]);
     }
   };
 
@@ -223,7 +211,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
           />
           <button
             onClick={handleSend}
-            disabled={!text.trim() || sending}
+            disabled={!text.trim()}
             className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center text-white disabled:opacity-40 flex-shrink-0"
           >
             <Send size={16} />

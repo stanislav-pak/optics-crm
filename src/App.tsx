@@ -332,10 +332,14 @@ function AppContent() {
     const interval = setInterval(loadInternalUnread, 30000);
     const channel = supabase.channel('internal-unread')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' },
-        () => loadInternalUnread())
+        () => { if (!showCompanyChat) loadInternalUnread(); })
       .subscribe();
     return () => { clearInterval(interval); supabase.removeChannel(channel); };
   }, [employee?.id]);
+
+  useEffect(() => {
+    if (!showCompanyChat) loadInternalUnread();
+  }, [showCompanyChat]);
 
   if (loading) {
     return (
