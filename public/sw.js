@@ -2,49 +2,44 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Уведомление', body: '', url: '/' };
-  try {
-    if (event.data) data = { url: '/', ...event.data.json() };
-  } catch (_) {}
+  const data = event.data?.json() || {};
+  const title = data.title || 'NewLine';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: data.url || '/' }
+  };
 
   event.waitUntil(
     (async () => {
-      // 1. Бейдж — сначала, до показа уведомления (именно этот порядок работал)
-      try {
-        const badgeCount = data.badge_count || 1;
-        if ('setAppBadge' in self.registration) {
-          self.registration.setAppBadge(badgeCount);
+      // Устанавливаем badge — в отдельном try/catch чтобы не сломать уведомление
+      if (data.badge_count !== undefined) {
+        try {
+          await self.registration.setAppBadge(data.badge_count);
+        } catch (e) {
+          // iOS не поддерживает — игнорируем
         }
-      } catch (_) {}
-
-      // 2. Показываем уведомление — iOS воспроизводит системный звук именно здесь
-      await self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: '/apple-touch-icon-v2.png',
-        badge: '/favicon-96x96.png',
-        tag: `msg-${Date.now()}`,
-        data: { url: data.url || '/' },
-      });
-
-      // 3. Сообщаем открытым вкладкам сыграть звук (foreground-случай, fire-and-forget)
-      clients
-        .matchAll({ type: 'window', includeUncontrolled: true })
-        .then((clientList) =>
-          clientList.forEach((client) =>
-            client.postMessage({ type: 'PUSH_RECEIVED', title: data.title, body: data.body }),
-          ),
-        );
-    })(),
+      }
+      // Показываем уведомление всегда
+      await self.registration.showNotification(title, options);
+    })()
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if ('clearAppBadge' in self.registration) {
+  try {
     self.registration.clearAppBadge();
-  }
-  const url = event.notification.data?.url || '/';
-  event.waitUntil(clients.openWindow(url));
+  } catch (e) {}
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('message', (event) => {
