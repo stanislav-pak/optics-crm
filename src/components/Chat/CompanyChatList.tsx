@@ -13,6 +13,7 @@ import CompanyChatWindow from './CompanyChatWindow';
 interface Props {
   currentEmployee: { id: string; name: string; role: string };
   onBack: () => void;
+  onMessageRead?: () => void;
 }
 
 function formatTime(iso?: string): string {
@@ -34,7 +35,7 @@ function roleLabel(role: string): string {
   return 'Менеджер';
 }
 
-export default function CompanyChatList({ currentEmployee, onBack }: Props) {
+export default function CompanyChatList({ currentEmployee, onBack, onMessageRead }: Props) {
   const [chats, setChats] = useState<InternalChat[]>([]);
   const [selectedChat, setSelectedChat] = useState<InternalChat | null>(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -103,7 +104,7 @@ export default function CompanyChatList({ currentEmployee, onBack }: Props) {
       <CompanyChatWindow
         chat={selectedChat}
         currentEmployeeId={currentEmployee.id}
-        onBack={() => { setSelectedChat(null); loadChats(); }}
+        onBack={() => { setSelectedChat(null); loadChats(); onMessageRead?.(); }}
       />
     );
   }

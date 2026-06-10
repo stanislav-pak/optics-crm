@@ -40,10 +40,13 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
 
   // Загружаем сообщения и отмечаем прочитанными
   useEffect(() => {
-    getInternalMessages(chat.id).then(msgs => {
-      setMessages(msgs);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' }), 50);
-    });
+    const load = async () => {
+      const data = await getInternalMessages(chat.id);
+      const msgs = typeof data === 'string' ? JSON.parse(data) : data;
+      setMessages(Array.isArray(msgs) ? msgs : []);
+      setTimeout(() => bottomRef.current?.scrollIntoView(), 100);
+    };
+    load();
     markAsRead(chat.id, currentEmployeeId).catch(() => {});
   }, [chat.id]);
 
@@ -59,15 +62,11 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack }: P
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'internal_messages', filter: 'chat_id=eq.' + chat.id },
-        payload => {
-          const newMsg = payload.new as InternalMessage;
-          setMessages(prev => {
-            if (prev.find(m => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-          if (newMsg.sender_id !== currentEmployeeId) {
-            markAsRead(chat.id, currentEmployeeId).catch(() => {});
-          }
+        async () => {
+          const data = await getInternalMessages(chat.id);
+          const msgs = typeof data === 'string' ? JSON.parse(data) : data;
+          setMessages(Array.isArray(msgs) ? msgs : []);
+          setTimeout(() => bottomRef.current?.scrollIntoView(), 100);
         }
       )
       .subscribe();

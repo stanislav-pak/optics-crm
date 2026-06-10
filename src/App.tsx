@@ -68,6 +68,7 @@ function AppContent() {
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [showCompanyChat, setShowCompanyChat] = useState(false);
+  const [internalUnread, setInternalUnread] = useState(0);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
 
@@ -317,6 +318,24 @@ function AppContent() {
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
+
+  const loadInternalUnread = async () => {
+    if (!employee?.id) return;
+    const { data } = await supabase.rpc('get_unread_internal_count', {
+      p_employee_id: employee.id
+    });
+    setInternalUnread(data || 0);
+  };
+
+  useEffect(() => {
+    loadInternalUnread();
+    const interval = setInterval(loadInternalUnread, 30000);
+    const channel = supabase.channel('internal-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' },
+        () => loadInternalUnread())
+      .subscribe();
+    return () => { clearInterval(interval); supabase.removeChannel(channel); };
+  }, [employee?.id]);
 
   if (loading) {
     return (
@@ -632,12 +651,15 @@ function AppContent() {
       {isAdmin && <PendingManagers />}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="px-3 py-1.5 bg-[#111b21] flex items-center justify-end border-b border-white/5 flex-shrink-0">
-          <button
-            onClick={() => setShowCompanyChat(true)}
-            className="flex items-center gap-1.5 bg-[#2a3942] px-2.5 py-1.5 rounded-lg text-[#10b981] text-xs font-medium"
-          >
+          <button onClick={() => { setShowCompanyChat(true); }}
+            className="relative flex items-center gap-1.5 bg-[#2a3942] px-2.5 py-1.5 rounded-lg text-[#10b981] text-xs font-medium">
             <MessageSquare className="w-3.5 h-3.5" />
             Чат компании
+            {internalUnread > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                {internalUnread > 9 ? '9+' : internalUnread}
+              </span>
+            )}
           </button>
         </div>
         <div className="flex-1 overflow-hidden">
@@ -1086,6 +1108,7 @@ function AppContent() {
           <CompanyChatList
             currentEmployee={employee}
             onBack={() => setShowCompanyChat(false)}
+            onMessageRead={loadInternalUnread}
           />
         )}
       </AuthContext.Provider>
