@@ -310,13 +310,27 @@ function AppContent() {
       : (navigator as any).clearAppBadge?.();
   }, [unreadChatsCount, workshopOrderBadgeCount, inventoryWorkshopBadge]);
 
-  // При возврате в приложение — очищаем иконку
+  // Очищаем badge иконки при открытии/фокусе приложения
   useEffect(() => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') (navigator as any).clearAppBadge?.();
+    const clearBadge = () => {
+      if ('clearAppBadge' in navigator) {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
     };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
+
+    clearBadge();
+
+    const onVisibility = () => {
+      if (!document.hidden) clearBadge();
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', clearBadge);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', clearBadge);
+    };
   }, []);
 
   const loadInternalUnread = async () => {
