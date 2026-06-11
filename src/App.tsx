@@ -302,14 +302,6 @@ function AppContent() {
     };
   }, [employee?.branch_id]);
 
-  // Централизованный OS badge (иконка PWA)
-  useEffect(() => {
-    const total = unreadChatsCount + workshopOrderBadgeCount + inventoryWorkshopBadge;
-    total > 0
-      ? (navigator as any).setAppBadge?.(total)
-      : (navigator as any).clearAppBadge?.();
-  }, [unreadChatsCount, workshopOrderBadgeCount, inventoryWorkshopBadge]);
-
   const loadInternalUnread = async () => {
     if (!employee?.id) return;
     const { data } = await supabase.rpc('get_unread_internal_count', {
@@ -318,19 +310,11 @@ function AppContent() {
     const count = data || 0;
     setInternalUnread(count);
     localStorage.setItem('internalUnreadCount', String(count));
-    if ('setAppBadge' in navigator) {
-      if (count > 0) {
-        (navigator as any).setAppBadge(count).catch(() => {});
-      } else {
-        (navigator as any).clearAppBadge().catch(() => {});
-      }
-    }
   };
 
   const openCompanyChat = () => {
     setShowCompanyChat(true);
     setInternalUnread(0);
-    if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge();
   };
 
   useEffect(() => {

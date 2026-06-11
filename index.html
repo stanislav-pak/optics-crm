@@ -1,16 +1,6 @@
 ﻿<!doctype html>
 <html lang="en">
   <head>
-    <script>
-      (function() {
-        try {
-          var count = parseInt(localStorage.getItem('internalUnreadCount') || '0');
-          if (count > 0 && 'setAppBadge' in navigator) {
-            navigator.setAppBadge(count);
-          }
-        } catch(e) {}
-      })();
-    </script>
     <meta charset="UTF-8" />
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />

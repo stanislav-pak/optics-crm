@@ -51,6 +51,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
       const msgs = typeof data === 'string' ? JSON.parse(data) : data;
       setMessages(sortMessages(Array.isArray(msgs) ? msgs : []));
       await markAsRead(chat.id, currentEmployeeId);
+      if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge().catch(() => {});
       setTimeout(() => onMessageRead?.(), 300);
     };
     init();
@@ -83,6 +84,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
           return sortMessages([...prev, msgWithSender]);
         });
         await markAsRead(chat.id, currentEmployeeId);
+        if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge().catch(() => {});
         setTimeout(() => onMessageRead?.(), 300);
       })
       .subscribe();
@@ -111,6 +113,7 @@ export default function CompanyChatWindow({ chat, currentEmployeeId, onBack, onM
   useEffect(() => {
     const onFocus = async () => {
       await markAsRead(chat.id, currentEmployeeId);
+      if ('clearAppBadge' in navigator) (navigator as any).clearAppBadge().catch(() => {});
       setTimeout(() => onMessageRead?.(), 300);
     };
     const onVisibility = () => { if (!document.hidden) onFocus(); };
