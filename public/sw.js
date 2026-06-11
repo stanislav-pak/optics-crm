@@ -1,4 +1,4 @@
-const SW_VERSION = 'v2.1';
+const SW_VERSION = 'v2.2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -14,15 +14,7 @@ self.addEventListener('push', (event) => {
     data = event.data?.json() || {};
   } catch (e) {}
 
-  console.log('[SW ' + SW_VERSION + '] push received, badge_count:', data.badge_count);
-
   const title = data.title || 'NewLine';
-  const badgeCount = data.badge_count ?? 1; // fallback 1 если нет в payload
-
-  // Устанавливаем badge ДО показа уведомления
-  if ('setAppBadge' in self.registration) {
-    self.registration.setAppBadge(badgeCount).catch(() => {});
-  }
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -36,9 +28,6 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  try {
-    self.registration.clearAppBadge();
-  } catch (e) {}
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {
       for (const client of clientList) {
@@ -51,13 +40,6 @@ self.addEventListener('notificationclick', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data === 'clearBadge') {
-    if ('clearAppBadge' in self.navigator) self.navigator.clearAppBadge();
     self.registration.getNotifications().then((ns) => ns.forEach((n) => n.close()));
-  }
-  if (event.data?.type === 'SET_BADGE') {
-    const count = event.data.count;
-    if ('setAppBadge' in self.navigator) {
-      count > 0 ? self.navigator.setAppBadge(count) : self.navigator.setAppBadge(0);
-    }
   }
 });
