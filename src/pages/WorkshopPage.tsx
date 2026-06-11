@@ -129,6 +129,19 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   // Передаём счётчик родителю (OS badge централизован в App.tsx)
   useEffect(() => { onBadgeChange?.(badgeCount); }, [badgeCount]);
 
+  function autoMarkRead(data: ServiceOrder[], isFirstOpen: boolean) {
+    setReadOrderIds(prev => {
+      const next = new Set(prev);
+      for (const order of data) {
+        if (isFirstOpen || order.status === 'done' || order.status === 'cancelled') {
+          next.add(order.id);
+        }
+      }
+      localStorage.setItem('workshop_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+  }
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -137,8 +150,11 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
         fetchServices(selectedBranch),
       ]);
       if (result.error) console.error('fetchServiceOrders:', result.error);
-      setOrders(result.data ?? []);
+      const data = result.data ?? [];
+      setOrders(data);
       setServices(svc);
+      const isFirstOpen = readOrderIds.size === 0;
+      autoMarkRead(data, isFirstOpen);
     } catch (e) {
       console.error('WorkshopPage loadAll:', e);
     }
@@ -149,7 +165,9 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     try {
       const result = await fetchServiceOrders(selectedBranch, role, branchId ?? '');
       if (result.error) console.error('fetchServiceOrders:', result.error);
-      setOrders(result.data ?? []);
+      const data = result.data ?? [];
+      setOrders(data);
+      autoMarkRead(data, false);
     } catch (e) {
       console.error('WorkshopPage loadOrders:', e);
     }
