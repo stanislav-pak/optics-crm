@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -20,21 +20,30 @@ async function subscribeToPush(employeeId: string): Promise<void> {
   if (permission !== 'granted') return;
   const reg = await navigator.serviceWorker.ready;
 
-  // Always unsubscribe old subscription — ensures new VAPID key takes effect
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) {
-    await existing.unsubscribe();
+  let sub = await reg.pushManager.getSubscription();
+
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
   }
 
-  const subscription = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
+  // Всегда делаем upsert, не только при первой подписке
+  const { data: existing } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('employee_id', employeeId)
+    .maybeSingle();
 
-  await supabase.from('push_subscriptions').upsert(
-    { employee_id: employeeId, subscription: subscription.toJSON() },
-    { onConflict: 'employee_id' },
-  );
+  if (existing) {
+    await supabase.from('push_subscriptions')
+      .update({ subscription: sub.toJSON() })
+      .eq('employee_id', employeeId);
+  } else {
+    await supabase.from('push_subscriptions')
+      .insert({ employee_id: employeeId, subscription: sub.toJSON() });
+  }
 }
 
 export function usePushNotifications(employeeId?: string) {
