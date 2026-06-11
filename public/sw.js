@@ -1,11 +1,20 @@
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
+const SW_VERSION = 'v2.1';
+
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
 
 self.addEventListener('push', (event) => {
   let data = {};
   try {
     data = event.data?.json() || {};
   } catch (e) {}
+
+  console.log('[SW ' + SW_VERSION + '] push received, badge_count:', data.badge_count);
 
   const title = data.title || 'NewLine';
   const badgeCount = data.badge_count ?? 1; // fallback 1 если нет в payload
