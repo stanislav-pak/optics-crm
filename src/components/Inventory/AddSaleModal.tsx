@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
-import { createSale, getProducts, getProductByBarcode } from '../../services/inventory';
+import { createSale, getProductsFromStock, getProductByBarcode } from '../../services/inventory';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
@@ -90,7 +90,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [preorderNotes, setPreorderNotes] = useState('');
 
   useEffect(() => {
-    getProducts(branchId).then(data =>
+    getProductsFromStock(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchBranchClients();
