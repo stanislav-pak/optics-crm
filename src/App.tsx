@@ -309,11 +309,6 @@ function AppContent() {
     });
     const count = data || 0;
     setInternalUnread(count);
-    localStorage.setItem('internalUnreadCount', String(count));
-    if ('setAppBadge' in navigator) {
-      if (count > 0) (navigator as any).setAppBadge(count).catch(() => {});
-      else (navigator as any).clearAppBadge().catch(() => {});
-    }
   };
 
   const openCompanyChat = () => {
@@ -338,6 +333,19 @@ function AppContent() {
       setInternalUnread(0);
     }
   }, [showCompanyChat]);
+
+  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0);
+
+  useEffect(() => {
+    if ('setAppBadge' in navigator) {
+      if (totalBadge > 0) {
+        (navigator as any).setAppBadge(totalBadge).catch(() => {});
+      } else {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
+    }
+    localStorage.setItem('internalUnreadCount', String(internalUnread || 0));
+  }, [totalBadge]);
 
   if (loading) {
     return (
