@@ -310,6 +310,10 @@ function AppContent() {
     const count = data || 0;
     setInternalUnread(count);
     localStorage.setItem('internalUnreadCount', String(count));
+    if ('setAppBadge' in navigator) {
+      if (count > 0) (navigator as any).setAppBadge(count).catch(() => {});
+      else (navigator as any).clearAppBadge().catch(() => {});
+    }
   };
 
   const openCompanyChat = () => {
