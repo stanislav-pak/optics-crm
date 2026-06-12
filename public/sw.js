@@ -1,4 +1,4 @@
-const SW_VERSION = 'v2.2';
+const SW_VERSION = 'v3-badge';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
