@@ -344,7 +344,7 @@ function AppContent() {
         (navigator as any).clearAppBadge().catch(() => {});
       }
     }
-    localStorage.setItem('internalUnreadCount', String(internalUnread || 0));
+    localStorage.setItem('totalBadgeCount', String(totalBadge));
   }, [totalBadge]);
 
   if (loading) {

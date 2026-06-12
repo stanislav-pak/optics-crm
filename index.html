@@ -4,7 +4,7 @@
     <script>
       (function() {
         try {
-          var count = parseInt(localStorage.getItem('internalUnreadCount') || '0');
+          var count = parseInt(localStorage.getItem('totalBadgeCount') || '0');
           if (count > 0 && 'setAppBadge' in navigator) navigator.setAppBadge(count);
         } catch(e) {}
       })();

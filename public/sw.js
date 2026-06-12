@@ -13,16 +13,22 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data?.json() || {};
   } catch (e) {}
+  const badgeCount = data.badge_count;
 
   const title = data.title || 'NewLine';
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || '',
-      icon: data.icon || '/icon-192.png',
-      badge: '/icon-192.png',
-      data: { url: data.url || '/' }
-    })
+    Promise.all([
+      typeof badgeCount === 'number' && 'setAppBadge' in self.registration
+        ? self.registration.setAppBadge(badgeCount).catch(() => {})
+        : Promise.resolve(),
+      self.registration.showNotification(title, {
+        body: data.body || '',
+        icon: data.icon || '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url: data.url || '/' }
+      })
+    ])
   );
 });
 
