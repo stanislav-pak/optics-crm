@@ -5,7 +5,6 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { CRMSidebar } from '../CRM/CRMSidebar';
 import { ChatInfoPanel } from './ChatInfoPanel';
-import { MapPin } from 'lucide-react';
 import type { Chat, Message } from '../../types';
 
 interface ChatWindowProps {
@@ -32,6 +31,8 @@ interface BranchOption {
   name: string;
   city: string;
   address?: string;
+  maps_2gis?: string;
+  maps_yandex?: string;
 }
 
 function formatTime(dateStr: string): string {
@@ -134,7 +135,6 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
   const [showInfo, setShowInfo] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [geocoding, setGeocoding] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -186,8 +186,8 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
   };
 
   const loadBranches = async () => {
-    const { data } = await supabase.from('branches').select('id, name, city, address').order('name');
-    setBranches(data ?? []);
+    const { data } = await supabase.from('branches').select('id, name, city, address, maps_2gis, maps_yandex').not('maps_2gis', 'is', null).order('name');
+    setBranches((data ?? []) as BranchOption[]);
   };
 
   const sendMessage = async () => {
@@ -212,20 +212,16 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
 
   const sendBranchLocation = async (branch: BranchOption) => {
     if (!employee) return;
-    setGeocoding(true);
-    const query = [branch.address, branch.city].filter(Boolean).join(', ');
-    let lat = 0, lng = 0;
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, { headers: { 'Accept-Language': 'ru' } });
-      const data = await res.json();
-      if (data.length > 0) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
-    } catch {}
-    setGeocoding(false);
     setShowLocationModal(false);
-    const name = `${branch.name}${branch.address ? ', ' + branch.address : ''}, ${branch.city}`;
+    const parts: string[] = [`📍 Наш адрес: ${branch.address || branch.name}`];
+    parts.push('');
+    if (branch.maps_2gis) parts.push(`🗺 2ГИС: ${branch.maps_2gis}`);
+    if (branch.maps_yandex) parts.push(`🗺 Яндекс Карты: ${branch.maps_yandex}`);
+    parts.push('');
+    const content = parts.join('\n');
     const { data } = await supabase.from('messages').insert({
       chat_id: chat.id, direction: 'outbound', sender_type: 'employee',
-      sender_id: employee.id, content: JSON.stringify({ lat, lng, name }), message_type: 'location',
+      sender_id: employee.id, content, message_type: 'text',
     }).select().single();
     if (data) setMessages(prev => [...prev, data]);
   };
@@ -241,23 +237,6 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
       sender_id: employee.id, content, message_type: 'contact',
     }).select().single();
     if (data) setMessages(prev => [...prev, data]);
-  };
-
-  const insertBranchAddress = async () => {
-    if (!employee?.branch_id) return;
-    const { data: branch } = await supabase
-      .from('branches')
-      .select('name, address, maps_2gis, maps_yandex')
-      .eq('id', employee.branch_id)
-      .single();
-    if (!branch) return;
-    const b = branch as { name: string; address?: string; maps_2gis?: string; maps_yandex?: string };
-    const parts: string[] = [`📍 Наш адрес: ${b.address || b.name}`];
-    parts.push('');
-    if (b.maps_2gis) parts.push(`🗺 2ГИС: ${b.maps_2gis}`);
-    if (b.maps_yandex) parts.push(`🗺 Яндекс Карты: ${b.maps_yandex}`);
-    parts.push('');
-    setText(parts.join('\n'));
   };
 
   const deleteMessage = async (msg: Message) => {
@@ -550,26 +529,19 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
                 <h3 className="text-[#e9edef] font-semibold">Выбрать филиал</h3>
                 <button onClick={() => setShowLocationModal(false)} className="text-[#8696a0] text-xl">✕</button>
               </div>
-              {geocoding ? (
-                <div className="flex items-center justify-center py-8 gap-3">
-                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-[#8696a0] text-sm">Определяем адрес...</span>
-                </div>
-              ) : (
-                <div className="overflow-y-auto flex-1 space-y-2">
-                  {branches.length === 0 && <p className="text-[#8696a0] text-sm text-center py-4">Нет филиалов</p>}
-                  {branches.map(branch => (
-                    <button key={branch.id} onClick={() => sendBranchLocation(branch)}
-                      className="w-full flex items-start gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-left">
-                      <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                      <div className="min-w-0">
-                        <p className="text-[#e9edef] text-sm font-medium">{branch.name}</p>
-                        <p className="text-[#8696a0] text-xs truncate">{[branch.address, branch.city].filter(Boolean).join(', ')}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="overflow-y-auto flex-1 space-y-2">
+                {branches.length === 0 && <p className="text-[#8696a0] text-sm text-center py-4">Нет филиалов</p>}
+                {branches.map(branch => (
+                  <button key={branch.id} onClick={() => sendBranchLocation(branch)}
+                    className="w-full flex items-start gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-left">
+                    <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <div className="min-w-0">
+                      <p className="text-[#e9edef] text-sm font-medium">{branch.name}</p>
+                      <p className="text-[#8696a0] text-xs truncate">{[branch.address, branch.city].filter(Boolean).join(', ')}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -727,15 +699,6 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
               <button onClick={() => cameraInputRef.current?.click()} disabled={isArchived}
                 className="w-9 h-9 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-            )}
-
-            {/* Адрес филиала — только когда не запись */}
-            {!isRecording && (
-              <button onClick={insertBranchAddress} disabled={isArchived || !employee?.branch_id}
-                className="w-9 h-9 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors"
-                title="Геолокация филиала">
-                <MapPin className="w-5 h-5" />
               </button>
             )}
 
