@@ -5,6 +5,7 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { CRMSidebar } from '../CRM/CRMSidebar';
 import { ChatInfoPanel } from './ChatInfoPanel';
+import { MapPin } from 'lucide-react';
 import type { Chat, Message } from '../../types';
 
 interface ChatWindowProps {
@@ -240,6 +241,23 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
       sender_id: employee.id, content, message_type: 'contact',
     }).select().single();
     if (data) setMessages(prev => [...prev, data]);
+  };
+
+  const insertBranchAddress = async () => {
+    if (!employee?.branch_id) return;
+    const { data: branch } = await supabase
+      .from('branches')
+      .select('name, address, maps_2gis, maps_yandex')
+      .eq('id', employee.branch_id)
+      .single();
+    if (!branch) return;
+    const b = branch as { name: string; address?: string; maps_2gis?: string; maps_yandex?: string };
+    const parts: string[] = [`📍 Наш адрес: ${b.address || b.name}`];
+    parts.push('');
+    if (b.maps_2gis) parts.push(`🗺 2ГИС: ${b.maps_2gis}`);
+    if (b.maps_yandex) parts.push(`🗺 Яндекс Карты: ${b.maps_yandex}`);
+    parts.push('');
+    setText(parts.join('\n'));
   };
 
   const deleteMessage = async (msg: Message) => {
@@ -709,6 +727,15 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
               <button onClick={() => cameraInputRef.current?.click()} disabled={isArchived}
                 className="w-9 h-9 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </button>
+            )}
+
+            {/* Адрес филиала — только когда не запись */}
+            {!isRecording && (
+              <button onClick={insertBranchAddress} disabled={isArchived || !employee?.branch_id}
+                className="w-9 h-9 text-[#8696a0] hover:text-[#e9edef] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-colors"
+                title="Геолокация филиала">
+                <MapPin className="w-5 h-5" />
               </button>
             )}
 
