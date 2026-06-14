@@ -1,6 +1,6 @@
 ﻿import { VoiceMessage } from './VoiceMessage';
 import { playNotificationSound } from '../../utils/sound';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { CRMSidebar } from '../CRM/CRMSidebar';
@@ -122,6 +122,28 @@ function ContactMessage({ content, isOutbound, time, isRead }: {
   );
 }
 
+function renderMessageText(text: string): React.ReactNode[] {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-blue-300 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWindowProps) {
   const { employee } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -215,8 +237,8 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
     setShowLocationModal(false);
     const parts: string[] = [`📍 Наш адрес: ${branch.address || branch.name}`];
     parts.push('');
-    if (branch.maps_2gis) parts.push(`🗺 2ГИС: ${branch.maps_2gis}`);
-    if (branch.maps_yandex) parts.push(`🗺 Яндекс Карты: ${branch.maps_yandex}`);
+    if (branch.maps_yandex) parts.push(`📍 Яндекс Навигатор: ${branch.maps_yandex}`);
+    if (branch.maps_2gis) parts.push(`📍 2ГИС: ${branch.maps_2gis}`);
     parts.push('');
     const content = parts.join('\n');
     const { data } = await supabase.from('messages').insert({
@@ -453,7 +475,7 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
             <ContactMessage content={msg.content} isOutbound={isOutbound} time={formatTime(msg.created_at)} isRead={msg.is_read} />
           ) : (
             <div className="px-3 py-2">
-              <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+              <p className="whitespace-pre-wrap break-words">{renderMessageText(msg.content)}</p>
               <div className={`flex items-center gap-1 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
                 <span className={`text-[10px] ${isOutbound ? 'text-emerald-300/70' : 'text-[#8696a0]'}`}>{formatTime(msg.created_at)}</span>
                 {isOutbound && <MsgStatus isRead={msg.is_read} />}
