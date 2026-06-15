@@ -20,13 +20,6 @@ type StatusFilter = 'all' | ServiceOrderStatus;
 type PageTab = 'orders' | 'journal';
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
-const ADMIN_BRANCHES = [
-  { id: 'ff42784a-5de9-458e-baf6-1ca3c8d0b79f', name: 'Жандосова' },
-  { id: '1b9d7882-be86-4559-832b-14817dfcaaa3', name: 'Гум' },
-  { id: '67138bd7-d688-47cf-a9c9-51cf800712ad', name: 'Абая 34' },
-  { id: '1104bc27-07bb-4930-93b2-19a2d92b71c9', name: 'Мастерская' },
-  { id: '30c0cd70-5f43-4201-9f6e-4d67d9aafc2f', name: 'Kaspi' },
-] as const;
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all',         label: 'Все' },
@@ -51,6 +44,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string | null>(branchId);
+  const [adminBranches, setAdminBranches] = useState<{ id: string; name: string }[]>([]);
   const [readOrderIds, setReadOrderIds] = useState<Set<string>>(() => {
     try {
       // Очищаем старые ключи от прошлых версий
@@ -77,6 +71,12 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
   ).length;
 
   useEffect(() => { setSelectedBranch(branchId); }, [branchId]);
+
+  useEffect(() => {
+    supabase.from('branches').select('id, name').order('name').then(({ data }) => {
+      if (data) setAdminBranches(data);
+    });
+  }, []);
 
   useEffect(() => {
     loadAll();
@@ -262,7 +262,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
             }`}>
             Все
           </button>
-          {ADMIN_BRANCHES.map(b => (
+          {adminBranches.map(b => (
             <button key={b.id} type="button"
               onClick={() => setSelectedBranch(b.id)}
               className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -385,7 +385,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
               }`}>
               Все
             </button>
-            {ADMIN_BRANCHES.filter(b => b.id !== WORKSHOP_BRANCH_ID).map(b => (
+            {adminBranches.filter(b => b.id !== WORKSHOP_BRANCH_ID).map(b => (
               <button key={b.id}
                 onClick={() => setJournalBranchFilter(b.id)}
                 className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
