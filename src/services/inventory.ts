@@ -401,7 +401,10 @@ export async function createSale(
     .from('sale_items')
     .insert(items.map(i => ({ ...i, sale_id: newSale.id })));
 
-  if (itemsError) throw itemsError;
+  if (itemsError) {
+    await supabase.from('sales').delete().eq('id', newSale.id);
+    throw itemsError;
+  }
 
   // Создаём движения склада
   const movements = items.map(item => ({
@@ -419,7 +422,11 @@ export async function createSale(
     .from('stock_movements')
     .insert(movements);
 
-  if (movError) throw movError;
+  if (movError) {
+    await supabase.from('sale_items').delete().eq('sale_id', newSale.id);
+    await supabase.from('sales').delete().eq('id', newSale.id);
+    throw movError;
+  }
 
   return newSale as Sale;
 }
