@@ -507,7 +507,7 @@ export async function createReturn(
       quantity: item.quantity,
       notes: reason,
       reference_id: saleId,
-      reference_type: 'return',
+      reference_type: 'sale',
       created_by: employeeId,
     }));
 
