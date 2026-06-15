@@ -254,6 +254,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     if (mode === 'preorder') {
+      if (items.length === 0) {
+        alert('Добавьте хотя бы один товар в предзаказ');
+        isSubmittingRef.current = false;
+        return;
+      }
+      if (!clientId) {
+        alert('Выберите клиента для предзаказа');
+        isSubmittingRef.current = false;
+        return;
+      }
       setLoading(true);
       try {
         const orderClientName = selectedClient?.name ?? newClientName ?? undefined;
@@ -1153,7 +1163,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop)}
+              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0)}
               className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
               style={{ background: mode === 'preorder' ? '#f59e0b' : '#16a34a' }}
             >
