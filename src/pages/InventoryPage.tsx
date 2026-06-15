@@ -174,9 +174,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
   const [allBranchesStock, setAllBranchesStock] = useState<{ branch_id: string; quantity: number }[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
-  const [incomingTransfers, setIncomingTransfers] = useState<any[]>([]);
+  const [incomingTransfers, setIncomingTransfers] = useState<StockMovement[]>([]);
   const [showIncomingTransfers, setShowIncomingTransfers] = useState(false);
-  const [completedTransfers, setCompletedTransfers] = useState<any[]>([]);
+  const [completedTransfers, setCompletedTransfers] = useState<StockMovement[]>([]);
   const [showLowStock, setShowLowStock] = useState(false);
   const [inTransitMovements, setInTransitMovements] = useState<{ product_id: string; branch_id: string; to_branch_id: string; quantity: number; created_at: string }[]>([]);
   const [cashKey, setCashKey] = useState(0);
@@ -484,8 +484,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       if (role !== 'admin') q = q.eq('to_branch_id', activeBranchId);
       const { data: ct } = await q;
       setCompletedTransfers(ct ?? []);
-    } catch (e) {
-      console.error('completedTransfers error:', e);
+    } catch {
       setCompletedTransfers([]);
     }
   }
