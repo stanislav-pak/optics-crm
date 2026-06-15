@@ -50,7 +50,7 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
       .channel('pending-payments')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_orders' },
+        { event: '*', schema: 'public', table: 'service_orders', filter: `created_branch_id=eq.${branchId}` },
         () => { loadAll(); }
       )
       .subscribe();
