@@ -222,7 +222,9 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
         p_employee_id: employeeId,
         p_notes: notes || null,
       });
-      if (!error) {
+      if (error) {
+        alert(`Ошибка закрытия кассы: ${error.message}`);
+      } else {
         setShowModal(false);
         setActualCash('');
         setNotes('');
