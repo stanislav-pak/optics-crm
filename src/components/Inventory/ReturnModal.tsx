@@ -426,7 +426,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                   )}
                   {returnWorkshop && workshopReturnAmount > 0 && (
                     <div className="flex justify-between" style={{ color: '#8696a0' }}>
-                      <span>Возврат предоплаты мастерской:</span>
+                      <span>Возврат оплаты мастерской:</span>
                       <span>₸{workshopReturnAmount.toLocaleString()}</span>
                     </div>
                   )}
