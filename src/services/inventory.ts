@@ -5,6 +5,7 @@ import type {
   Sale, SaleItem, SaleStatus, Revision, RevisionItem,
   InventoryStats, StockAlert, Branch
 } from '../types';
+import { WAREHOUSE_ID } from '../constants';
 
 // ============================================
 // ТОВАРЫ
@@ -276,7 +277,6 @@ export async function createPurchaseOrder(
     }
 
     // Синхронизация с главным складом (если приход НЕ на склад)
-    const WAREHOUSE_ID = 'a215f402-07ee-4ba9-aba5-b2b4cd5497f2';
     if (order.branch_id !== WAREHOUSE_ID) {
       const { data: branch } = await supabase
         .from('branches').select('name').eq('id', order.branch_id!).single();

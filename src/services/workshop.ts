@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
-
-const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+import { WORKSHOP_BRANCH_ID } from '../constants';
 
 async function notifyBranch(branchId: string, title: string, body: string) {
   try {

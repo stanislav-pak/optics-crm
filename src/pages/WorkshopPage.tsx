@@ -6,8 +6,7 @@ import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
 import AddServiceOrderModal from '../components/Workshop/AddServiceOrderModal';
 import ServiceOrderCard from '../components/Workshop/ServiceOrderCard';
 import ServicesManager from '../components/Workshop/ServicesManager';
-
-const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+import { WORKSHOP_BRANCH_ID } from '../constants';
 
 interface WorkshopPageProps {
   branchId: string | null; // null = admin «Все»

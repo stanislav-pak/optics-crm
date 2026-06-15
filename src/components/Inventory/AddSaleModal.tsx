@@ -8,8 +8,7 @@ import { formatPhone } from '@/utils/formatters';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
 import type { Product, Client, Service } from '../../types';
-
-const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+import { WORKSHOP_BRANCH_ID } from '../../constants';
 type WorkshopPaymentType = 'prepaid' | 'full' | 'on_delivery';
 
 interface SaleItem {

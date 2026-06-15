@@ -3,8 +3,7 @@ import { X, ChevronDown } from 'lucide-react';
 import { createServiceOrder, createService } from '../../services/workshop';
 import { formatPhone } from '@/utils/formatters';
 import type { Service } from '../../types';
-
-const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
+import { WORKSHOP_BRANCH_ID } from '../../constants';
 
 type PaymentType = 'prepaid' | 'full' | 'on_delivery';
 

@@ -7,6 +7,7 @@ import {
   deleteRevision, getIncomingTransfers,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
+import { WORKSHOP_BRANCH_ID } from '../constants';
 import type {
   Product, Stock, InventoryStats, StockAlert,
   StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder
@@ -276,7 +277,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }, []);
 
   // Запоминаем предыдущий филиал перед переходом в Мастерскую
-  const WORKSHOP_BRANCH_ID = '1104bc27-07bb-4930-93b2-19a2d92b71c9';
   useEffect(() => {
     if (activeBranchId !== WORKSHOP_BRANCH_ID) {
       setPrevActiveBranchId(activeBranchId);
