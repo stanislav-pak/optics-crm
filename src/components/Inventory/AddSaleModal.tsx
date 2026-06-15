@@ -306,6 +306,23 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     if (items.length === 0 && !addWorkshop) { isSubmittingRef.current = false; return; }
     setLoading(true);
     try {
+      // Проверяем актуальные остатки перед оформлением
+      if (items.length > 0) {
+        const { data: stockData } = await supabase
+          .from('stock')
+          .select('product_id, quantity')
+          .in('product_id', items.map(i => i.product_id))
+          .eq('branch_id', branchId);
+        const stockMap: Record<string, number> = {};
+        for (const s of stockData ?? []) stockMap[s.product_id] = s.quantity;
+        for (const item of items) {
+          const available = stockMap[item.product_id] ?? 0;
+          if (item.quantity > available) {
+            throw new Error(`Недостаточно "${item.product_name}": доступно ${available} шт`);
+          }
+        }
+      }
+
       const cashAmount = paymentMethod === 'cash' ? total :
         paymentMethod === 'kaspi_qr' ? 0 : parseFloat(paidCash || '0');
       const kaspiAmount = paymentMethod === 'kaspi_qr' ? total :
