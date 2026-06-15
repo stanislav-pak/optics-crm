@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
 import { createSale, getProductsFromStock, getProductByBarcode } from '../../services/inventory';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
@@ -88,6 +88,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [prepaymentMethod, setPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
   const [expectedDate, setExpectedDate] = useState('');
   const [preorderNotes, setPreorderNotes] = useState('');
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     getProductsFromStock(branchId).then(data =>
@@ -250,6 +251,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     if (mode === 'preorder') {
       setLoading(true);
       try {
@@ -279,12 +282,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       } catch (e: any) {
         alert('Ошибка: ' + (e?.message || JSON.stringify(e)));
       } finally {
+        isSubmittingRef.current = false;
         setLoading(false);
       }
       return;
     }
 
-    if (items.length === 0 && !addWorkshop) return;
+    if (items.length === 0 && !addWorkshop) { isSubmittingRef.current = false; return; }
     setLoading(true);
     try {
       const cashAmount = paymentMethod === 'cash' ? total :
@@ -355,6 +359,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     } catch (e: any) {
       alert('Ошибка: ' + (e?.message || JSON.stringify(e)));
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { Banknote, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { getExpensesForDate } from '../../services/expenses';
@@ -32,6 +32,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [actualCash, setActualCash] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [cashExpenses, setCashExpenses] = useState(0);
   const [cashExpenseItems, setCashExpenseItems] = useState<{name: string; amount: number}[]>([]);
 
@@ -194,21 +195,26 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   }, []);
 
   const handleClose = async () => {
-    if (!session || !actualCash) return;
+    if (!session || !actualCash || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setSaving(true);
-    const { error } = await supabase.rpc('close_cash_session', {
-      p_session_id: session.id,
-      p_actual_cash: parseFloat(actualCash),
-      p_employee_id: employeeId,
-      p_notes: notes || null,
-    });
-    if (!error) {
-      setShowModal(false);
-      setActualCash('');
-      setNotes('');
-      loadSession();
+    try {
+      const { error } = await supabase.rpc('close_cash_session', {
+        p_session_id: session.id,
+        p_actual_cash: parseFloat(actualCash),
+        p_employee_id: employeeId,
+        p_notes: notes || null,
+      });
+      if (!error) {
+        setShowModal(false);
+        setActualCash('');
+        setNotes('');
+        loadSession();
+      }
+    } finally {
+      isSubmittingRef.current = false;
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   if (loading) {
