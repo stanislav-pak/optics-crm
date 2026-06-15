@@ -173,12 +173,12 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full sm:max-w-lg rounded-t-3xl flex flex-col"
-        style={{ backgroundColor: '#111b21', maxHeight: '85vh' }}
+        className="w-full sm:max-w-lg rounded-t-3xl flex flex-col bg-white"
+        style={{ maxHeight: '85vh' }}
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#374045' }} />
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
 
         {/* Header */}
@@ -188,17 +188,17 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               <button
                 onClick={() => setStep('select')}
                 className="p-1 rounded-full mr-1"
-                style={{ color: '#8696a0' }}
+                className="text-gray-500"
               >
                 <ChevronLeft size={20} />
               </button>
             )}
-            <RotateCcw size={16} style={{ color: '#60a5fa' }} />
-            <span className="text-sm font-semibold" style={{ color: '#e9edef' }}>
+            <RotateCcw size={16} className="text-blue-500" />
+            <span className="text-sm font-semibold" className="text-gray-900">
               {step === 'select' ? 'Выберите продажу' : 'Оформить возврат'}
             </span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-full" style={{ color: '#8696a0' }}>
+          <button onClick={onClose} className="p-1 rounded-full" className="text-gray-500">
             <X size={20} />
           </button>
         </div>
@@ -208,13 +208,13 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
           <>
             <div className="px-5 pb-3 flex-shrink-0">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8696a0' }} />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" className="text-gray-500" />
                 <input
                   value={saleSearch}
                   onChange={e => setSaleSearch(e.target.value)}
                   placeholder="Поиск по клиенту или товару..."
                   className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none"
-                  style={{ backgroundColor: '#202c33', border: '1px solid #2a3942', color: '#e9edef' }}
+                  className="bg-gray-50 border border-gray-200 text-gray-900"
                 />
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               onTouchMove={e => e.stopPropagation()}
             >
               {filteredSales.length === 0 ? (
-                <div className="text-center py-10 text-sm" style={{ color: '#8696a0' }}>
+                <div className="text-center py-10 text-sm" className="text-gray-500">
                   {returnableSales.length === 0 ? 'Нет продаж для возврата' : 'Ничего не найдено'}
                 </div>
               ) : (
@@ -239,20 +239,20 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                         type="button"
                         onClick={() => handleSelectSale(s)}
                         className="w-full text-left rounded-2xl px-4 py-3 transition-colors active:opacity-80"
-                        style={{ backgroundColor: '#202c33', border: '1px solid #2a3942' }}
+                        className="bg-gray-50 border border-gray-200"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: '#e9edef' }}>{clientName}</p>
-                            <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                            <p className="text-sm font-medium truncate" className="text-gray-900">{clientName}</p>
+                            <p className="text-xs mt-0.5" className="text-gray-500">
                               {saleDate} · {(s.employee as any)?.name ?? '—'}
                             </p>
-                            <p className="text-xs mt-0.5 truncate" style={{ color: '#8696a0' }}>
+                            <p className="text-xs mt-0.5 truncate" className="text-gray-500">
                               {s.items?.map(i => (i.product as any)?.name).filter(Boolean).join(', ')}
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-semibold" style={{ color: '#e9edef' }}>₸{s.total.toLocaleString()}</p>
+                            <p className="text-sm font-semibold" className="text-gray-900">₸{s.total.toLocaleString()}</p>
                             {s.status === 'partially_refunded' && (
                               <span className="text-xs" style={{ color: '#f59e0b' }}>Частичный возврат</span>
                             )}
@@ -273,12 +273,12 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
             {/* Инфо о продаже */}
             <div
               className="mx-5 mb-3 rounded-2xl px-4 py-3 flex-shrink-0"
-              style={{ backgroundColor: '#202c33' }}
+              className="bg-gray-50"
             >
-              <p className="text-sm font-medium" style={{ color: '#e9edef' }}>
+              <p className="text-sm font-medium" className="text-gray-900">
                 {(selectedSale.client as any)?.name || (selectedSale.client as any)?.phone || 'Без клиента'}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+              <p className="text-xs mt-0.5" className="text-gray-500">
                 {new Date(selectedSale.created_at).toLocaleDateString('ru-RU')} · ₸{selectedSale.total.toLocaleString()}
                 {selectedSale.branch ? ` · ${(selectedSale.branch as any).name}` : ''}
               </p>
@@ -293,8 +293,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               {/* Позиции товаров */}
               {items.length > 0 && (
                 <div
-                  className="rounded-2xl overflow-hidden divide-y"
-                  style={{ backgroundColor: '#202c33', borderColor: '#2a3942' }}
+                  className="rounded-2xl overflow-hidden divide-y bg-gray-50 border border-gray-200"
                 >
                   {items.map(item => {
                     const productName = (item.product as any)?.name ?? '—';
@@ -305,8 +304,8 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                       <div key={item.product_id} className="px-4 py-3">
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: '#e9edef' }}>{productName}</p>
-                            <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                            <p className="text-sm font-medium truncate" className="text-gray-900">{productName}</p>
+                            <p className="text-xs mt-0.5" className="text-gray-500">
                               Доступно к возврату: {maxQty} шт · ₸{item.price.toLocaleString()} / шт
                               {alreadyReturned > 0 && (
                                 <span style={{ color: '#f59e0b' }}> (уже возвращено: {alreadyReturned})</span>
@@ -316,13 +315,13 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                         </div>
                         <div
                           className="flex items-center rounded-xl overflow-hidden"
-                          style={{ backgroundColor: '#111b21', border: '1px solid #2a3942' }}
+                          className="bg-white border border-gray-200"
                         >
                           <button
                             type="button"
                             onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.max(0, (prev[item.product_id] ?? 0) - 1) })); }}
                             className="px-4 py-2 text-lg font-medium flex-shrink-0"
-                            style={{ color: '#8696a0' }}
+                            className="text-gray-500"
                           >−</button>
                           <input
                             type="text"
@@ -333,17 +332,17 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                               setQtys(prev => ({ ...prev, [item.product_id]: Math.min(val, maxQty) }));
                             }}
                             className="flex-1 text-center text-sm py-2 bg-transparent border-0 focus:outline-none"
-                            style={{ color: qty > 0 ? '#60a5fa' : '#8696a0' }}
+                            style={{ color: qty > 0 ? '#3b82f6' : '#9ca3af' }}
                           />
                           <button
                             type="button"
                             onMouseDown={e => { e.preventDefault(); setQtys(prev => ({ ...prev, [item.product_id]: Math.min((prev[item.product_id] ?? 0) + 1, maxQty) })); }}
                             className="px-4 py-2 text-lg font-medium flex-shrink-0"
-                            style={{ color: '#8696a0' }}
+                            className="text-gray-500"
                           >+</button>
                         </div>
                         {qty > 0 && (
-                          <p className="text-xs mt-1.5" style={{ color: '#60a5fa' }}>
+                          <p className="text-xs mt-1.5" className="text-blue-500">
                             Вернуть: {qty} шт · ₸{(qty * item.price).toLocaleString()}
                           </p>
                         )}
@@ -356,23 +355,23 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
               {/* Секция мастерской */}
               {workshopHasPayment && workshopOrder && workshopOrder.status !== 'cancelled' && (
                 <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: '#8696a0' }}>
+                  <p className="text-xs font-medium mb-2" className="text-gray-500">
                     Услуги мастерской
                   </p>
                   <div
                     className="rounded-2xl px-4 py-3"
-                    style={{ backgroundColor: '#202c33', border: '1px solid #2a3942' }}
+                    className="bg-gray-50 border border-gray-200"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium" style={{ color: '#e9edef' }}>
+                        <p className="text-sm font-medium" className="text-gray-900">
                           🔧 {workshopOrder.service_name}
                         </p>
-                        <p className="text-xs mt-1" style={{ color: '#8696a0' }}>
+                        <p className="text-xs mt-1" className="text-gray-500">
                           Услуга: ₸{workshopOrder.service_price.toLocaleString()}
                           {workshopOrder.parts_price > 0 && ` · Запчасти: ₸${workshopOrder.parts_price.toLocaleString()}`}
                         </p>
-                        <p className="text-xs mt-0.5" style={{ color: '#8696a0' }}>
+                        <p className="text-xs mt-0.5" className="text-gray-500">
                           Оплачено клиентом: ₸{workshopPaidAmount.toLocaleString()}
                         </p>
                       </div>
@@ -383,13 +382,13 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                           onChange={e => setReturnWorkshop(e.target.checked)}
                           className="w-4 h-4 rounded accent-blue-500"
                         />
-                        <span className="text-xs" style={{ color: '#e9edef' }}>
+                        <span className="text-xs" className="text-gray-900">
                           Вернуть ₸{workshopPaidAmount.toLocaleString()}
                         </span>
                       </label>
                     </div>
                     {returnWorkshop && (
-                      <p className="text-xs mt-2 font-medium" style={{ color: '#60a5fa' }}>
+                      <p className="text-xs mt-2 font-medium" className="text-blue-500">
                         Вернуть клиенту: ₸{workshopPaidAmount.toLocaleString()}
                       </p>
                     )}
@@ -399,7 +398,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
 
               {/* Причина */}
               <div>
-                <p className="text-xs font-medium mb-1.5" style={{ color: '#8696a0' }}>
+                <p className="text-xs font-medium mb-1.5" className="text-gray-500">
                   Причина возврата <span style={{ color: '#f87171' }}>*</span>
                 </p>
                 <textarea
@@ -408,7 +407,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                   placeholder="Укажите причину (брак, не подошло, ошибка заказа...)"
                   rows={3}
                   className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none"
-                  style={{ backgroundColor: '#202c33', border: '1px solid #2a3942', color: '#e9edef' }}
+                  className="bg-gray-50 border border-gray-200 text-gray-900"
                 />
               </div>
 
@@ -419,13 +418,13 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                   style={{ backgroundColor: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)' }}
                 >
                   {itemsReturnAmount > 0 && (
-                    <div className="flex justify-between" style={{ color: '#8696a0' }}>
+                    <div className="flex justify-between" className="text-gray-500">
                       <span>Возврат товаров ({totalReturnQty} шт):</span>
                       <span>₸{itemsReturnAmount.toLocaleString()}</span>
                     </div>
                   )}
                   {returnWorkshop && workshopReturnAmount > 0 && (
-                    <div className="flex justify-between" style={{ color: '#8696a0' }}>
+                    <div className="flex justify-between" className="text-gray-500">
                       <span>Возврат оплаты мастерской:</span>
                       <span>₸{workshopReturnAmount.toLocaleString()}</span>
                     </div>
@@ -439,7 +438,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                       <span>₸{totalReturnAmount.toLocaleString()}</span>
                     </div>
                   )}
-                  <p className="text-xs" style={{ color: '#8696a0' }}>Причина: {reason.trim()}</p>
+                  <p className="text-xs" className="text-gray-500">Причина: {reason.trim()}</p>
                 </div>
               )}
 
@@ -457,12 +456,12 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
             {/* Footer */}
             <div
               className="px-5 py-4 flex gap-3 flex-shrink-0"
-              style={{ borderTop: '1px solid #2a3942' }}
+              className="border-t border-gray-100"
             >
               <button
                 onClick={initialSaleId ? onClose : () => setStep('select')}
                 className="flex-1 py-2.5 rounded-xl text-sm"
-                style={{ border: '1px solid #374045', color: '#8696a0' }}
+                className="border border-gray-200 text-gray-500"
               >
                 {initialSaleId ? 'Отмена' : 'Назад'}
               </button>
@@ -471,8 +470,8 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
                 disabled={!canSubmit}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-opacity"
                 style={{
-                  backgroundColor: canSubmit ? '#2563eb' : '#2a3942',
-                  color: canSubmit ? '#fff' : '#8696a0',
+                  backgroundColor: canSubmit ? '#2563eb' : '#e5e7eb',
+                  color: canSubmit ? '#fff' : '#9ca3af',
                   opacity: loading ? 0.6 : 1,
                 }}
               >
