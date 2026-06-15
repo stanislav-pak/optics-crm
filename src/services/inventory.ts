@@ -241,7 +241,6 @@ export async function createPurchaseOrder(
     .single();
 
   if (poError) {
-    console.error('Ошибка создания PO:', JSON.stringify(poError));
     throw poError;
   }
 
@@ -250,7 +249,6 @@ export async function createPurchaseOrder(
     .insert(items.map(i => ({ ...i, purchase_order_id: po.id })));
 
   if (itemsError) {
-    console.error('Ошибка создания items:', JSON.stringify(itemsError));
     throw itemsError;
   }
 
@@ -272,7 +270,6 @@ export async function createPurchaseOrder(
       .insert(movements);
 
     if (movError) {
-      console.error('Ошибка создания movements:', JSON.stringify(movError));
       throw movError;
     }
 
@@ -297,9 +294,7 @@ export async function createPurchaseOrder(
       const { error: wMovError } = await supabase
         .from('stock_movements').insert(warehouseMovements);
 
-      if (wMovError) {
-        console.error('Ошибка синхронизации склад movements:', JSON.stringify(wMovError));
-      } else {
+      if (!wMovError) {
         // Upsert остатков на складе
         for (const i of items) {
           const { data: existing } = await supabase
@@ -793,7 +788,6 @@ export async function getIncomingTransfers(branchId: string) {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('getIncomingTransfers supabase error:', error);
     throw error;
   }
   return data ?? [];
