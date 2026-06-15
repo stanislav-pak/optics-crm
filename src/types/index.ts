@@ -483,6 +483,8 @@ export interface ServiceOrder {
   remaining_paid_at?: string;
   prepayment_refunded_at?: string;
   prepayment_refund_method?: 'cash' | 'kaspi';
+  remaining_refunded_at?: string;
+  remaining_refund_method?: 'cash' | 'kaspi';
   previous_status?: string; // для восстановления после отмены
   created_at: string;
   updated_at: string;

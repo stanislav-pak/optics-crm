@@ -83,7 +83,7 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
     if (!selectedSale) { setWorkshopOrder(null); return; }
     supabase
       .from('service_orders')
-      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at, remaining_paid_at, payment_type, prepayment_method')
+      .select('id, service_name, service_price, parts_price, original_prepayment, prepayment, status, prepayment_refunded_at, remaining_paid_at, remaining_payment_method, payment_type, prepayment_method')
       .eq('sale_id', selectedSale.id)
       .not('status', 'in', '("cancelled")')
       .maybeSingle()
@@ -135,15 +135,19 @@ export default function ReturnModal({ sales, employeeId, onClose, onSuccess, ini
       }
       // 2. Отмена заказа мастерской + возврат предоплаты (если выбрано)
       if (returnWorkshop && workshopOrder) {
+        const now = new Date().toISOString();
         const { error: workshopError } = await supabase
           .from('service_orders')
           .update({
             status: 'cancelled',
             previous_status: workshopOrder.status,
             prepayment_refunded_at: workshopOrder.original_prepayment > 0
-              ? new Date().toISOString() : null,
+              ? now : null,
             prepayment_refund_method: workshopOrder.prepayment_method ?? 'cash',
-            updated_at: new Date().toISOString(),
+            remaining_refunded_at: workshopOrder.remaining_paid_at ? now : null,
+            remaining_refund_method: workshopOrder.remaining_paid_at
+              ? (workshopOrder.remaining_payment_method ?? 'cash') : null,
+            updated_at: now,
           })
           .eq('id', workshopOrder.id);
         if (workshopError) throw new Error(`Ошибка отмены мастерской: ${workshopError.message}`);
