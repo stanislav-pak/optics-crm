@@ -55,6 +55,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
   }, [load]);
 
   async function handleDelete(id: string) {
+    if (!confirm('Удалить расход?')) return;
     setDeletingId(id);
     try {
       await deleteExpense(id);
