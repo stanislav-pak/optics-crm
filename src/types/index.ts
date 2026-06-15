@@ -249,7 +249,7 @@ export interface Product {
   category_id?: string;
   brand_id?: string;
   price: number;
-  cost_price: number;`n  unit?: string;
+  cost_price: number;
   min_stock: number;
   unit: string;
   attributes: ProductAttributes;
@@ -354,7 +354,8 @@ export interface PurchaseOrderItem {
   purchase_order_id: string;
   product_id: string;
   quantity: number;
-  cost_price: number;`n  unit?: string;
+  cost_price: number;
+  unit?: string;
   created_at: string;
   // Relations
   product?: Product;
