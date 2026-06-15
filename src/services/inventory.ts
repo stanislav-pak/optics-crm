@@ -480,12 +480,12 @@ export async function createReturn(
         .update({ quantity: stockRow.quantity + item.quantity })
         .eq('product_id', item.product_id)
         .eq('branch_id', sale.branch_id);
-      if (stockUpdErr) console.error('Failed to update stock:', stockUpdErr);
+      if (stockUpdErr) throw new Error(`Ошибка обновления остатка: ${stockUpdErr.message}`);
     } else {
       const { error: stockInsErr } = await supabase
         .from('stock')
         .insert({ product_id: item.product_id, branch_id: sale.branch_id, quantity: item.quantity });
-      if (stockInsErr) console.error('Failed to insert stock:', stockInsErr);
+      if (stockInsErr) throw new Error(`Ошибка создания остатка: ${stockInsErr.message}`);
     }
   }
 
@@ -506,7 +506,7 @@ export async function createReturn(
 
   if (movements.length > 0) {
     const { error: movErr } = await supabase.from('stock_movements').insert(movements);
-    if (movErr) console.error('Failed to insert return movements:', movErr);
+    if (movErr) throw new Error(`Ошибка записи движений возврата: ${movErr.message}`);
   }
 
   // 6. Обновляем статус продажи: полный или частичный возврат
