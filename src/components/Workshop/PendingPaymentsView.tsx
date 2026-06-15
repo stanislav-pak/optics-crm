@@ -135,13 +135,14 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
     try {
       const { order, method } = confirm;
 
-      await supabase
+      const { error } = await supabase
         .from('service_orders')
         .update({
           prepayment_refunded_at: new Date().toISOString(),
           prepayment_refund_method: method,
         })
         .eq('id', order.id);
+      if (error) throw new Error(error.message);
 
       const newRefunds = refundOrders.filter(o => o.id !== order.id);
       setRefundOrders(newRefunds);
