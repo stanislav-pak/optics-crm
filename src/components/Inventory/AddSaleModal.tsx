@@ -198,9 +198,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     }
   }, [paidCash, paidKaspi, totalNow, paymentMethod]);
 
-  // Изменение 3: автозаполнение "Получено наличными" при изменении итога
+  // Автозаполнение "Получено наличными" только если поле не тронуто
   useEffect(() => {
-    setPaidCash(totalNow > 0 ? String(totalNow) : '');
+    if (!paidCash) setPaidCash(totalNow > 0 ? String(totalNow) : '');
   }, [totalNow]);
 
   const addItem = (product: Product) => {
