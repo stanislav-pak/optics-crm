@@ -53,7 +53,24 @@ export async function getProductsFromStock(branchId: string): Promise<Product[]>
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ru'));
 }
 
-export async function getProductByBarcode(barcode: string) {
+export async function getProductByBarcode(barcode: string, branchId?: string): Promise<Product | null> {
+  if (branchId) {
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        category:product_categories(id, name, slug),
+        brand:brands(id, name),
+        stock!inner(quantity, branch_id)
+      `)
+      .eq('barcode', barcode)
+      .eq('stock.branch_id', branchId)
+      .gt('stock.quantity', 0)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Product | null;
+  }
+
   const { data, error } = await supabase
     .from('products')
     .select(`
@@ -63,10 +80,9 @@ export async function getProductByBarcode(barcode: string) {
       stock(quantity, branch_id)
     `)
     .eq('barcode', barcode)
-    .single();
-
+    .maybeSingle();
   if (error) throw error;
-  return data as Product;
+  return data as Product | null;
 }
 
 export async function createProduct(product: Omit<Product, 'id' | 'created_at'>) {

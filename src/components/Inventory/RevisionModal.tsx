@@ -87,6 +87,10 @@ export default function RevisionModal({ branchId, employeeId, existingRevisionId
     setShowScanner(false);
     try {
       const product = await getProductByBarcode(barcode);
+      if (!product) {
+        alert('Товар не найден в базе');
+        return;
+      }
       const item = items.find(i => (i.product as any)?.id === product.id);
       if (item) {
         const newQty = (item.actual_qty ?? 0) + 1;

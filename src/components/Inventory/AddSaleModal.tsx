@@ -225,8 +225,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const handleBarcodeDetected = async (barcode: string) => {
     try {
-      const product = await getProductByBarcode(barcode);
-      addItem(product);
+      const product = await getProductByBarcode(barcode, branchId);
+      if (!product) {
+        alert('Товар не найден в вашем филиале');
+      } else {
+        addItem(product);
+      }
     } catch {
       alert('Товар не найден');
     }
