@@ -203,7 +203,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   }, [totalNow]);
 
   const addItem = (product: Product) => {
-    const stockQty = (product.stock as any)?.[0]?.quantity ?? 0;
+    const stockQty = (product.stock as any)?.find((s: any) => s.branch_id === branchId)?.quantity ?? 0;
     setItems(prev => {
       const existing = prev.findIndex(i => i.product_id === product.id);
       if (existing >= 0) {
@@ -647,7 +647,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                     {filteredProducts.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-gray-400">Не найдено</div>
                     ) : filteredProducts.slice(0, 8).map(p => {
-                      const qty = (p.stock as any)?.[0]?.quantity ?? 0;
+                      const qty = (p.stock as any)?.find((s: any) => s.branch_id === branchId)?.quantity ?? 0;
                       return (
                         <button key={p.id}
                           onTouchStart={e => { e.preventDefault(); addItem(p); }}
