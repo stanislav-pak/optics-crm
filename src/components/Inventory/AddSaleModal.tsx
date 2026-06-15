@@ -924,7 +924,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         type="text"
                         inputMode="numeric"
                         value={workshopPrepayment === 0 ? '' : String(workshopPrepayment)}
-                        onChange={e => setWorkshopPrepayment(Number(e.target.value.replace(/[^0-9]/g, '')))}
+                        onChange={e => {
+                          const val = Number(e.target.value.replace(/[^0-9]/g, ''));
+                          const max = workshopServicePrice + workshopPartsPrice;
+                          setWorkshopPrepayment(max > 0 ? Math.min(val, max) : val);
+                        }}
                         onFocus={(e) => {
                           const input = e.target;
                           setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
