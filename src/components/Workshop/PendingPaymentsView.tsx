@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { updateServiceOrderStatus } from '../../services/workshop';
 import type { ServiceOrder } from '../../types';
 
 const STATUS_RU: Record<string, string> = {
@@ -107,16 +106,15 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
     try {
       const { order, method } = confirm;
 
-      const { error } = await updateServiceOrderStatus(order.id, 'done');
-      if (error) throw new Error(error);
-
-      await supabase
+      const { error } = await supabase
         .from('service_orders')
         .update({
+          status: 'done',
           remaining_payment_method: method,
           remaining_paid_at: new Date().toISOString(),
         })
         .eq('id', order.id);
+      if (error) throw new Error(error.message);
 
       const newPending = pendingOrders.filter(o => o.id !== order.id);
       setPendingOrders(newPending);
