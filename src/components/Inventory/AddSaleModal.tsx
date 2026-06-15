@@ -374,6 +374,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const handleKaspiCancel = async () => {
     if (tempSaleId) {
+      const { error: movErr } = await supabase
+        .from('stock_movements')
+        .delete()
+        .eq('reference_id', tempSaleId)
+        .eq('reference_type', 'sale')
+        .eq('type', 'out');
+      if (movErr) {
+        alert('Ошибка отмены: не удалось откатить движения склада');
+        return;
+      }
       await supabase.from('sale_items').delete().eq('sale_id', tempSaleId);
       await supabase.from('sales').delete().eq('id', tempSaleId);
     }
