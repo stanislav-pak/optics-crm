@@ -160,6 +160,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     const start = { x: 0, y: 0 };
     const onStart = (e: TouchEvent) => { start.x = e.touches[0].clientX; start.y = e.touches[0].clientY; };
     const onEnd = (e: TouchEvent) => {
+      if (document.querySelector('[data-dropdown="true"]')) return;
       const dx = e.changedTouches[0].clientX - start.x;
       const dy = Math.abs(e.changedTouches[0].clientY - start.y);
       if (dx > 60 && dy < 80) onClose();
@@ -543,7 +544,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                     {showSuggestions && nameSuggestions.length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      <div data-dropdown="true" className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                         {nameSuggestions.map(s => (
                           <button
                             key={s.id}
