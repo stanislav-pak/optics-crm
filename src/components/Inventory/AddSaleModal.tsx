@@ -118,6 +118,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     const { data } = await supabase
       .from('clients')
       .select('id, name, phone, branch:branches(name)')
+      .eq('branch_id', branchId)
       .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
       .limit(7);
     setNameSuggestions((data ?? []) as ClientSnap[]);
