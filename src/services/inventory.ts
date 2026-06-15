@@ -719,23 +719,13 @@ export async function createTransfer(
 
   const toName = branches?.find(b => b.id === toBranchId)?.name ?? toBranchId;
 
-  // Актуальный остаток отправителя
-  const { data: fromStock } = await supabase
-    .from('stock')
-    .select('quantity')
-    .eq('product_id', productId)
-    .eq('branch_id', fromBranchId)
-    .single();
-
-  if (!fromStock || fromStock.quantity < quantity) throw new Error('Недостаточно товара');
-
-  // Списываем со склада отправителя
-  const { error: stockErr } = await supabase
-    .from('stock')
-    .update({ quantity: fromStock.quantity - quantity })
-    .eq('product_id', productId)
-    .eq('branch_id', fromBranchId);
-  if (stockErr) throw stockErr;
+  // Атомарно списываем со склада отправителя
+  const { error: stockErr } = await supabase.rpc('deduct_stock_atomic', {
+    p_product_id: productId,
+    p_branch_id: fromBranchId,
+    p_quantity: quantity,
+  });
+  if (stockErr) throw new Error(stockErr.message);
 
   // Пересчитываем остатки отправителя
   await supabase.rpc('recalculate_stock', { p_branch_id: fromBranchId });
@@ -820,25 +810,13 @@ export async function createWriteoff(
   reason: string,
   employeeId: string
 ) {
-  // Проверяем текущий остаток
-  const { data: stockRow, error: stockFetchErr } = await supabase
-    .from('stock')
-    .select('quantity')
-    .eq('product_id', productId)
-    .eq('branch_id', branchId)
-    .single();
-
-  if (stockFetchErr || !stockRow) throw new Error('Товар не найден на складе');
-  if (stockRow.quantity < quantity) throw new Error(`Недостаточно товара. Доступно: ${stockRow.quantity} шт`);
-
-  // Списываем остаток
-  const { error: stockErr } = await supabase
-    .from('stock')
-    .update({ quantity: stockRow.quantity - quantity })
-    .eq('product_id', productId)
-    .eq('branch_id', branchId);
-
-  if (stockErr) throw stockErr;
+  // Атомарно списываем остаток
+  const { error: stockErr } = await supabase.rpc('deduct_stock_atomic', {
+    p_product_id: productId,
+    p_branch_id: branchId,
+    p_quantity: quantity,
+  });
+  if (stockErr) throw new Error(stockErr.message);
 
   // Создаём движение
   const { error: movErr } = await supabase.from('stock_movements').insert({
