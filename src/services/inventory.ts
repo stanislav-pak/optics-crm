@@ -659,6 +659,9 @@ export async function completeRevision(revisionId: string, employeeId: string) {
     .eq('id', revisionId);
 
   if (updateError) throw updateError;
+
+  // Пересчитываем остатки по всем движениям филиала
+  await supabase.rpc('recalculate_stock', { p_branch_id: revision.branch_id });
 }
 
 export async function getRevisions(branchId?: string) {
