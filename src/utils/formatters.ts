@@ -1,3 +1,8 @@
+// Форматирует сумму в вид: 10 000 ₸
+export function formatMoney(value: number): string {
+  return value.toLocaleString('ru-KZ') + ' ₸';
+}
+
 // Форматирует номер в вид: +7 777 222 33 44
 export function formatPhone(value: string): string {
   // Оставляем только цифры
