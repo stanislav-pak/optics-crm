@@ -110,19 +110,19 @@ CREATE POLICY "employees_update_stock" ON stock
 ## TODO — что осталось сделать
 
 ### Склад
-- [ ] Редактирование товара (EditProductModal)
-- [ ] Перемещение между филиалами (TransferModal)
-- [ ] Списание товаров (WriteoffModal)
-- [ ] Экспорт в Excel (ревизии, движения, продажи)
-- [ ] Фильтрация движений по типу/дате/товару
 - [ ] Kaspi API реальная интеграция (сейчас заглушка в KaspiQRModal — KASPI_MERCHANT_ID = 'YOUR_MERCHANT_ID')
-- [ ] Возврат продажи
-
-### Общее
-- [ ] Push-уведомления при низком остатке
-- [ ] Удалить debug console.log из getCategories и getBrands в inventory.ts
 - [ ] Категории товаров — UI управления (сейчас только через Supabase)
 - [ ] Бренды — UI управления (сейчас только через Supabase)
+
+### Сделано (не удалять — для истории)
+- [x] Редактирование товара (EditProductModal)
+- [x] Перемещение между филиалами (TransferModal)
+- [x] Списание товаров (WriteoffModal)
+- [x] Экспорт в Excel (товары, движения, приходы, продажи, списания, возвраты, ревизии)
+- [x] Фильтрация движений по типу/дате/товару
+- [x] Возврат продажи (ReturnModal)
+- [x] Push-уведомления при низком остатке (usePushNotifications в App.tsx)
+- [x] Удалены debug console.log из getCategories и getBrands
 
 ---
 
