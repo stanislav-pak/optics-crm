@@ -79,7 +79,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             bc_type  = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
             bar_h    = max(20, H - 18)   # оставить 18 точек под цифры
             readable = 1 if H >= 38 else 0
-            cmds.append(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,1,1,"{barcode}"')
+            cmds.append(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,2,2,"{barcode}"')
         else:
             # Нет штрихкода — название и цена маленьким шрифтом
             name  = field_val('name')
