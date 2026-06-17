@@ -11,10 +11,10 @@ interface Props {
   onClose: () => void;
 }
 
-type LabelSize = '45x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
+type LabelSize = '22x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
-  { id: '45x10', label: '45×10 мм', mm: [45, 10] },
+  { id: '22x10', label: '22×10 мм', mm: [22, 10] },
   { id: '28x20', label: '28×20 мм', mm: [28, 20] },
   { id: '40x30', label: '40×30 мм', mm: [40, 30] },
   { id: '40x25', label: '40×25 мм', mm: [40, 25] },
@@ -57,7 +57,7 @@ function fieldValue(key: string, product: Product, customText?: string): string 
 
 export default function PrintLabelModal({ product, onClose }: Props) {
   const [fields,        setFields]        = useState<LabelField[]>(() => getDefaultFields(product));
-  const [size,          setSize]          = useState<LabelSize>('45x10');
+  const [size,          setSize]          = useState<LabelSize>('22x10');
   const [quantity,      setQuantity]      = useState(1);
   const [editingIp,     setEditingIp]     = useState(false);
   const [ipInput,       setIpInput]       = useState('');
@@ -104,13 +104,44 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth   = 1;
     ctx.strokeRect(0.5, 0.5, canvasW - 1, canvasH - 1);
+
+    // Для маленьких этикеток (≤12 мм высотой) — только штрихкод, как печатается
+    if (currentSize.mm[1] <= 12) {
+      if (product.barcode && barcodeCanvasRef.current) {
+        try {
+          const barcodeFormat = /^\d{13}$/.test(product.barcode) ? 'EAN13' : 'CODE128';
+          JsBarcode(barcodeCanvasRef.current, product.barcode, {
+            format: barcodeFormat,
+            width: 1.2,
+            height: Math.max(8, canvasH - 10),
+            displayValue: true,
+            fontSize: 6,
+            margin: 2,
+            background: '#ffffff',
+            lineColor: '#000000',
+          });
+          const bc = barcodeCanvasRef.current;
+          const scale = Math.min(1, (canvasW - 4) / bc.width);
+          ctx.drawImage(bc, (canvasW - bc.width * scale) / 2, 2, bc.width * scale, bc.height * scale);
+        } catch { /* некорректный штрихкод */ }
+      } else {
+        ctx.font = '7px sans-serif';
+        ctx.fillStyle = '#9ca3af';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillText('нет штрихкода', canvasW / 2, canvasH / 2);
+      }
+      return;
+    }
+
+    // Для больших этикеток — полный предпросмотр с полями
     const padding     = 6;
     const maxW        = canvasW - padding * 2;
     const showBarcode = fields.find(f => f.key === 'barcode')?.enabled && product.barcode;
     const nameField   = fields.find(f => f.key === 'name' && f.enabled);
     const otherFields = fields.filter(f => f.enabled && f.key !== 'barcode' && f.key !== 'name');
     const drawCentered = (text: string, y: number, font: string, color: string) => {
-      ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top';
+      ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
       let t = text;
       while (ctx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -1);
       if (t !== text) t += '...';
@@ -151,7 +182,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       drawCentered(val, y, `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`, isPrice ? '#1d4ed8' : '#374151');
       y += otherFontSize + 2;
     }
-  }, [fields, size, product, canvasW, canvasH]);
+  }, [fields, size, product, canvasW, canvasH, currentSize]);
 
   useEffect(() => { renderPreview(); }, [renderPreview]);
 
@@ -388,7 +419,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
           </div>
 
           <div className="flex items-center justify-between text-xs text-gray-400 px-1">
-            <span>Размер: {currentSize.label} (TSC TE200)</span>
+            <span>Размер: {currentSize.label} (TSC TE200){currentSize.mm[1] <= 12 ? ' — только штрихкод' : ''}</span>
           </div>
 
           <div>

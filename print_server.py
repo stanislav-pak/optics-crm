@@ -53,7 +53,7 @@ def find_tsc_printer() -> str:
 # ─── Генерация TSPL через нативные команды принтера ─────────────────────────
 
 def build_tspl(data: dict, quantity: int) -> bytes:
-    size = data.get('size', '45x10')
+    size = data.get('size', '22x10')
     w_mm, h_mm = map(int, size.split('x'))
     barcode = data.get('barcode', '').strip()
     fields  = data.get('fields', [])

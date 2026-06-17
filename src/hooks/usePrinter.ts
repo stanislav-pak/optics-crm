@@ -8,9 +8,9 @@ export interface PrintLabelData {
   barcode?: string;
   price?: number;
   fields: { key: string; label: string; value: string }[];
-  size: '45x10' | '40x25' | '50x30' | '58x40';
+  size: '22x10' | '40x25' | '50x30' | '58x40';
   quantity: number;
-  image?: string; // base64 PNG для отправки на print_server.py
+  image?: string;
 }
 
 export function usePrinter() {
