@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode } from 'lucide-react';
 import { createProduct, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
-import type { ProductCategory, Brand, ProductAttributes } from '../../types';
+import type { ProductCategory, Brand, ProductAttributes, Product } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import InlineCreate from './InlineCreate';
 
@@ -10,7 +10,7 @@ interface Props {
   branchId: string;
   employeeId: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (product: Product) => void;
 }
 
 function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
@@ -127,9 +127,9 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
     };
 
     try {
-      await createProduct(payload);
-      onSuccess();
+      const product = await createProduct(payload);
       onClose();
+      onSuccess(product);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : String(e));
     } finally {

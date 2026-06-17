@@ -26,6 +26,7 @@ import LowStockModal from '../components/Inventory/LowStockModal';
 import WriteoffModal from '../components/Inventory/WriteoffModal';
 import MovementDetailModal from '../components/Inventory/MovementDetailModal';
 import ReturnModal from '../components/Inventory/ReturnModal';
+import PrintLabelModal from '../components/Inventory/PrintLabelModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
 import CashSessionCard from '../components/Inventory/CashSessionCard';
 import ExpensesTab from '../components/Inventory/ExpensesTab';
@@ -117,6 +118,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [mvDateTo, setMvDateTo] = useState('');
   const [mvProductSearch, setMvProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [newProductForPrint, setNewProductForPrint] = useState<Product | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
   const [showTransfer, setShowTransfer] = useState(false);
@@ -2469,8 +2471,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowAddProduct(false)}
-          onSuccess={loadAll}
+          onSuccess={(product) => { loadAll(); setShowAddProduct(false); setNewProductForPrint(product); }}
         />
+      )}
+      {newProductForPrint && (
+        <PrintLabelModal product={newProductForPrint} onClose={() => setNewProductForPrint(null)} />
       )}
       {showAddPurchase && (
         <AddPurchaseModal
