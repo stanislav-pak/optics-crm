@@ -247,6 +247,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   useEffect(() => {
     loadUnprintedProducts(activeBranchId, role);
     loadPrintHistory(activeBranchId, role);
+
     const channel = supabase
       .channel(`print-station-${activeBranchId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products' }, () => {
@@ -256,7 +257,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         loadUnprintedProducts(activeBranchId, role);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Polling fallback: каждые 10 секунд на случай задержек Realtime
+    const poll = setInterval(() => {
+      loadUnprintedProducts(activeBranchId, role);
+    }, 10000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBranchId]);
 
