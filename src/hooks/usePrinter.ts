@@ -25,7 +25,7 @@ export function usePrinter() {
     localStorage.setItem(STORAGE_KEY, ip.trim());
   }
 
-  async function printLabel(data: PrintLabelData) {
+  async function printLabel(data: PrintLabelData): Promise<boolean> {
     setPrinting(true);
     setError(null);
     try {
@@ -39,8 +39,10 @@ export function usePrinter() {
         const text = await res.text().catch(() => res.statusText);
         throw new Error(`Принтер вернул ошибку ${res.status}: ${text}`);
       }
+      return true;
     } catch (e: any) {
       setError(e?.message ?? 'Ошибка печати');
+      return false;
     } finally {
       setPrinting(false);
     }

@@ -258,6 +258,7 @@ export interface Product {
   created_by?: string;
   created_at: string;
   product_group?: string | null;
+  label_printed?: boolean;
   // Relations
   category?: ProductCategory;
   brand?: Brand;

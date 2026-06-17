@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
-  deleteRevision, getIncomingTransfers,
+  deleteRevision, getIncomingTransfers, updateProduct,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID } from '../constants';
@@ -193,6 +193,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   });
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
+  const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
 
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
@@ -215,6 +217,31 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   ).length;
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
+
+  async function loadUnprintedProducts() {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, category:product_categories(id, name, slug), brand:brands(id, name), stock(quantity, branch_id)')
+      .eq('is_active', true)
+      .eq('label_printed', false)
+      .order('created_at', { ascending: false });
+    if (!error && data) setUnprintedProducts(data as Product[]);
+  }
+
+  useEffect(() => {
+    loadUnprintedProducts();
+    const channel = supabase
+      .channel('print-station-products')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products' }, () => {
+        loadUnprintedProducts();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, () => {
+        loadUnprintedProducts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   // Загружаем связанный заказ мастерской при открытии детали продажи
@@ -798,6 +825,45 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ТОВАРЫ */}
         {tab === 'products' && (
           <div className="space-y-3">
+            {/* Станция печати — очередь новых товаров */}
+            {unprintedProducts.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Printer size={15} className="text-amber-600 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-amber-800">
+                    Очередь печати — {unprintedProducts.length} {unprintedProducts.length === 1 ? 'товар' : unprintedProducts.length < 5 ? 'товара' : 'товаров'}
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {unprintedProducts.map(p => (
+                    <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-100 px-3 py-2 gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                        <p className="text-xs text-gray-400">{p.barcode ?? 'без штрихкода'} · ₸{p.price.toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button
+                          onClick={async () => {
+                            await updateProduct(p.id, { label_printed: true });
+                            setUnprintedProducts(prev => prev.filter(x => x.id !== p.id));
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded border border-gray-200 bg-white"
+                        >
+                          Пропустить
+                        </button>
+                        <button
+                          onClick={() => setPrintQueueProduct(p)}
+                          className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700"
+                        >
+                          <Printer size={12} />
+                          Печать
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Поиск + кнопка сканера */}
             <div className="flex gap-2 items-center w-full">
               <div className="relative flex-1">
@@ -2475,7 +2541,25 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         />
       )}
       {newProductForPrint && (
-        <PrintLabelModal product={newProductForPrint} onClose={() => setNewProductForPrint(null)} />
+        <PrintLabelModal
+          product={newProductForPrint}
+          onClose={() => setNewProductForPrint(null)}
+          onPrinted={async () => {
+            await updateProduct(newProductForPrint.id, { label_printed: true });
+            setUnprintedProducts(prev => prev.filter(x => x.id !== newProductForPrint.id));
+          }}
+        />
+      )}
+      {printQueueProduct && (
+        <PrintLabelModal
+          product={printQueueProduct}
+          onClose={() => setPrintQueueProduct(null)}
+          onPrinted={async () => {
+            await updateProduct(printQueueProduct.id, { label_printed: true });
+            setUnprintedProducts(prev => prev.filter(x => x.id !== printQueueProduct.id));
+            setPrintQueueProduct(null);
+          }}
+        />
       )}
       {showAddPurchase && (
         <AddPurchaseModal
