@@ -11,9 +11,10 @@ interface Props {
   onClose: () => void;
 }
 
-type LabelSize = '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
+type LabelSize = '45x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
+  { id: '45x10', label: '45×10 мм', mm: [45, 10] },
   { id: '28x20', label: '28×20 мм', mm: [28, 20] },
   { id: '40x30', label: '40×30 мм', mm: [40, 30] },
   { id: '40x25', label: '40×25 мм', mm: [40, 25] },
@@ -56,7 +57,7 @@ function fieldValue(key: string, product: Product, customText?: string): string 
 
 export default function PrintLabelModal({ product, onClose }: Props) {
   const [fields,        setFields]        = useState<LabelField[]>(() => getDefaultFields(product));
-  const [size,          setSize]          = useState<LabelSize>('40x30');
+  const [size,          setSize]          = useState<LabelSize>('45x10');
   const [quantity,      setQuantity]      = useState(1);
   const [editingIp,     setEditingIp]     = useState(false);
   const [ipInput,       setIpInput]       = useState('');
@@ -386,18 +387,8 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">Размер этикетки</label>
-            <div className="grid grid-cols-2 gap-2">
-              {SIZES.map(s => (
-                <button key={s.id} type="button" onClick={() => setSize(s.id)}
-                  className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    size === s.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                  }`}>
-                  {s.label}{s.id === '28x20' ? ' (XP-237B)' : ''}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+            <span>Размер: {currentSize.label} (TSC TE200)</span>
           </div>
 
           <div>
