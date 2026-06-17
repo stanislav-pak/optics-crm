@@ -53,7 +53,7 @@ def find_tsc_printer() -> str:
 # ─── Генерация TSPL через нативные команды принтера ─────────────────────────
 
 def build_tspl(data: dict, quantity: int) -> bytes:
-    size = data.get('size', '22x10')
+    size = data.get('size', '45x10')
     w_mm, h_mm = map(int, size.split('x'))
     barcode = data.get('barcode', '').strip()
     fields  = data.get('fields', [])
@@ -73,12 +73,13 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     ]
 
     if h_mm <= 12:
-        # Узкая этикетка (≤12 мм) — только штрихкод
+        # Узкая этикетка (≤12 мм) — только штрихкод в первые 22 мм (голова этикетки)
+        # M=1 (1 точка на полосу) → ширина штрихкода ~18-20 мм, вмещается в 22 мм
         if barcode:
             bc_type  = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
             bar_h    = max(20, H - 18)   # оставить 18 точек под цифры
             readable = 1 if H >= 38 else 0
-            cmds.append(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,2,2,"{barcode}"')
+            cmds.append(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,1,1,"{barcode}"')
         else:
             # Нет штрихкода — название и цена маленьким шрифтом
             name  = field_val('name')
