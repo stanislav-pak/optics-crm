@@ -900,6 +900,46 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
 }
 
 // ============================================
+// ИСТОРИЯ ПЕЧАТИ ЭТИКЕТОК
+// ============================================
+
+export async function logLabelPrint(productId: string, employeeId: string, quantity: number) {
+  const { error } = await supabase
+    .from('label_print_history')
+    .insert({ product_id: productId, printed_by: employeeId, quantity });
+  if (error) throw error;
+}
+
+export async function getLabelPrintHistory(branchId?: string, limit = 50) {
+  const { data, error } = await supabase
+    .from('label_print_history')
+    .select(`
+      *,
+      product:products(id, name, barcode, price, branch_id),
+      employee:employees(id, name)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    product_id: string;
+    printed_by: string;
+    quantity: number;
+    created_at: string;
+    product: { id: string; name: string; barcode?: string; price: number; branch_id?: string } | null;
+    employee: { id: string; name: string } | null;
+  }>;
+
+  if (branchId) {
+    return rows.filter(r => r.product?.branch_id === branchId);
+  }
+  return rows;
+}
+
+// ============================================
 // ГРУППЫ ТОВАРОВ
 // ============================================
 

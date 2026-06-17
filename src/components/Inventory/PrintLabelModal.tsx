@@ -9,7 +9,7 @@ import type { LabelField } from '../../hooks/useLabelTemplates';
 interface Props {
   product: Product;
   onClose: () => void;
-  onPrinted?: () => void;
+  onPrinted?: (quantity: number) => void;
 }
 
 type LabelSize = '45x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
@@ -280,7 +280,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
     const printCanvas = buildHighResCanvas();
     const image = printCanvas.toDataURL('image/png').split(',')[1];
     const success = await printLabel({ name: product.name, barcode: product.barcode, price: product.price, fields: activeFields, size, quantity, image });
-    if (success) onPrinted?.();
+    if (success) onPrinted?.(quantity);
   }
 
   function handleUsbPrint() {

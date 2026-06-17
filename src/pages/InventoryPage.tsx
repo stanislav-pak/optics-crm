@@ -5,6 +5,7 @@ import {
   getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers, updateProduct,
+  logLabelPrint, getLabelPrintHistory,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID } from '../constants';
@@ -195,6 +196,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
+  const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
 
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
@@ -234,8 +236,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (!error && data) setUnprintedProducts(data as Product[]);
   }
 
+  async function loadPrintHistory(branchId: string, userRole: string) {
+    try {
+      const scopeId = userRole !== 'admin' ? branchId : undefined;
+      const data = await getLabelPrintHistory(scopeId, 30);
+      setPrintHistory(data);
+    } catch (e) { console.error('loadPrintHistory error:', e); }
+  }
+
   useEffect(() => {
     loadUnprintedProducts(activeBranchId, role);
+    loadPrintHistory(activeBranchId, role);
     const channel = supabase
       .channel(`print-station-${activeBranchId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products' }, () => {
@@ -864,6 +875,34 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           <Printer size={12} />
                           Печать
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* История печати */}
+            {printHistory.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <Printer size={14} className="text-gray-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-gray-600">История печати</h3>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {printHistory.map(h => (
+                    <div key={h.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{h.product?.name ?? '—'}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {h.product?.barcode ?? 'без штрихкода'}
+                          {h.employee?.name ? ` · ${h.employee.name}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-medium text-gray-700">{h.quantity} шт</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(h.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -2543,27 +2582,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowAddProduct(false)}
-          onSuccess={(product) => { loadAll(); setShowAddProduct(false); setNewProductForPrint(product); }}
-        />
-      )}
-      {newProductForPrint && (
-        <PrintLabelModal
-          product={newProductForPrint}
-          onClose={() => setNewProductForPrint(null)}
-          onPrinted={async () => {
-            await updateProduct(newProductForPrint.id, { label_printed: true });
-            setUnprintedProducts(prev => prev.filter(x => x.id !== newProductForPrint.id));
-          }}
+          onSuccess={(product) => { loadAll(); setShowAddProduct(false); setHighlightedProductId(product.id); setTimeout(() => setHighlightedProductId(null), 4000); }}
         />
       )}
       {printQueueProduct && (
         <PrintLabelModal
           product={printQueueProduct}
           onClose={() => setPrintQueueProduct(null)}
-          onPrinted={async () => {
+          onPrinted={async (qty) => {
             await updateProduct(printQueueProduct.id, { label_printed: true });
+            await logLabelPrint(printQueueProduct.id, employeeId, qty);
             setUnprintedProducts(prev => prev.filter(x => x.id !== printQueueProduct.id));
             setPrintQueueProduct(null);
+            loadPrintHistory(activeBranchId, role);
           }}
         />
       )}
