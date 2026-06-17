@@ -46,6 +46,48 @@ def find_tsc_printer() -> str:
     return win32print.GetDefaultPrinter()
 
 
+# ─── EAN-13 BITMAP (промежуточная ширина между M=1 и M=2) ────────────────────
+
+_L = ['0001101','0011001','0010011','0111101','0100011',
+      '0110001','0101111','0111011','0110111','0001011']
+_G = ['0100111','0110011','0011011','0100001','0011101',
+      '0111001','0000101','0010001','0001001','0010111']
+_R = ['1110010','1100110','1101100','1000010','1011100',
+      '1001110','1010000','1000100','1001000','1110100']
+_P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG',
+      'LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL']
+
+def _ean13_modules(code: str) -> list:
+    c = code[:13]
+    p = _P[int(c[0])]
+    m = [0]*11 + [1,0,1]
+    for i, d in enumerate(c[1:7]):
+        m += [int(b) for b in (_L[int(d)] if p[i]=='L' else _G[int(d)])]
+    m += [0,1,0,1,0]
+    for d in c[7:]:
+        m += [int(b) for b in _R[int(d)]]
+    m += [1,0,1] + [0]*7
+    return m  # 113 модулей
+
+def _ean13_bitmap(code: str, x: int, y: int, w_dots: int, h_dots: int) -> bytes:
+    """TSPL BITMAP — EAN-13 масштабированный до w_dots точек. Без \r\n в конце."""
+    modules = _ean13_modules(code)
+    n = len(modules)
+    row = [modules[int(i * n / w_dots)] for i in range(w_dots)]
+    w_bytes = (w_dots + 7) // 8
+    bmp = bytearray()
+    for _ in range(h_dots):
+        for bi in range(w_bytes):
+            byte_val = 0
+            for bit in range(8):
+                pi = bi * 8 + bit
+                if pi < w_dots and row[pi]:
+                    byte_val |= (0x80 >> bit)
+            bmp.append(byte_val)
+    header = f'BITMAP {x},{y},{w_bytes},{h_dots},0,'.encode('ascii')
+    return header + bytes(bmp)  # без \r\n: принтер читает ровно w_bytes*h_dots байт
+
+
 # ─── Генерация TSPL ──────────────────────────────────────────────────────────
 
 def build_tspl(data: dict, quantity: int) -> bytes:
@@ -77,8 +119,11 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             bar_h    = max(20, H - 22)
             readable = 1 if H >= 38 else 0
             if len(barcode) == 13 and barcode.isdigit():
-                # EAN-13: M=1, начинаем со второй половины — штрихкод на одной стороне при складывании
-                cmd(f'BARCODE {W // 2},0,"EAN13",{bar_h},{readable},0,1,1,"{barcode}"')
+                # EAN-13: BITMAP во второй половине этикетки — штрихкод на одной стороне при складывании
+                result.extend(_ean13_bitmap(barcode, W // 2, 0, W // 2, bar_h))
+                result.extend(b'\r\n')
+                if readable:
+                    cmd(f'TEXT {W // 2},{bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
                 cmd(f'BARCODE 0,0,"128",{bar_h},{readable},0,2,2,"{barcode}"')
         else:
