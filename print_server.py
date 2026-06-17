@@ -46,6 +46,54 @@ def find_tsc_printer() -> str:
     return win32print.GetDefaultPrinter()
 
 
+# ─── EAN-13 BITMAP (растягивание до произвольной ширины) ─────────────────────
+
+_L = ['0001101','0011001','0010011','0111101','0100011',
+      '0110001','0101111','0111011','0110111','0001011']
+_G = ['0100111','0110011','0011011','0100001','0011101',
+      '0111001','0000101','0010001','0001001','0010111']
+_R = ['1110010','1100110','1101100','1000010','1011100',
+      '1001110','1010000','1000100','1001000','1110100']
+_P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG',
+      'LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL']
+
+def _ean13_modules(code: str) -> list:
+    """95 модулей штрихкода EAN-13 (0=белый, 1=чёрный), без тихих зон."""
+    c = code[:13]
+    p = _P[int(c[0])]
+    m = [1, 0, 1]                                             # левый страж
+    for i, d in enumerate(c[1:7]):
+        m += [int(b) for b in (_L[int(d)] if p[i] == 'L' else _G[int(d)])]
+    m += [0, 1, 0, 1, 0]                                      # центральный страж
+    for d in c[7:]:
+        m += [int(b) for b in _R[int(d)]]
+    m += [1, 0, 1]                                            # правый страж
+    return m                                                  # len = 95
+
+def _ean13_bitmap(code: str, x: int, y: int, w_dots: int, h_dots: int) -> bytes:
+    """TSPL BITMAP: EAN-13 растянут до w_dots точек. Растягивание (w_dots > 95),
+    каждый модуль занимает целое число соседних точек — полосы остаются чёткими."""
+    modules = _ean13_modules(code)
+    n = len(modules)                                          # 95
+    row = [0] * w_dots
+    for m in range(n):
+        if modules[m]:
+            for c in range(m * w_dots // n, (m + 1) * w_dots // n):
+                row[c] = 1
+    w_bytes = (w_dots + 7) // 8
+    bmp = bytearray()
+    for _ in range(h_dots):
+        for bi in range(w_bytes):
+            byte_val = 0
+            for bit in range(8):
+                pi = bi * 8 + bit
+                if pi < w_dots and row[pi]:
+                    byte_val |= (0x80 >> bit)
+            bmp.append(byte_val)
+    header = f'BITMAP {x},{y},{w_bytes},{h_dots},0,'.encode('ascii')
+    return header + bytes(bmp) + b'\r\n'
+
+
 # ─── Генерация TSPL ──────────────────────────────────────────────────────────
 
 def build_tspl(data: dict, quantity: int) -> bytes:
@@ -75,12 +123,22 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         # Узкая этикетка — только штрихкод
         if barcode:
             readable = 1 if H >= 38 else 0
-            # Штрихкод целиком в голове этикетки (первые ~20 мм, до линии сгиба):
-            # M=1 — чёткие нативные полосы, x=8 (отступ слева), 2 мм вниз.
-            margin_x = 8
-            bar_h    = max(20, H - 16 - 14)
-            bc_type  = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
-            cmd(f'BARCODE {margin_x},16,"{bc_type}",{bar_h},{readable},0,1,1,"{barcode}"')
+            if len(barcode) == 13 and barcode.isdigit():
+                # EAN-13 целиком в голове этикетки (до линии сгиба):
+                # BITMAP растянут на 20 мм, отступ 1 мм слева, 3 мм сверху.
+                margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
+                top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
+                bar_w    = round(20 * DPI / 25.4)  # 20 мм ≈ 160 точек
+                bar_h    = max(20, H - top_y - 16)
+                result.extend(_ean13_bitmap(barcode, margin_x, top_y, bar_w, bar_h))
+                if readable:
+                    # цифры по центру под штрихкодом (шрифт "1" ≈ 8 точек/символ)
+                    text_x = margin_x + max(0, (bar_w - len(barcode) * 8) // 2)
+                    cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
+            else:
+                # Прочие штрихкоды (CODE128) — нативная команда, M=1
+                bar_h = max(20, H - 16 - 14)
+                cmd(f'BARCODE 8,16,"128",{bar_h},{readable},0,1,1,"{barcode}"')
         else:
             name  = field_val('name')
             price = field_val('price_sale')
