@@ -218,30 +218,36 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   useEffect(() => { setActiveBranchId(branchId); }, [branchId]);
 
-  async function loadUnprintedProducts() {
-    const { data, error } = await supabase
+  async function loadUnprintedProducts(branchId: string, userRole: string) {
+    let query = supabase
       .from('products')
       .select('*, category:product_categories(id, name, slug), brand:brands(id, name), stock(quantity, branch_id)')
       .eq('is_active', true)
       .eq('label_printed', false)
       .order('created_at', { ascending: false });
+
+    if (userRole !== 'admin') {
+      query = query.eq('branch_id', branchId);
+    }
+
+    const { data, error } = await query;
     if (!error && data) setUnprintedProducts(data as Product[]);
   }
 
   useEffect(() => {
-    loadUnprintedProducts();
+    loadUnprintedProducts(activeBranchId, role);
     const channel = supabase
-      .channel('print-station-products')
+      .channel(`print-station-${activeBranchId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products' }, () => {
-        loadUnprintedProducts();
+        loadUnprintedProducts(activeBranchId, role);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, () => {
-        loadUnprintedProducts();
+        loadUnprintedProducts(activeBranchId, role);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeBranchId]);
 
 
   // Загружаем связанный заказ мастерской при открытии детали продажи
