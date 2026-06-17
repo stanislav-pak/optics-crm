@@ -34,7 +34,7 @@ import ExpensesTab from '../components/Inventory/ExpensesTab';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels';
 
 interface InventoryPageProps {
   branchId: string;
@@ -399,6 +399,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (tab === 'revisions') {
       getRevisions(activeBranchId).then(setRevisions).catch(e => console.error('getRevisions refresh:', e));
     }
+    if (tab === 'labels') {
+      loadPrintHistory(activeBranchId, role);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // Точка-уведомление на вкладке Движения и кнопке Склада
@@ -647,6 +651,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'writeoffs', label: 'Списания' },
     { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
+    { key: 'labels', label: 'Этикетки' },
   ];
 
   async function handleDeleteRevision(id: string, e: React.MouseEvent) {
@@ -782,6 +787,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 {t.key === 'movements' && hasUnreadTransfers && tab !== 'movements' && (
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
+                {t.key === 'labels' && unprintedProducts.length > 0 && tab !== 'labels' && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    {unprintedProducts.length}
+                  </span>
+                )}
               </button>
               );
             })}
@@ -842,73 +852,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ТОВАРЫ */}
         {tab === 'products' && (
           <div className="space-y-3">
-            {/* Станция печати — очередь новых товаров */}
-            {unprintedProducts.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Printer size={15} className="text-amber-600 flex-shrink-0" />
-                  <h3 className="text-sm font-semibold text-amber-800">
-                    Очередь печати — {unprintedProducts.length} {unprintedProducts.length === 1 ? 'товар' : unprintedProducts.length < 5 ? 'товара' : 'товаров'}
-                  </h3>
-                </div>
-                <div className="space-y-1.5">
-                  {unprintedProducts.map(p => (
-                    <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-100 px-3 py-2 gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                        <p className="text-xs text-gray-400">{p.barcode ?? 'без штрихкода'} · ₸{p.price.toLocaleString()}</p>
-                      </div>
-                      <div className="flex gap-1.5 flex-shrink-0">
-                        <button
-                          onClick={async () => {
-                            await updateProduct(p.id, { label_printed: true });
-                            setUnprintedProducts(prev => prev.filter(x => x.id !== p.id));
-                          }}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded border border-gray-200 bg-white"
-                        >
-                          Пропустить
-                        </button>
-                        <button
-                          onClick={() => setPrintQueueProduct(p)}
-                          className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700"
-                        >
-                          <Printer size={12} />
-                          Печать
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* История печати */}
-            {printHistory.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
-                  <Printer size={14} className="text-gray-400 flex-shrink-0" />
-                  <h3 className="text-sm font-semibold text-gray-600">История печати</h3>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {printHistory.map(h => (
-                    <div key={h.id} className="flex items-center gap-3 px-4 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{h.product?.name ?? '—'}</p>
-                        <p className="text-xs text-gray-400 truncate">
-                          {h.product?.barcode ?? 'без штрихкода'}
-                          {h.employee?.name ? ` · ${h.employee.name}` : ''}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-medium text-gray-700">{h.quantity} шт</p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(h.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             {/* Поиск + кнопка сканера */}
             <div className="flex gap-2 items-center w-full">
               <div className="relative flex-1">
@@ -1048,7 +991,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0">ГРУППА</span>
                           <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
                           <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">
-                            {totalQty.toLocaleString()} шт · ₸{totalValue.toLocaleString()}
+                            {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
+                            {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
                           </span>
                           <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
                         </div>
@@ -2489,6 +2433,92 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           );
         })()}
 
+        {/* ЭТИКЕТКИ */}
+        {tab === 'labels' && (
+          <div className="space-y-4">
+            {/* Очередь печати */}
+            {unprintedProducts.length > 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Printer size={15} className="text-amber-600 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-amber-800">
+                    Очередь печати — {unprintedProducts.length} {unprintedProducts.length === 1 ? 'товар' : unprintedProducts.length < 5 ? 'товара' : 'товаров'}
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  {unprintedProducts.map(p => (
+                    <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-100 px-3 py-2.5 gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                        <p className="text-xs text-gray-400">{p.barcode ?? 'без штрихкода'} · ₸{p.price.toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button
+                          onClick={async () => {
+                            await updateProduct(p.id, { label_printed: true });
+                            setUnprintedProducts(prev => prev.filter(x => x.id !== p.id));
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded border border-gray-200 bg-white"
+                        >
+                          Пропустить
+                        </button>
+                        <button
+                          onClick={() => setPrintQueueProduct(p)}
+                          className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700"
+                        >
+                          <Printer size={12} />
+                          Печать
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-xl px-4 py-5 text-center text-sm text-gray-400">
+                Очередь пуста — все этикетки напечатаны
+              </div>
+            )}
+
+            {/* История печати */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <Printer size={14} className="text-gray-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-gray-600">История печати</h3>
+                </div>
+                {printHistory.length > 0 && (
+                  <span className="text-xs text-gray-400">{printHistory.length} записей</span>
+                )}
+              </div>
+              {printHistory.length === 0 ? (
+                <div className="text-center py-10 text-sm text-gray-400">История пуста</div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {printHistory.map(h => (
+                    <div key={h.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{h.product?.name ?? '—'}</p>
+                        <p className="text-xs text-gray-400 truncate font-mono">
+                          {h.product?.barcode ?? 'без штрихкода'}
+                        </p>
+                        {h.employee?.name && (
+                          <p className="text-xs text-gray-400">{h.employee.name}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-semibold text-gray-800">{h.quantity} шт</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(h.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
 
