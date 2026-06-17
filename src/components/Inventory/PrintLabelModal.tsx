@@ -435,7 +435,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isAndroid = /Android/.test(navigator.userAgent);
             const isMobile  = isIOS || isAndroid;
-            const hasWifi   = ip && ip !== '192.168.1.100';
+            const hasWifi   = !!ip;
             return (
               <div className="space-y-2">
                 <div className="flex gap-3">

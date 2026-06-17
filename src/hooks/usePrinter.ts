@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 const STORAGE_KEY = 'printer_ip';
-const DEFAULT_IP = '192.168.1.100';
+const DEFAULT_IP = '127.0.0.1';
 
 export interface PrintLabelData {
   name: string;
