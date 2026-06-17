@@ -74,7 +74,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     if h_mm <= 12:
         # Узкая этикетка — только штрихкод
         if barcode:
-            bar_h    = max(20, H - 25)   # высота полос (немного меньше, чем раньше)
+            bar_h    = max(20, H - 22)
             readable = 1 if H >= 38 else 0
             bc_type  = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
             cmd(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,2,2,"{barcode}"')
