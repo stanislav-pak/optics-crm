@@ -105,24 +105,23 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     ctx.lineWidth   = 1;
     ctx.strokeRect(0.5, 0.5, canvasW - 1, canvasH - 1);
 
-    // Для маленьких этикеток (≤12 мм высотой) — только штрихкод, как печатается
+    // Для маленьких этикеток (≤12 мм высотой) — только штрихкод, растянутый на весь предпросмотр
     if (currentSize.mm[1] <= 12) {
-      if (product.barcode && barcodeCanvasRef.current) {
+      if (product.barcode) {
         try {
+          const bc = document.createElement('canvas');
           const barcodeFormat = /^\d{13}$/.test(product.barcode) ? 'EAN13' : 'CODE128';
-          JsBarcode(barcodeCanvasRef.current, product.barcode, {
+          JsBarcode(bc, product.barcode, {
             format: barcodeFormat,
-            width: 1.2,
-            height: Math.max(8, canvasH - 10),
+            width: 2,
+            height: 60,
             displayValue: true,
-            fontSize: 6,
-            margin: 2,
+            fontSize: 14,
+            margin: 5,
             background: '#ffffff',
             lineColor: '#000000',
           });
-          const bc = barcodeCanvasRef.current;
-          const scale = Math.min(1, (canvasW - 4) / bc.width);
-          ctx.drawImage(bc, (canvasW - bc.width * scale) / 2, 2, bc.width * scale, bc.height * scale);
+          ctx.drawImage(bc, 0, 0, canvasW, canvasH);
         } catch { /* некорректный штрихкод */ }
       } else {
         ctx.font = '7px sans-serif';
@@ -426,7 +425,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
             <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>
             <div className="flex justify-center bg-gray-50 rounded-xl p-4">
               <canvas id="print-label-canvas" ref={canvasRef} width={canvasW} height={canvasH}
-                className="shadow-sm rounded" style={{ imageRendering: 'pixelated', maxWidth: '100%' }} />
+                className="shadow-sm rounded" style={{ imageRendering: 'pixelated', width: '100%', height: 'auto' }} />
               <canvas ref={barcodeCanvasRef} style={{ display: 'none' }} />
             </div>
           </div>
