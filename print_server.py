@@ -88,7 +88,9 @@ def _ean13_bitmap(code: str, x: int, y: int, w_dots: int, h_dots: int) -> bytes:
             byte_val = 0
             for bit in range(8):
                 pi = bi * 8 + bit
-                if pi < w_dots and row[pi]:
+                # TSPL BITMAP: бит 1 = белая точка (не печатать), бит 0 = чёрная.
+                # Ставим бит для БЕЛЫХ модулей (row=0) и для добивки за краем ширины.
+                if pi >= w_dots or not row[pi]:
                     byte_val |= (0x80 >> bit)
             bmp.append(byte_val)
     header = f'BITMAP {x},{y},{w_bytes},{h_dots},0,'.encode('ascii')
