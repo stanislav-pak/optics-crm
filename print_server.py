@@ -3,9 +3,6 @@
 TSC TE200 Print Server — optics-crm
 Запуск: python print_server.py  или  TSC_PrintServer.exe
 Слушает порт 5000, принимает POST /print, печатает на TSC через USB.
-
-Установка зависимостей:
-  pip install flask pywin32
 """
 
 import sys
@@ -42,18 +39,62 @@ def find_tsc_printer() -> str:
     printers = win32print.EnumPrinters(
         win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
     )
-    names = [p[2] for p in printers]
-    for name in names:
-        n = name.upper()
+    for p in printers:
+        n = p[2].upper()
         if 'TSC' in n or 'TE200' in n or 'TE-200' in n:
-            return name
+            return p[2]
     return win32print.GetDefaultPrinter()
 
 
-# ─── Генерация TSPL через нативные команды принтера ─────────────────────────
+# ─── EAN-13 BITMAP (точно нужная ширина в точках) ────────────────────────────
+
+_L = ['0001101','0011001','0010011','0111101','0100011',
+      '0110001','0101111','0111011','0110111','0001011']
+_G = ['0100111','0110011','0011011','0100001','0011101',
+      '0111001','0000101','0010001','0001001','0010111']
+_R = ['1110010','1100110','1101100','1000010','1011100',
+      '1001110','1010000','1000100','1001000','1110100']
+_P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG',
+      'LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL']
+
+def _ean13_modules(code: str) -> list:
+    """113 модулей EAN-13 (0=белый, 1=чёрный), включая тихие зоны."""
+    c = code[:13]
+    p = _P[int(c[0])]
+    m = [0]*11 + [1,0,1]                                      # тихая зона + левый страж
+    for i, d in enumerate(c[1:7]):
+        m += [int(b) for b in (_L[int(d)] if p[i]=='L' else _G[int(d)])]
+    m += [0,1,0,1,0]                                           # центральный страж
+    for d in c[7:]:
+        m += [int(b) for b in _R[int(d)]]
+    m += [1,0,1] + [0]*7                                       # правый страж + тихая зона
+    return m                                                   # len = 113
+
+
+def _ean13_bitmap(code: str, x: int, y: int, w_dots: int, h_dots: int) -> bytes:
+    """TSPL BITMAP команда для EAN-13, растянутого точно до w_dots точек."""
+    modules = _ean13_modules(code)
+    n = len(modules)  # 113
+    # Nearest-neighbor масштабирование 113 → w_dots
+    row = [modules[int(i * n / w_dots)] for i in range(w_dots)]
+    w_bytes = (w_dots + 7) // 8
+    bmp = bytearray()
+    for _ in range(h_dots):
+        for bi in range(w_bytes):
+            byte_val = 0
+            for bit in range(8):
+                pi = bi * 8 + bit
+                if pi < w_dots and row[pi]:
+                    byte_val |= (0x80 >> bit)
+            bmp.append(byte_val)
+    header = f'BITMAP {x},{y},{w_bytes},{h_dots},0,'.encode('ascii')
+    return header + bytes(bmp) + b'\r\n'
+
+
+# ─── Генерация TSPL ──────────────────────────────────────────────────────────
 
 def build_tspl(data: dict, quantity: int) -> bytes:
-    size = data.get('size', '45x10')
+    size    = data.get('size', '45x10')
     w_mm, h_mm = map(int, size.split('x'))
     barcode = data.get('barcode', '').strip()
     fields  = data.get('fields', [])
@@ -61,58 +102,63 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     def field_val(key: str) -> str:
         return next((f['value'] for f in fields if f['key'] == key and f.get('value')), '')
 
-    H = int(h_mm * DPI / 25.4)   # высота в точках
-    W = int(w_mm * DPI / 25.4)   # ширина в точках
+    H = int(h_mm * DPI / 25.4)
+    W = int(w_mm * DPI / 25.4)
 
-    cmds = [
-        f'SIZE {w_mm} mm,{h_mm} mm',
-        'GAP 3 mm,0 mm',
-        'DIRECTION 0',
-        'CODEPAGE 1251',
-        'CLS',
-    ]
+    result = bytearray()
+
+    def cmd(text: str):
+        result.extend((text + '\r\n').encode('cp1251', errors='replace'))
+
+    cmd(f'SIZE {w_mm} mm,{h_mm} mm')
+    cmd('GAP 3 mm,0 mm')
+    cmd('DIRECTION 0')
+    cmd('CODEPAGE 1251')
+    cmd('CLS')
 
     if h_mm <= 12:
-        # Узкая этикетка (≤12 мм) — только штрихкод в первые 22 мм (голова этикетки)
-        # M=1 (1 точка на полосу) → ширина штрихкода ~18-20 мм, вмещается в 22 мм
+        # Узкая этикетка — только штрихкод
         if barcode:
-            bc_type  = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
-            bar_h    = max(20, H - 18)   # оставить 18 точек под цифры
+            bar_h    = max(20, H - 18)   # высота полос (оставить место для цифр)
             readable = 1 if H >= 38 else 0
-            cmds.append(f'BARCODE 0,0,"{bc_type}",{bar_h},{readable},0,2,2,"{barcode}"')
+
+            if len(barcode) == 13 and barcode.isdigit():
+                # EAN-13: BITMAP точно на всю ширину этикетки
+                result.extend(_ean13_bitmap(barcode, 0, 0, W, bar_h))
+                if readable:
+                    cmd(f'TEXT 0,{bar_h + 2},"1",0,1,1,"{barcode}"')
+            else:
+                # Другой штрихкод: нативная команда BARCODE, M=1
+                cmd(f'BARCODE 0,0,"128",{bar_h},{readable},0,1,1,"{barcode}"')
         else:
-            # Нет штрихкода — название и цена маленьким шрифтом
             name  = field_val('name')
             price = field_val('price_sale')
             y = 0
             if name:
-                cmds.append(f'TEXT {W//2},{y},"1",0,1,1,"{name}"')
+                cmd(f'TEXT {W//2},{y},"1",0,1,1,"{name}"')
                 y += 12
             if price and y < H:
-                cmds.append(f'TEXT {W//2},{y},"1",0,1,1,"{price}"')
+                cmd(f'TEXT {W//2},{y},"1",0,1,1,"{price}"')
     else:
         # Большая этикетка — название + штрихкод + цена
         name  = field_val('name')
         price = field_val('price_sale')
         y = 0
-
         if name:
-            cmds.append(f'TEXT 5,{y},"2",0,1,1,"{name}"')
+            cmd(f'TEXT 5,{y},"2",0,1,1,"{name}"')
             y += 20
-
         if barcode:
             bc_type = 'EAN13' if (len(barcode) == 13 and barcode.isdigit()) else '128'
             bar_h   = min(80, H - y - (20 if price else 0))
-            cmds.append(f'BARCODE 5,{y},"{bc_type}",{bar_h},1,0,2,2,"{barcode}"')
+            cmd(f'BARCODE 5,{y},"{bc_type}",{bar_h},1,0,2,2,"{barcode}"')
             y += bar_h + 16
-
         if price and y < H:
-            cmds.append(f'TEXT 5,{y},"2",0,1,1,"{price}"')
+            cmd(f'TEXT 5,{y},"2",0,1,1,"{price}"')
 
-    cmds.append(f'PRINT {quantity},1')
-    cmds.append('END')
+    cmd(f'PRINT {quantity},1')
+    cmd('END')
 
-    return '\r\n'.join(cmds).encode('cp1251', errors='replace')
+    return bytes(result)
 
 
 # ─── Отправка RAW на принтер ─────────────────────────────────────────────────
@@ -136,13 +182,11 @@ def print_label():
     data = request.get_json(force=True, silent=True)
     if not data:
         return jsonify({'error': 'Нет JSON'}), 400
-
     quantity = max(1, int(data.get('quantity', 1)))
-
     try:
         tspl    = build_tspl(data, quantity)
         printer = find_tsc_printer()
-        print(f'  → {printer}  |  {data.get("size")}  |  x{quantity}  |  штрихкод: {data.get("barcode", "—")}')
+        print(f'  → {printer}  |  {data.get("size")}  |  x{quantity}  |  {data.get("barcode","—")}')
         send_raw(printer, tspl)
         return jsonify({'ok': True, 'printer': printer})
     except Exception as e:
