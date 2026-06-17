@@ -58,23 +58,24 @@ _P = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG',
       'LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL']
 
 def _ean13_modules(code: str) -> list:
-    """95 модулей штрихкода EAN-13 (0=белый, 1=чёрный), без тихих зон."""
+    """113 модулей EAN-13 (0=белый, 1=чёрный), включая тихие зоны (11 слева, 7 справа).
+    Тихие зоны (белые поля) обязательны — без них сканер не находит границы кода."""
     c = code[:13]
     p = _P[int(c[0])]
-    m = [1, 0, 1]                                             # левый страж
+    m = [0] * 11 + [1, 0, 1]                                  # тихая зона + левый страж
     for i, d in enumerate(c[1:7]):
         m += [int(b) for b in (_L[int(d)] if p[i] == 'L' else _G[int(d)])]
     m += [0, 1, 0, 1, 0]                                      # центральный страж
     for d in c[7:]:
         m += [int(b) for b in _R[int(d)]]
-    m += [1, 0, 1]                                            # правый страж
-    return m                                                  # len = 95
+    m += [1, 0, 1] + [0] * 7                                  # правый страж + тихая зона
+    return m                                                  # len = 113
 
 def _ean13_bitmap(code: str, x: int, y: int, w_dots: int, h_dots: int) -> bytes:
-    """TSPL BITMAP: EAN-13 растянут до w_dots точек. Растягивание (w_dots > 95),
-    каждый модуль занимает целое число соседних точек — полосы остаются чёткими."""
+    """TSPL BITMAP: EAN-13 (с тихими зонами) растянут до w_dots точек. Растягивание
+    (w_dots > 113), каждый модуль = целое число соседних точек — полосы чёткие."""
     modules = _ean13_modules(code)
-    n = len(modules)                                          # 95
+    n = len(modules)                                          # 113
     row = [0] * w_dots
     for m in range(n):
         if modules[m]:
@@ -124,16 +125,18 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         if barcode:
             readable = 1 if H >= 38 else 0
             if len(barcode) == 13 and barcode.isdigit():
-                # EAN-13 целиком в голове этикетки (до линии сгиба):
-                # BITMAP растянут на 20 мм, отступ 1 мм слева, 3 мм сверху.
+                # EAN-13 в ПРАВОЙ половине этикетки (после линии сгиба).
+                # BITMAP с тихими зонами: ~21 мм всего (полосы ~18 мм + белые поля),
+                # отступ 1 мм от правого края, 3 мм сверху.
                 margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
                 top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
-                bar_w    = round(20 * DPI / 25.4)  # 20 мм ≈ 160 точек
+                bar_w    = round(21 * DPI / 25.4)  # 21 мм ≈ 168 точек
+                x        = W - bar_w - margin_x    # прижать к правому краю
                 bar_h    = max(20, H - top_y - 16)
-                result.extend(_ean13_bitmap(barcode, margin_x, top_y, bar_w, bar_h))
+                result.extend(_ean13_bitmap(barcode, x, top_y, bar_w, bar_h))
                 if readable:
                     # цифры по центру под штрихкодом (шрифт "1" ≈ 8 точек/символ)
-                    text_x = margin_x + max(0, (bar_w - len(barcode) * 8) // 2)
+                    text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
                 # Прочие штрихкоды (CODE128) — нативная команда, M=1
