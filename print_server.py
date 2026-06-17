@@ -119,11 +119,9 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             bar_h    = max(20, H - 22)
             readable = 1 if H >= 38 else 0
             if len(barcode) == 13 and barcode.isdigit():
-                # EAN-13: BITMAP во второй половине этикетки — штрихкод на одной стороне при складывании
-                result.extend(_ean13_bitmap(barcode, W // 2, 16, W // 2 - 8, bar_h))
-                result.extend(b'\r\n')
-                if readable:
-                    cmd(f'TEXT {W // 2},{16 + bar_h + 2},"1",0,1,1,"{barcode}"')
+                # EAN-13: M=1 чёткие полосы, вторая половина этикетки, 2мм вниз
+                bar_h_ean = max(20, H - 16 - 14)
+                cmd(f'BARCODE {W // 2},16,"EAN13",{bar_h_ean},{readable},0,1,1,"{barcode}"')
             else:
                 cmd(f'BARCODE 0,0,"128",{bar_h},{readable},0,2,2,"{barcode}"')
         else:
