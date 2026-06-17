@@ -10,6 +10,7 @@ export interface PrintLabelData {
   fields: { key: string; label: string; value: string }[];
   size: '40x25' | '50x30' | '58x40';
   quantity: number;
+  image?: string; // base64 PNG для отправки на print_server.py
 }
 
 export function usePrinter() {

@@ -172,23 +172,16 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     setSavingName(''); setShowSaveInput(false);
   }
 
-  async function handleWifiPrint() {
-    const activeFields = fields.filter(f => f.enabled).map(f => ({
-      key: f.key, label: f.label, value: fieldValue(f.key, product, f.customText),
-    }));
-    await printLabel({ name: product.name, barcode: product.barcode, price: product.price, fields: activeFields, size, quantity });
-  }
-
-  function handleUsbPrint() {
+  function buildHighResCanvas(): HTMLCanvasElement {
     const [mmW, mmH] = currentSize.mm;
     const SCALE = 4;
     const pxPerMm = MM_TO_PX * SCALE;
     const pW = mmW * pxPerMm;
     const pH = mmH * pxPerMm;
-    const printCanvas = document.createElement('canvas');
-    printCanvas.width = pW;
-    printCanvas.height = pH;
-    const ctx = printCanvas.getContext('2d')!;
+    const canvas = document.createElement('canvas');
+    canvas.width = pW;
+    canvas.height = pH;
+    const ctx = canvas.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, pW, pH);
     const padding = 5 * SCALE;
@@ -222,7 +215,6 @@ export default function PrintLabelModal({ product, onClose }: Props) {
     if (showBarcode && product.barcode) {
       try {
         const bc = document.createElement('canvas');
-        // EAN-13 для 13-значных, CODE128 для остальных
         const barcodeFormat = /^\d{13}$/.test(product.barcode) ? 'EAN13' : 'CODE128';
         JsBarcode(bc, product.barcode, {
           format: barcodeFormat,
@@ -246,6 +238,23 @@ export default function PrintLabelModal({ product, onClose }: Props) {
       drawC(val, y, `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`, isPrice ? '#1d4ed8' : '#374151');
       y += otherFontSize + 2 * SCALE;
     }
+    return canvas;
+  }
+
+  async function handleWifiPrint() {
+    const activeFields = fields.filter(f => f.enabled).map(f => ({
+      key: f.key, label: f.label, value: fieldValue(f.key, product, f.customText),
+    }));
+    const printCanvas = buildHighResCanvas();
+    const image = printCanvas.toDataURL('image/png').split(',')[1];
+    await printLabel({ name: product.name, barcode: product.barcode, price: product.price, fields: activeFields, size, quantity, image });
+  }
+
+  function handleUsbPrint() {
+    const [mmW, mmH] = currentSize.mm;
+    const SCALE = 4;
+    const pxPerMm = MM_TO_PX * SCALE;
+    const printCanvas = buildHighResCanvas();
     printCanvas.toBlob((blob) => {
       if (!blob) return;
       blob.arrayBuffer().then((buf) => {
@@ -466,7 +475,11 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                   </button>
                 )}
                 <p className="text-center text-xs text-gray-400">
-                  {hasWifi ? `WiFi: ${ip}` : isIOS ? 'Для iPhone нужен WiFi принтер' : 'PNG → Paint → Печать → Альбомная, 0 поля, Уместить 1x1'}
+                  {hasWifi
+                    ? `Сервер: ${ip}:5000`
+                    : isIOS
+                      ? 'Для iPhone нужен WiFi принтер'
+                      : 'USB: запусти print_server.py, установи IP → 127.0.0.1'}
                 </p>
               </div>
             );
