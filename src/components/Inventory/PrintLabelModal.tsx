@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Pencil, Printer, Save, Trash2, Wifi } from 'lucide-react';
+import { X, Pencil, Printer, Save, Trash2 } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
 import type { Product } from '../../types';
 import { usePrinter } from '../../hooks/usePrinter';
@@ -445,7 +445,7 @@ export default function PrintLabelModal({ product, onClose }: Props) {
                   {hasWifi ? (
                     <button onClick={handleWifiPrint} disabled={printing}
                       className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                      {printing ? 'WiFi...' : <><Wifi size={16} />WiFi{quantity > 1 ? ` x${quantity}` : ''}</>}
+                      {printing ? 'Печать...' : <><Printer size={16} />Печать{quantity > 1 ? ` x${quantity}` : ''}</>}
                     </button>
                   ) : !isMobile ? (
                     <button onClick={handleUsbPrint}
