@@ -5,7 +5,7 @@ import {
   getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers, updateProduct,
-  logLabelPrint, getLabelPrintHistory,
+  logLabelPrint, getLabelPrintHistory, getProductById,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID } from '../constants';
@@ -197,6 +197,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
+  const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
+  const [reprintLoading, setReprintLoading] = useState<string | null>(null);
 
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
@@ -2506,7 +2508,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               ) : (
                 <div className="divide-y divide-gray-50">
                   {printHistory.map(h => (
-                    <div key={h.id} className="flex items-center gap-3 px-4 py-3">
+                    <div
+                      key={h.id}
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                      onClick={async () => {
+                        if (!h.product) return;
+                        setReprintLoading(h.id);
+                        try {
+                          const prod = await getProductById(h.product.id);
+                          setReprintProduct(prod);
+                        } catch { /* ignore */ }
+                        setReprintLoading(null);
+                      }}
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{h.product?.name ?? '—'}</p>
                         <p className="text-xs text-gray-400 truncate font-mono">
@@ -2516,11 +2530,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           <p className="text-xs text-gray-400">{h.employee.name}</p>
                         )}
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-semibold text-gray-800">{h.quantity} шт</p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(h.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gray-800">{h.quantity} шт</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(h.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <Printer
+                          size={14}
+                          className={reprintLoading === h.id ? 'text-blue-500 animate-pulse' : 'text-gray-300'}
+                        />
                       </div>
                     </div>
                   ))}
@@ -2634,6 +2654,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             await logLabelPrint(printQueueProduct.id, employeeId, qty);
             setUnprintedProducts(prev => prev.filter(x => x.id !== printQueueProduct.id));
             setPrintQueueProduct(null);
+            loadPrintHistory(activeBranchId, role);
+          }}
+        />
+      )}
+      {reprintProduct && (
+        <PrintLabelModal
+          product={reprintProduct}
+          onClose={() => setReprintProduct(null)}
+          onPrinted={async (qty) => {
+            await logLabelPrint(reprintProduct.id, employeeId, qty);
+            setReprintProduct(null);
             loadPrintHistory(activeBranchId, role);
           }}
         />
