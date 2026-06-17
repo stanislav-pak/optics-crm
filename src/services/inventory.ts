@@ -97,6 +97,16 @@ export async function createProduct(product: Omit<Product, 'id' | 'created_at'>)
   return data as Product;
 }
 
+export async function getProductById(id: string): Promise<Product> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:product_categories(id, name, slug), brand:brands(id, name), stock(quantity, branch_id)')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data as Product;
+}
+
 export async function updateProduct(id: string, updates: Partial<Product>) {
   const { data, error } = await supabase
     .from('products')

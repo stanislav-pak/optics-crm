@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode } from 'lucide-react';
-import { createProduct, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
+import { createProduct, getProductById, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes, Product } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -127,7 +127,8 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
     };
 
     try {
-      const product = await createProduct(payload);
+      const created = await createProduct(payload);
+      const product = await getProductById(created.id);
       onClose();
       onSuccess(product);
     } catch (e: unknown) {
