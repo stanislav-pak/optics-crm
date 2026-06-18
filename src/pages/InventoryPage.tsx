@@ -469,8 +469,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }, [activeBranchId]);
 
   async function loadAll() {
-    // Для admin — не фильтруем по филиалу (видит данные всех филиалов)
-    const scopeId = role === 'admin' ? undefined : activeBranchId;
+    const scopeId = activeBranchId;
     setLoading(true);
 
     try { const s = await getInventoryStats(scopeId); setStats(s); }
@@ -479,7 +478,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       // getProducts фильтрует только по is_active, без ограничения по остатку —
       // новые товары с нулевым остатком отображаются сразу после создания
-      const p = await getProducts(role === 'admin' ? undefined : activeBranchId);
+      const p = await getProducts(activeBranchId);
       setProducts(p);
     }
     catch (e) { console.error('getProducts error:', e); }
@@ -490,7 +489,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try { const al = await getLowStockAlerts(scopeId); setAlerts(al); }
     catch (e) { console.error('getLowStockAlerts error:', e); }
 
-    try { const mv = await getStockMovements(role === 'admin' ? undefined : activeBranchId); setMovements(mv); }
+    try { const mv = await getStockMovements(activeBranchId); setMovements(mv); }
     catch (e) { console.error('getStockMovements error:', e); }
 
     try { const po = await getPurchaseOrders(scopeId); setPurchases(po); }
@@ -577,11 +576,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Быстрые перезагрузки отдельных срезов данных
   async function loadSales() {
-    const scopeId = role === 'admin' ? undefined : activeBranchId;
+    const scopeId = activeBranchId;
     try {
       const [sa, mv] = await Promise.all([
         getSales(scopeId),
-        getStockMovements(role === 'admin' ? undefined : activeBranchId),
+        getStockMovements(activeBranchId),
       ]);
       setSales(sa);
       setMovements(mv);
@@ -591,13 +590,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }
 
   async function loadStats() {
-    const scopeId = role === 'admin' ? undefined : activeBranchId;
+    const scopeId = activeBranchId;
     try { const s = await getInventoryStats(scopeId); setStats(s); }
     catch (e) { console.error('loadStats error:', e); }
   }
 
   async function loadStock() {
-    const scopeId = role === 'admin' ? undefined : activeBranchId;
+    const scopeId = activeBranchId;
     try {
       const [st, al] = await Promise.all([
         getStock(scopeId),
@@ -3073,7 +3072,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       {showLowStock && (
         <LowStockModal
           alerts={alerts}
-          branchId={role === 'admin' ? undefined : activeBranchId}
+          branchId={activeBranchId}
           onClose={() => setShowLowStock(false)}
         />
       )}
