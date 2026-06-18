@@ -478,7 +478,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     try {
       // getProducts фильтрует только по is_active, без ограничения по остатку —
       // новые товары с нулевым остатком отображаются сразу после создания
-      const p = await getProducts(activeBranchId);
+      const p = await getProducts(role === 'admin' ? undefined : activeBranchId);
       setProducts(p);
     }
     catch (e) { console.error('getProducts error:', e); }
@@ -924,16 +924,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     const qty = stock
                       .filter(s => s.product_id === p.id)
                       .reduce((sum, s) => sum + s.quantity, 0);
-                    return {
+                    const base: Record<string, unknown> = {
                       'Название': p.name,
                       'SKU / Артикул': p.sku ?? '—',
                       'Штрихкод': p.barcode ?? '—',
                       'Остаток (шт)': qty,
-                      'Цена закупочная': p.cost_price,
                       'Цена продажная': p.price,
-                      'Разница цен': p.price - p.cost_price,
-                      'Поставщик': supplierMap[p.id] ?? '—',
                     };
+                    if (role !== 'manager') {
+                      base['Цена закупочная'] = p.cost_price;
+                      base['Разница цен'] = p.price - p.cost_price;
+                    }
+                    base['Поставщик'] = supplierMap[p.id] ?? '—';
+                    return base;
                   });
                   xlsxExport(rows, `товары_${xlsxDate()}.xlsx`);
                 }}
@@ -942,13 +945,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 <Download size={15} />
                 Экспорт
               </button>
-              <button
-                onClick={() => setShowAddProduct(true)}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                <Plus size={15} />
-                Добавить
-              </button>
+              {role === 'admin' && (
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  <Plus size={15} />
+                  Добавить
+                </button>
+              )}
             </div>
 
             {filteredProducts.length === 0 ? (

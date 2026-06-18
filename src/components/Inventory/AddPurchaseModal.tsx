@@ -260,7 +260,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={`grid gap-2 ${role === 'manager' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                     {/* Количество */}
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">Количество</label>
@@ -320,25 +320,29 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                       )}
                     </div>
 
-                    {/* Цена */}
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.cost_price === 0 ? '' : item.cost_price}
-                        onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
-                        placeholder="0"
-                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                    {/* Цена — только для admin/branch_admin */}
+                    {role !== 'manager' && (
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Цена прихода ₸</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.cost_price === 0 ? '' : item.cost_price}
+                          onChange={e => updateItem(idx, 'cost_price', parseFloat(e.target.value) || 0)}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex justify-end">
-                    <span className="text-sm font-semibold text-gray-700">
-                      Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
-                    </span>
-                  </div>
+                  {role !== 'manager' && (
+                    <div className="flex justify-end">
+                      <span className="text-sm font-semibold text-gray-700">
+                        Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -349,7 +353,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
               </div>
             )}
 
-            {items.length > 0 && (
+            {items.length > 0 && role !== 'manager' && (
               <div className="flex items-center justify-between px-1 pt-1 border-t border-gray-100">
                 <span className="text-sm text-gray-500">Итого:</span>
                 <span className="text-base font-bold text-gray-900">₸{total.toLocaleString()}</span>
@@ -406,7 +410,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                           >
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                              <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'} · ₸{p.cost_price.toLocaleString()}</p>
+                              <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'}{role !== 'manager' ? ` · ₸${p.cost_price.toLocaleString()}` : ''}</p>
                             </div>
                             <Plus size={14} className="text-blue-500 flex-shrink-0 ml-2" />
                           </button>
@@ -432,7 +436,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-900 truncate">{p.name}</p>
-                          <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'} · ₸{p.cost_price.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">{p.barcode ?? p.sku ?? '—'}{role !== 'manager' ? ` · ₸${p.cost_price.toLocaleString()}` : ''}</p>
                         </div>
                         <Plus size={14} className="text-blue-500 flex-shrink-0 ml-2" />
                       </button>
