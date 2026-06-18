@@ -63,7 +63,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
       supabase.from('clients').select('*').eq('id', chat.client_id).single(),
     ]);
 
-    if (stages?.[0] && !isAdmin) {
+    if (stages?.[0]) {
       setStage(stages[0].current_stage);
       setLastStageInfo({ stage: stages[0].current_stage, employeeName: stages[0].employee?.name ?? 'Неизвестно', changedAt: stages[0].moved_to_stage_at });
     }
@@ -71,7 +71,8 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
     setComments(commentsData ?? []);
     if (clientData) {
       setClient(clientData); setClientName(clientData.name ?? '');
-      if (isAdmin) {
+      if (isAdmin && !stages?.[0]) {
+        // Fallback for clients without a deal_stages record yet
         const statusToStage: Record<string, string> = { new: 'new', in_progress: 'negotiation', deal: 'quote', paid: 'payment', closed: 'closed' };
         setStage(statusToStage[clientData.status] ?? 'new');
       }
