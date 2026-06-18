@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, MessageCircle, UserPlus } from 'lucide-react';
+import { X, Search, MessageCircle, UserPlus, BookUser } from 'lucide-react';
 import { searchClientsForChat, openOrCreateChat, createClientAndChat } from '../../services/chats';
 import { formatPhone } from '@/utils/formatters';
 import type { Employee, Chat } from '../../types';
@@ -10,8 +10,12 @@ interface NewChatModalProps {
   onChatOpen: (chat: Chat) => void;
 }
 
+// Contact Picker API доступен только в Android Chrome и некоторых браузерах
+const contactsSupported = typeof navigator !== 'undefined' && 'contacts' in navigator;
+
 export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatModalProps) {
   const [search, setSearch] = useState('');
+  const [contactName, setContactName] = useState<string | undefined>(undefined);
   const [results, setResults] = useState<Awaited<ReturnType<typeof searchClientsForChat>>>([]);
   const [loading, setLoading] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
@@ -50,12 +54,29 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
     }
   };
 
+  const handlePickContact = async () => {
+    try {
+      const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
+      if (!contacts?.length) return;
+      const contact = contacts[0];
+      const rawPhone = contact.tel?.[0] ?? '';
+      const phone = rawPhone.replace(/\D/g, '');
+      const name: string | undefined = contact.name?.[0] ?? undefined;
+      if (phone) {
+        setSearch(phone);
+        setContactName(name);
+      }
+    } catch {
+      // пользователь отменил или API недоступен
+    }
+  };
+
   const handleCreateNew = async () => {
     const phone = search.trim();
     setError(null);
     setOpening('new');
     try {
-      const chat = await createClientAndChat(phone, undefined, employee.branch_id, employee.id);
+      const chat = await createClientAndChat(phone, contactName, employee.branch_id, employee.id);
       onChatOpen(chat);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка создания чата');
@@ -94,7 +115,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
             <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
           )}
           {search.length > 0 && !loading && (
-            <button onClick={() => setSearch('')} className="text-[#8696a0]">
+            <button onClick={() => { setSearch(''); setContactName(undefined); }} className="text-[#8696a0]">
               <X size={14} />
             </button>
           )}
@@ -102,6 +123,18 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {contactsSupported && (
+          <button
+            onClick={handlePickContact}
+            className="w-full flex items-center gap-3 px-4 py-3 border-b border-white/5 active:bg-white/5 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-[#202c33] flex items-center justify-center flex-shrink-0">
+              <BookUser size={18} className="text-[#8696a0]" />
+            </div>
+            <span className="text-[#d1d7db] text-sm">Выбрать из контактов</span>
+          </button>
+        )}
+
         {error && (
           <div className="mx-4 mt-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
             {error}
@@ -172,7 +205,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
         {search.trim().length < 2 && (
           <div className="flex flex-col items-center justify-center h-40 px-6">
             <p className="text-sm text-[#8696a0] text-center">
-              Введи имя или номер телефона клиента
+              Введи имя или номер телефона{contactsSupported ? ', или выбери из контактов выше' : ''}
             </p>
           </div>
         )}
