@@ -10,7 +10,7 @@ interface NewChatModalProps {
   onChatOpen: (chat: Chat) => void;
 }
 
-// Contact Picker API доступен только в Android Chrome и некоторых браузерах
+// Contact Picker API: Android Chrome
 const contactsSupported = typeof navigator !== 'undefined' && 'contacts' in navigator;
 
 export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatModalProps) {
@@ -20,13 +20,22 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
   const [loading, setLoading] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // iOS fallback: отдельный type="tel" инпут внизу
+  const [showIosPicker, setShowIosPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const telInputRef = useRef<HTMLInputElement>(null);
 
   const allBranches = employee.role === 'admin';
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (showIosPicker) {
+      setTimeout(() => telInputRef.current?.focus(), 100);
+    }
+  }, [showIosPicker]);
 
   useEffect(() => {
     if (search.trim().length < 2) { setResults([]); return; }
@@ -54,6 +63,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
     }
   };
 
+  // Android: Contact Picker API
   const handlePickContact = async () => {
     try {
       const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
@@ -68,6 +78,24 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
       }
     } catch {
       // пользователь отменил или API недоступен
+    }
+  };
+
+  // iOS: когда контакт выбран, iOS заполняет tel-инпут → ловим здесь
+  const handleTelInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (digits.length >= 7) {
+      setSearch(digits);
+      setContactName(undefined);
+      setShowIosPicker(false);
+    }
+  };
+
+  const handleContactsButton = async () => {
+    if (contactsSupported) {
+      await handlePickContact();
+    } else {
+      setShowIosPicker(true);
     }
   };
 
@@ -122,18 +150,17 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {contactsSupported && (
-          <button
-            onClick={handlePickContact}
-            className="w-full flex items-center gap-3 px-4 py-3 border-b border-white/5 active:bg-white/5 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-[#202c33] flex items-center justify-center flex-shrink-0">
-              <BookUser size={18} className="text-[#8696a0]" />
-            </div>
-            <span className="text-[#d1d7db] text-sm">Выбрать из контактов</span>
-          </button>
-        )}
+      <div className="flex-1 overflow-y-auto relative">
+        {/* Кнопка "Из контактов" — всегда видна */}
+        <button
+          onClick={handleContactsButton}
+          className="w-full flex items-center gap-3 px-4 py-3 border-b border-white/5 active:bg-white/5 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-full bg-[#202c33] flex items-center justify-center flex-shrink-0">
+            <BookUser size={18} className="text-[#8696a0]" />
+          </div>
+          <span className="text-[#d1d7db] text-sm">Выбрать из контактов</span>
+        </button>
 
         {error && (
           <div className="mx-4 mt-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
@@ -205,11 +232,35 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
         {search.trim().length < 2 && (
           <div className="flex flex-col items-center justify-center h-40 px-6">
             <p className="text-sm text-[#8696a0] text-center">
-              Введи имя или номер телефона{contactsSupported ? ', или выбери из контактов выше' : ''}
+              Введи имя или номер телефона, или выбери из контактов выше
             </p>
           </div>
         )}
       </div>
+
+      {/* iOS fallback: type="tel" инпут.
+          Когда пользователь выбирает контакт, iOS заполняет этот инпут номером.
+          Инпут НЕ размонтируется пока открыто приложение контактов — иначе iOS не сможет вставить значение. */}
+      {showIosPicker && (
+        <div className="flex-shrink-0 bg-[#202c33] border-t border-white/10 px-4 pt-3 pb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[#8696a0] text-xs">
+              Нажмите на иконку контактов в клавиатуре
+            </span>
+            <button onClick={() => setShowIosPicker(false)} className="text-[#8696a0] p-1">
+              <X size={16} />
+            </button>
+          </div>
+          <input
+            ref={telInputRef}
+            type="tel"
+            autoComplete="tel"
+            placeholder="+7 ..."
+            onChange={handleTelInput}
+            className="w-full bg-[#111b21] text-[#d1d7db] text-base rounded-xl px-4 py-3 outline-none border border-white/10 placeholder-[#8696a0]"
+          />
+        </div>
+      )}
     </div>
   );
 }
