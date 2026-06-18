@@ -64,6 +64,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
   const [ipInput,       setIpInput]       = useState('');
   const [savingName,    setSavingName]    = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [priceLabel,    setPriceLabel]    = useState<string>(String(product.price));
 
   const canvasRef        = useRef<HTMLCanvasElement>(null);
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,31 +107,48 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
     ctx.lineWidth   = 1;
     ctx.strokeRect(0.5, 0.5, canvasW - 1, canvasH - 1);
 
-    // Для маленьких этикеток (≤12 мм высотой) — только штрихкод, растянутый на весь предпросмотр
+    // Для маленьких этикеток (≤12 мм высотой) — штрихкод справа, цена слева, линия сгиба
     if (currentSize.mm[1] <= 12) {
+      // Позиции штрихкода совпадают с print_server.py (1мм отступ справа, 21мм ширина)
+      const marginPx = Math.round(1 * MM_TO_PX);
+      const barWPx   = Math.round(21 * MM_TO_PX);
+      const barX     = canvasW - barWPx - marginPx;
+
       if (product.barcode) {
         try {
           const bc = document.createElement('canvas');
           const barcodeFormat = /^\d{13}$/.test(product.barcode) ? 'EAN13' : 'CODE128';
           JsBarcode(bc, product.barcode, {
-            format: barcodeFormat,
-            width: 2,
-            height: 60,
-            displayValue: true,
-            fontSize: 14,
-            margin: 5,
-            background: '#ffffff',
-            lineColor: '#000000',
+            format: barcodeFormat, width: 2, height: 60,
+            displayValue: true, fontSize: 14, margin: 5,
+            background: '#ffffff', lineColor: '#000000',
           });
-          ctx.drawImage(bc, 0, 0, canvasW, canvasH);
+          ctx.drawImage(bc, barX, 0, barWPx, canvasH);
         } catch { /* некорректный штрихкод */ }
-      } else {
-        ctx.font = '7px sans-serif';
-        ctx.fillStyle = '#9ca3af';
+      }
+
+      // Цена на левой половине (ценник)
+      const num = parseFloat(priceLabel);
+      if (!isNaN(num) && num > 0) {
+        const formatted = Math.round(num).toLocaleString('ru-RU');
+        const fontSize = Math.max(7, Math.round(canvasH * 0.45));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.fillStyle = '#111827';
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'center';
-        ctx.fillText('нет штрихкода', canvasW / 2, canvasH / 2);
+        ctx.fillText(formatted, barX / 2, canvasH / 2);
       }
+
+      // Пунктирная линия сгиба
+      ctx.strokeStyle = '#9ca3af';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(canvasW / 2, 0);
+      ctx.lineTo(canvasW / 2, canvasH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
       return;
     }
 
@@ -182,7 +200,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
       drawCentered(val, y, `${isPrice ? 'bold ' : ''}${otherFontSize}px sans-serif`, isPrice ? '#1d4ed8' : '#374151');
       y += otherFontSize + 2;
     }
-  }, [fields, size, product, canvasW, canvasH, currentSize]);
+  }, [fields, size, product, canvasW, canvasH, currentSize, priceLabel]);
 
   useEffect(() => { renderPreview(); }, [renderPreview]);
 
@@ -279,7 +297,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
     }));
     const printCanvas = buildHighResCanvas();
     const image = printCanvas.toDataURL('image/png').split(',')[1];
-    const success = await printLabel({ name: product.name, barcode: product.barcode, price: product.price, fields: activeFields, size, quantity, image });
+    const success = await printLabel({ name: product.name, barcode: product.barcode, price: product.price, price_label: size === '45x10' ? priceLabel : undefined, fields: activeFields, size, quantity, image });
     if (success) onPrinted?.(quantity);
   }
 
@@ -420,8 +438,21 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
           </div>
 
           <div className="flex items-center justify-between text-xs text-gray-400 px-1">
-            <span>Размер: {currentSize.label} (TSC TE200){currentSize.mm[1] <= 12 ? ' — только штрихкод' : ''}</span>
+            <span>Размер: {currentSize.label} (TSC TE200){currentSize.mm[1] <= 12 ? ' — штрихкод + ценник' : ''}</span>
           </div>
+
+          {size === '45x10' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Цена на ценнике ₸</label>
+              <input
+                type="number"
+                value={priceLabel}
+                onChange={e => setPriceLabel(e.target.value)}
+                placeholder="0"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">Предпросмотр</label>

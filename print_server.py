@@ -140,6 +140,32 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                     # цифры по центру под штрихкодом (шрифт "1" ≈ 8 точек/символ)
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
+
+                # Цена на левой половине (ценник)
+                price_label = str(data.get('price_label', '')).strip()
+                if price_label:
+                    try:
+                        num = int(float(price_label))
+                        # Форматирование с пробелом: 12 500
+                        parts = []
+                        n = num
+                        while n >= 1000:
+                            parts.append(f'{n % 1000:03d}')
+                            n //= 1000
+                        parts.append(str(n))
+                        formatted = ' '.join(reversed(parts))
+                    except (ValueError, TypeError):
+                        formatted = price_label[:8]
+                    # Левая половина = от 0 до x (начало штрихкода)
+                    left_w = x  # ≈ 184 точки
+                    # Шрифт "2" × 2 (24×24 точки ≈ 3мм) — уменьшаем если не влезает
+                    if len(formatted) * 24 <= left_w - 4:
+                        x_mul, y_mul, ch = 2, 2, 24
+                    else:
+                        x_mul, y_mul, ch = 1, 1, 12
+                    p_x = max(2, (left_w - len(formatted) * ch) // 2)
+                    p_y = (H - ch) // 2
+                    cmd(f'TEXT {p_x},{p_y},"2",0,{x_mul},{y_mul},"{formatted}"')
             else:
                 # Прочие штрихкоды (CODE128) — нативная команда, M=1
                 bar_h = max(20, H - 16 - 14)

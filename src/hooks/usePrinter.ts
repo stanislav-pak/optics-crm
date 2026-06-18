@@ -7,6 +7,7 @@ export interface PrintLabelData {
   name: string;
   barcode?: string;
   price?: number;
+  price_label?: string;
   fields: { key: string; label: string; value: string }[];
   size: '45x10' | '40x25' | '50x30' | '58x40';
   quantity: number;
