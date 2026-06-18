@@ -158,14 +158,12 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                         formatted = price_label[:8]
                     # Левая половина = от 0 до x (начало штрихкода)
                     left_w = x  # ≈ 184 точки
-                    # Шрифт "2" × 2 (24×24 точки ≈ 3мм) — уменьшаем если не влезает
-                    if len(formatted) * 24 <= left_w - 4:
-                        x_mul, y_mul, ch = 2, 2, 24
-                    else:
-                        x_mul, y_mul, ch = 1, 1, 12
-                    p_x = max(2, (left_w - len(formatted) * ch) // 2)
-                    p_y = (H - ch) // 2
-                    cmd(f'TEXT {p_x},{p_y},"2",0,{x_mul},{y_mul},"{formatted}"')
+                    n = len(formatted)
+                    # Единый шрифт "3" × 1 (16×16 точек ≈ 2мм) для всех цен
+                    ch_w, ch_h = 18, 16
+                    p_x = max(2, (left_w - n * ch_w) // 2)
+                    p_y = max(0, (H - ch_h) // 2)
+                    cmd(f'TEXT {p_x},{p_y},"3",0,1,1,"{formatted}"')
             else:
                 # Прочие штрихкоды (CODE128) — нативная команда, M=1
                 bar_h = max(20, H - 16 - 14)
