@@ -81,14 +81,12 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
     }
   };
 
-  // iOS: когда контакт выбран, iOS заполняет tel-инпут → ловим здесь
+  // iOS: синхронизируем каждый введённый символ в основной поиск — результаты появляются сразу
   const handleTelInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, '');
-    if (digits.length >= 7) {
-      setSearch(digits);
-      setContactName(undefined);
-      setShowIosPicker(false);
-    }
+    setSearch(digits);
+    setContactName(undefined);
+    // Панель не закрывается автоматически — пользователь тапает результат или × сам
   };
 
   const handleContactsButton = async () => {
@@ -245,7 +243,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
         <div className="flex-shrink-0 bg-[#202c33] border-t border-white/10 px-4 pt-3 pb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[#8696a0] text-xs">
-              Нажмите на иконку контактов в клавиатуре
+              Введите номер или нажмите на книжку в клавиатуре
             </span>
             <button onClick={() => setShowIosPicker(false)} className="text-[#8696a0] p-1">
               <X size={16} />
