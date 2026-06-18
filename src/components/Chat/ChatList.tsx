@@ -26,6 +26,15 @@ const STATUS_COLORS: Record<string, string> = {
   closed: '#6b7280',
 };
 
+// Цвета точек по этапу сделки — совпадают с вкладками внизу
+const STAGE_DOT_COLORS: Record<string, string> = {
+  new:         '#3b82f6',  // blue-500
+  negotiation: '#f59e0b',  // amber-500
+  quote:       '#a855f7',  // purple-500
+  payment:     '#10b981',  // emerald-500
+  closed:      '#6b7280',  // gray-500
+};
+
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новый',
   in_progress: 'В работе',
@@ -91,12 +100,12 @@ function formatTime(dateStr?: string): string {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }
 
-function ChatItem({ chat, isActive, onClick, dealAmount, stageLabel }: {
-  chat: Chat; isActive: boolean; onClick: () => void; dealAmount?: number | null; stageLabel?: string;
+function ChatItem({ chat, isActive, onClick, dealAmount, stageLabel, stageKey }: {
+  chat: Chat; isActive: boolean; onClick: () => void; dealAmount?: number | null; stageLabel?: string; stageKey?: string;
 }) {
   const client = chat.client;
   const unread = chat.unread_count ?? 0;
-  const statusColor = client?.status ? STATUS_COLORS[client.status] : '#6b7280';
+  const dotColor = stageKey ? (STAGE_DOT_COLORS[stageKey] ?? '#6b7280') : (client?.status ? STATUS_COLORS[client.status] : '#6b7280');
   const showAmount = dealAmount != null && dealAmount > 0;
 
   return (
@@ -108,7 +117,7 @@ function ChatItem({ chat, isActive, onClick, dealAmount, stageLabel }: {
         <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
           {client?.name ? client.name[0].toUpperCase() : '#'}
         </div>
-        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#111b21]" style={{ backgroundColor: statusColor }} />
+        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#111b21]" style={{ backgroundColor: dotColor }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
@@ -390,7 +399,8 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
         {!loading && filteredByStage.map((chat) => (
           <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
             dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}
-            stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
+            stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'}
+            stageKey={stageMap[chat.id] ?? 'new'} />
         ))}
       </div>
 
