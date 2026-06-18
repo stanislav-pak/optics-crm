@@ -5,6 +5,7 @@ import { AuthContext } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
 import { formatPhone } from '@/utils/formatters';
 import type { Chat, ChatListFilters } from '../../types';
+import NewChatModal from './NewChatModal';
 
 const CLIENT_STATUS_RU: Record<string, string> = {
   new: 'Новый', in_progress: 'В работе', deal: 'В ожидании оплаты',
@@ -153,6 +154,7 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
   const isMobile = useIsMobile();
   const showAdminMobile = isAdmin && isMobile;
 
+  const [showNewChat, setShowNewChat] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ChatListFilters['status']>(undefined);
   const [filterBranch, setFilterBranch] = useState('all');
@@ -250,6 +252,17 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
         <h1 className="text-[#e9edef] font-semibold text-base tracking-wide">Чаты</h1>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[#8696a0] bg-white/5 px-2 py-0.5 rounded-full">{filteredByStage.length}</span>
+          {employee && (
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/5 text-[#8696a0] hover:text-[#e9edef] active:scale-95 transition-all"
+              title="Новый чат"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => {
@@ -380,6 +393,14 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
             stageLabel={STAGE_LABELS[stageMap[chat.id] ?? 'new'] ?? 'Новый'} />
         ))}
       </div>
+
+      {showNewChat && employee && (
+        <NewChatModal
+          employee={employee}
+          onClose={() => setShowNewChat(false)}
+          onChatOpen={(chat) => { setShowNewChat(false); onChatSelect(chat); }}
+        />
+      )}
 
       {/* Stage tabs */}
       {showAdminMobile && (
