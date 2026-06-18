@@ -13,6 +13,7 @@ interface OrderItem {
   quantity: number;
   cost_price: number;
   unit: string;
+  price: number;
 }
 
 interface InitialData {
@@ -34,7 +35,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
-  const [supplierId, setSupplierId] = useState('');
+  const [supplierId, setSupplierId] = useState(() => localStorage.getItem('purchase_last_supplier') ?? '');
   const [receivingBranchId, setReceivingBranchId] = useState(branchId);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
@@ -69,7 +70,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       const mapped: OrderItem[] = initialData.items.flatMap(i => {
         const p = products.find(pr => pr.id === i.product_id);
         if (!p) return [];
-        return [{ product_id: i.product_id, product_name: p.name, quantity: i.quantity, cost_price: i.cost_price, unit: p.unit ?? 'шт' }];
+        return [{ product_id: i.product_id, product_name: p.name, quantity: i.quantity, cost_price: i.cost_price, unit: p.unit ?? 'шт', price: p.price ?? 0 }];
       });
       if (mapped.length > 0) setItems(mapped);
     }
@@ -133,7 +134,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
         if (existing >= 0) {
           return prev.map((item, idx) => idx === existing ? { ...item, quantity: item.quantity + 1 } : item);
         }
-        return [...prev, { product_id: product.id, product_name: product.name, quantity: 1, cost_price: product.cost_price ?? 0, unit: product.unit ?? 'шт' }];
+        return [...prev, { product_id: product.id, product_name: product.name, quantity: 1, cost_price: product.cost_price ?? 0, unit: product.unit ?? 'шт', price: product.price ?? 0 }];
       });
     } catch {
       alert('Товар не найден в базе');
@@ -148,6 +149,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       quantity: 1,
       cost_price: product.cost_price ?? 0,
       unit: product.unit ?? 'шт',
+      price: product.price ?? 0,
     }]);
     setSearch(product.name);
     setShowSearch(false);
@@ -189,6 +191,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
           unit: i.unit,
         }))
       );
+      if (supplierId) localStorage.setItem('purchase_last_supplier', supplierId);
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -336,13 +339,12 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                     )}
                   </div>
 
-                  {role !== 'manager' && (
-                    <div className="flex justify-end">
-                      <span className="text-sm font-semibold text-gray-700">
-                        Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-end">
+                    {role === 'manager'
+                      ? <span className="text-sm text-gray-500">Цена продажи: <span className="font-semibold text-gray-700">₸{item.price.toLocaleString()}</span></span>
+                      : <span className="text-sm font-semibold text-gray-700">Сумма: ₸{(item.quantity * item.cost_price).toLocaleString()}</span>
+                    }
+                  </div>
                 </div>
               );
             })}

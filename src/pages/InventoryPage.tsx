@@ -2567,6 +2567,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           product={selectedProduct}
           stock={stock.find(s => s.product_id === selectedProduct.id)?.quantity ?? 0}
           branchId={activeBranchId}
+          role={role}
           onClose={() => setSelectedProduct(null)}
           onEdit={() => { setEditingProduct(selectedProduct); setSelectedProduct(null); }}
           onDelete={async () => {

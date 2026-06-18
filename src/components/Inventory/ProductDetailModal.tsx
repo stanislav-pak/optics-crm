@@ -18,12 +18,13 @@ interface Props {
   product: Product;
   stock: number;
   branchId: string;
+  role: 'manager' | 'branch_admin' | 'admin';
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export default function ProductDetailModal({ product, stock, branchId, onClose, onEdit, onDelete }: Props) {
+export default function ProductDetailModal({ product, stock, branchId, role, onClose, onEdit, onDelete }: Props) {
   const [history, setHistory] = useState<PurchaseHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [showPrintLabel, setShowPrintLabel] = useState(false);
@@ -210,13 +211,15 @@ export default function ProductDetailModal({ product, stock, branchId, onClose, 
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={onDelete}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-red-200 text-red-500 rounded-xl text-sm hover:bg-red-50"
-          >
-            <Trash2 size={15} />
-            Удалить
-          </button>
+          {role !== 'manager' && (
+            <button
+              onClick={onDelete}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-red-200 text-red-500 rounded-xl text-sm hover:bg-red-50"
+            >
+              <Trash2 size={15} />
+              Удалить
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
