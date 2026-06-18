@@ -8,7 +8,7 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote, MessageSquare } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote, MessageSquare, HelpCircle } from 'lucide-react';
 import AdminCashView from './components/Admin/AdminCashView';
 import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
@@ -25,6 +25,7 @@ import WorkshopManagerView from './components/Workshop/WorkshopManagerView';
 import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import CompanyChatList from './components/Chat/CompanyChatList';
+import HelpModal from './components/HelpModal';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 
@@ -68,6 +69,7 @@ function AppContent() {
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [showCompanyChat, setShowCompanyChat] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [internalUnread, setInternalUnread] = useState(0);
   const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
   const isMobile = useIsMobile();
@@ -411,6 +413,25 @@ function AppContent() {
     </div>
   );
 
+  const getCurrentHelpSection = (): string => {
+    if (isAdmin) {
+      const map: Record<string, string> = {
+        dashboard: 'dashboard', chat: 'dashboard',
+        tasks: 'tasks', reports: 'analytics', activity: 'team',
+        inventory: 'inventory', workshop: 'workshop',
+        expenses: 'expenses', cash: 'cash',
+        settings: 'settings', watchlist: 'watchlist',
+      };
+      return map[adminView] ?? 'dashboard';
+    }
+    const map: Record<string, string> = {
+      list: 'chats', chat: 'chats',
+      tasks: 'tasks', 'manager-crm': 'crm',
+      shop: 'shop', inventory: 'inventory', workshop: 'workshop',
+    };
+    return map[mobileView] ?? 'chats';
+  };
+
   const Sidebar = (
     <div className={`${isMobile ? 'w-full' : 'w-80 flex-shrink-0 border-r border-white/5'} flex flex-col`}>
       <div className="px-4 py-3 bg-[#202c33] flex items-center justify-between">
@@ -564,6 +585,9 @@ function AppContent() {
           )}
 
           </div>
+          <button onClick={() => setShowHelp(true)} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Справка">
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <button onClick={() => signOut()} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Выйти">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
@@ -1125,6 +1149,14 @@ function AppContent() {
             onMessageRead={loadInternalUnread}
           />
         )}
+        {showHelp && (
+          <HelpModal
+            role={employee.role as 'admin' | 'branch_admin' | 'manager'}
+            branchId={employee.branch_id ?? ''}
+            initialSection={getCurrentHelpSection()}
+            onClose={() => setShowHelp(false)}
+          />
+        )}
       </AuthContext.Provider>
     );
   }
@@ -1140,6 +1172,14 @@ function AppContent() {
         <CompanyChatList
           currentEmployee={employee}
           onBack={() => setShowCompanyChat(false)}
+        />
+      )}
+      {showHelp && (
+        <HelpModal
+          role={employee.role as 'admin' | 'branch_admin' | 'manager'}
+          branchId={employee.branch_id ?? ''}
+          initialSection={getCurrentHelpSection()}
+          onClose={() => setShowHelp(false)}
         />
       )}
     </AuthContext.Provider>
