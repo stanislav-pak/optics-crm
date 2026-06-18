@@ -31,6 +31,8 @@ export interface InternalMessage {
   sender_id: string;
   content: string;
   created_at: string;
+  message_type?: string;
+  media_url?: string;
   sender?: { id: string; name: string };
 }
 
@@ -116,6 +118,23 @@ export async function sendInternalMessage(
     p_content: content
   });
   if (error) { console.error('sendInternalMessage error:', error); return null; }
+  return data as InternalMessage;
+}
+
+export async function sendInternalMediaMessage(
+  chatId: string,
+  senderId: string,
+  content: string,
+  messageType: string,
+  mediaUrl: string
+): Promise<InternalMessage | null> {
+  const { data, error } = await supabase
+    .from('internal_messages')
+    .insert({ chat_id: chatId, sender_id: senderId, content, message_type: messageType, media_url: mediaUrl })
+    .select('*, sender:employees!sender_id(id, name)')
+    .single();
+  if (error) { console.error('sendInternalMediaMessage error:', error); return null; }
+  await supabase.from('internal_chats').update({ updated_at: new Date().toISOString() }).eq('id', chatId);
   return data as InternalMessage;
 }
 
