@@ -9,6 +9,7 @@ import InlineCreate from './InlineCreate';
 interface Props {
   branchId: string;
   employeeId: string;
+  role: 'manager' | 'branch_admin' | 'admin';
   onClose: () => void;
   onSuccess: (product: Product) => void;
 }
@@ -23,7 +24,7 @@ function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
   });
 }
 
-export default function AddProductModal({ branchId, employeeId, onClose, onSuccess }: Props) {
+export default function AddProductModal({ branchId, employeeId, role, onClose, onSuccess }: Props) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
@@ -209,7 +210,7 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
           )}
 
           {/* Цены */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={role !== 'manager' ? 'grid grid-cols-2 gap-3' : ''}>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Цена продажи ₸ *</label>
               <input
@@ -220,16 +221,18 @@ export default function AddProductModal({ branchId, employeeId, onClose, onSucce
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Себестоимость ₸</label>
-              <input
-                type="number"
-                value={form.cost_price}
-                onChange={e => set('cost_price', e.target.value)}
-                placeholder="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {role !== 'manager' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Себестоимость ₸</label>
+                <input
+                  type="number"
+                  value={form.cost_price}
+                  onChange={e => set('cost_price', e.target.value)}
+                  placeholder="0"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
           </div>
 
           {/* Группа товаров */}

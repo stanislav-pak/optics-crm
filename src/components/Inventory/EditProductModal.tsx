@@ -7,6 +7,7 @@ import InlineCreate from './InlineCreate';
 
 interface Props {
   product: Product;
+  role: 'manager' | 'branch_admin' | 'admin';
   onClose: () => void;
   onSave: (updated: Product) => void;
 }
@@ -21,7 +22,7 @@ function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
   });
 }
 
-export default function EditProductModal({ product, onClose, onSave }: Props) {
+export default function EditProductModal({ product, role, onClose, onSave }: Props) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,7 +99,7 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
         category_id: form.category_id || undefined,
         brand_id: form.brand_id || undefined,
         price: parseFloat(form.price),
-        cost_price: parseFloat(form.cost_price || '0'),
+        ...(role !== 'manager' ? { cost_price: parseFloat(form.cost_price || '0') } : {}),
         sku: form.sku || undefined,
         barcode: form.barcode || undefined,
         min_stock: parseInt(form.min_stock || '0'),
@@ -190,7 +191,7 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
           )}
 
           {/* Цены */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={role !== 'manager' ? 'grid grid-cols-2 gap-3' : ''}>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Цена продажи ₸ *</label>
               <input
@@ -201,16 +202,18 @@ export default function EditProductModal({ product, onClose, onSave }: Props) {
                 className={inputCls}
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Себестоимость ₸</label>
-              <input
-                type="number"
-                value={form.cost_price}
-                onChange={e => set('cost_price', e.target.value)}
-                placeholder="0"
-                className={inputCls}
-              />
-            </div>
+            {role !== 'manager' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Себестоимость ₸</label>
+                <input
+                  type="number"
+                  value={form.cost_price}
+                  onChange={e => set('cost_price', e.target.value)}
+                  placeholder="0"
+                  className={inputCls}
+                />
+              </div>
+            )}
           </div>
 
           {/* SKU и штрихкод */}

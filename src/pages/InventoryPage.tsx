@@ -1074,7 +1074,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</p>
                             <span className="text-sm text-gray-400 flex-shrink-0 tabular-nums">
-                              {p.cost_price > 0 ? `${p.cost_price.toLocaleString()}/` : ''}{p.price.toLocaleString()}
+                              {role !== 'manager' && p.cost_price > 0 ? `${p.cost_price.toLocaleString()}/` : ''}{p.price.toLocaleString()}
+                              {role === 'admin' && p.cost_price > 0 && (
+                                <span className="ml-1 text-xs text-green-600 font-normal">
+                                  +{Math.round((p.price - p.cost_price) / p.price * 100)}%
+                                </span>
+                              )}
                             </span>
                             <span className={`text-sm font-medium flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>
                               {qty} {p.unit}
@@ -1398,8 +1403,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       po.items.forEach(i => rows.push({
                         'Дата': date, 'Поставщик': supplier,
                         'Товар': (i.product as any)?.name ?? '—',
-                        'Количество': i.quantity, 'Цена прихода': i.cost_price,
-                        'Сумма': i.quantity * i.cost_price, 'Статус': status,
+                        'Количество': i.quantity,
+                        ...(role !== 'manager' ? { 'Цена прихода': i.cost_price, 'Сумма': i.quantity * i.cost_price } : { 'Цена продажи': (i.product as any)?.price ?? '—', 'Сумма': (i.product as any)?.price ? i.quantity * (i.product as any).price : '—' }),
+                        'Статус': status,
                       }));
                     } else {
                       rows.push({ 'Дата': date, 'Поставщик': supplier, 'Товар': '—', 'Количество': '—', 'Цена прихода': '—', 'Сумма': po.total, 'Статус': status });
@@ -2614,6 +2620,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       {editingProduct && (
         <EditProductModal
           product={editingProduct}
+          role={role}
           onClose={() => setEditingProduct(null)}
           onSave={updated => {
             setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
@@ -2640,6 +2647,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         <AddProductModal
           branchId={activeBranchId}
           employeeId={employeeId}
+          role={role}
           onClose={() => setShowAddProduct(false)}
           onSuccess={(product) => { loadAll(); setShowAddProduct(false); setHighlightedProductId(product.id); setTimeout(() => setHighlightedProductId(null), 4000); }}
         />
@@ -3121,7 +3129,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50">
                       <div>
                         <p className="text-sm text-gray-900">{(item.product as any)?.name}</p>
-                        <p className="text-xs text-gray-400">Цена прихода: ₸{item.cost_price.toLocaleString()}</p>
+                        {role !== 'manager'
+                          ? <p className="text-xs text-gray-400">Цена прихода: ₸{item.cost_price.toLocaleString()}</p>
+                          : <p className="text-xs text-gray-400">Цена продажи: ₸{((item.product as any)?.price ?? 0).toLocaleString()}</p>
+                        }
                       </div>
                       <span className="text-sm font-medium text-gray-700">{item.quantity} шт</span>
                     </div>

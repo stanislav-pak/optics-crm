@@ -375,7 +375,7 @@ export async function getPurchaseOrders(branchId?: string) {
     .select(`
       *,
       supplier:suppliers(id, name),
-      items:purchase_order_items(*, product:products(id, name, sku))
+      items:purchase_order_items(*, product:products(id, name, sku, price))
     `)
     .order('created_at', { ascending: false });
 
