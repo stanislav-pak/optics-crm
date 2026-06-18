@@ -8,6 +8,7 @@ interface Props {
   chat: Chat;
   onClose: () => void;
   onArchive: () => void;
+  onClientNameUpdate?: (name: string) => void;
 }
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -23,7 +24,7 @@ function formatDate(dateStr?: string) {
   return new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
+export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: Props) {
   const { employee: me } = useAuth();
   const [media, setMedia] = useState<Message[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
@@ -114,6 +115,7 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
     await supabase.from('clients').update({ name: nameValue.trim() }).eq('id', chat.client_id);
     setSavingName(false);
     setEditingName(false);
+    onClientNameUpdate?.(nameValue.trim());
   };
 
   const toggleArchive = async () => {
@@ -180,22 +182,29 @@ export function ChatInfoPanel({ chat, onClose, onArchive }: Props) {
               <div className="flex-1 min-w-0">
                 {/* Имя inline edit */}
                 {editingName ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="space-y-2">
                     <input
                       value={nameValue}
                       onChange={e => setNameValue(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
                       autoFocus
-                      className="flex-1 bg-[#2a3942] text-[#e9edef] text-sm px-2 py-1 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 min-w-0"
+                      className="w-full bg-[#2a3942] text-[#e9edef] text-sm px-3 py-2 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500"
                     />
-                    <button onClick={saveName} disabled={savingName}
-                      className="text-emerald-400 hover:text-emerald-300 text-sm flex-shrink-0 disabled:opacity-50">
-                      {savingName ? '…' : '✓'}
-                    </button>
-                    <button onClick={() => { setEditingName(false); setNameValue(chat.client?.name ?? ''); }}
-                      className="text-[#8696a0] hover:text-[#e9edef] text-sm flex-shrink-0">
-                      ✕
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveName}
+                        disabled={savingName}
+                        className="flex-1 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium active:bg-emerald-500/30 disabled:opacity-50 transition-colors"
+                      >
+                        {savingName ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                      <button
+                        onClick={() => { setEditingName(false); setNameValue(chat.client?.name ?? ''); }}
+                        className="flex-1 py-2 bg-white/5 text-[#8696a0] rounded-lg text-xs font-medium active:bg-white/10 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">

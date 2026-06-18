@@ -407,6 +407,7 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
   }, [messages]);
 
   const client = chat.client;
+  const [localClientName, setLocalClientName] = useState(chat.client?.name ?? '');
   const isArchived = chat.status === 'archived';
   const canSend = (text.trim().length > 0 || pendingFiles.length > 0) && !sending && !uploading;
 
@@ -599,10 +600,10 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
           )}
           <button onClick={() => setShowInfo(true)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
-              {client?.name ? client.name[0].toUpperCase() : '#'}
+              {localClientName ? localClientName[0].toUpperCase() : '#'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#e9edef] truncate">{client?.name || client?.phone || 'Клиент'}</p>
+              <p className="text-sm font-medium text-[#e9edef] truncate">{localClientName || client?.phone || 'Клиент'}</p>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-[#8696a0]">{client?.phone}</p>
                 {isArchived && <span className="text-[10px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-full">Архив</span>}
@@ -734,7 +735,8 @@ export function ChatWindow({ chat, onArchive, onBack, source: _source }: ChatWin
       {showCRM && <CRMSidebar chat={chat} />}
       {showInfo && (
         <ChatInfoPanel chat={chat} onClose={() => setShowInfo(false)}
-          onArchive={() => { setShowInfo(false); onArchive?.(); }} />
+          onArchive={() => { setShowInfo(false); onArchive?.(); }}
+          onClientNameUpdate={name => setLocalClientName(name)} />
       )}
     </div>
   );
