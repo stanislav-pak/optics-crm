@@ -945,13 +945,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 <Download size={15} />
                 Экспорт
               </button>
-              <button
-                onClick={() => setShowAddProduct(true)}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                <Plus size={15} />
-                Добавить
-              </button>
+              {(role === 'admin' || (role === 'manager' && branchId === 'a215f402-07ee-4ba9-aba5-b2b4cd5497f2')) && (
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  <Plus size={15} />
+                  Добавить
+                </button>
+              )}
             </div>
 
             {filteredProducts.length === 0 ? (
