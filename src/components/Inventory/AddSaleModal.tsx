@@ -16,6 +16,8 @@ interface SaleItem {
   product_name: string;
   quantity: number;
   price: number;
+  list_price: number;
+  discount_pct: number;
   stock_qty: number;
 }
 
@@ -67,6 +69,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   // Локальные raw-строки для числовых полей товаров (iOS: свободный ввод без зажима)
   const [rawQuantity, setRawQuantity] = useState<Record<string, string>>({});
   const [rawPrice, setRawPrice] = useState<Record<string, string>>({});
+  const [rawDiscount, setRawDiscount] = useState<Record<string, string>>({});
 
   // client UI state
   const [clientsLoading, setClientsLoading] = useState(false);
@@ -217,6 +220,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         product_name: product.name,
         quantity: 1,
         price: product.price,
+        list_price: product.price,
+        discount_pct: 0,
         stock_qty: stockQty,
       }];
     });
@@ -242,7 +247,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
       if (field === 'quantity') return { ...item, quantity: Math.min(Math.max(1, value), item.stock_qty) };
-      return { ...item, [field]: value };
+      const discountPct = item.list_price > 0
+        ? Math.round(((item.list_price - value) / item.list_price) * 1000) / 10
+        : 0;
+      return { ...item, price: value, discount_pct: Math.max(0, discountPct) };
+    }));
+  };
+
+  const updateItemDiscount = (idx: number, pct: number) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const newPrice = Math.round(item.list_price * (1 - pct / 100));
+      return { ...item, discount_pct: pct, price: Math.max(0, newPrice) };
     }));
   };
 
@@ -252,6 +268,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     if (productId) {
       setRawQuantity(prev => { const next = { ...prev }; delete next[productId]; return next; });
       setRawPrice(prev => { const next = { ...prev }; delete next[productId]; return next; });
+      setRawDiscount(prev => { const next = { ...prev }; delete next[productId]; return next; });
     }
   };
 
@@ -644,6 +661,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                       onChange={e => {
                         const raw = e.target.value.replace(/[^0-9.]/g, '');
                         setRawPrice(prev => ({ ...prev, [item.product_id]: raw }));
+                        setRawDiscount(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
                         const num = parseFloat(raw);
                         if (!isNaN(num) && num >= 0) updateItem(idx, 'price', num);
                       }}
@@ -656,6 +674,35 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
                       }}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Скидка:</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={rawDiscount[item.product_id] ?? (item.discount_pct === 0 ? '' : String(item.discount_pct))}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9.]/g, '');
+                          setRawDiscount(prev => ({ ...prev, [item.product_id]: raw }));
+                          setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                          const pct = parseFloat(raw);
+                          if (!isNaN(pct) && pct >= 0 && pct <= 100) updateItemDiscount(idx, pct);
+                        }}
+                        onFocus={e => {
+                          setRawDiscount(prev => ({ ...prev, [item.product_id]: item.discount_pct === 0 ? '' : String(item.discount_pct) }));
+                          const input = e.target;
+                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onBlur={() => {
+                          setRawDiscount(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                        }}
+                        placeholder="0"
+                        className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                      {item.discount_pct > 0 && (
+                        <span className="text-xs text-gray-400 truncate">прайс ₸{item.list_price.toLocaleString()}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-end">
