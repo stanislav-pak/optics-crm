@@ -12,11 +12,11 @@ interface Branch {
 
 const ADMIN_CODE = import.meta.env.VITE_ADMIN_CODE;
 
-// Захардкоженный список филиалов (Склад UUID a215f402-… исключён, порядок фиксирован)
 const BRANCHES: Branch[] = [
   { id: 'ff42784a-5de9-458e-baf6-1ca3c8d0b79f', name: 'Жандосова' },
   { id: '1b9d7882-be86-4559-832b-14817dfcaaa3', name: 'Гум' },
   { id: '67138bd7-d688-47cf-a9c9-51cf800712ad', name: 'Абая 34' },
+  { id: 'a215f402-07ee-4ba9-aba5-b2b4cd5497f2', name: 'Склад' },
   { id: '1104bc27-07bb-4930-93b2-19a2d92b71c9', name: 'Мастерская' },
   { id: '30c0cd70-5f43-4201-9f6e-4d67d9aafc2f', name: 'Kaspi' },
 ];
