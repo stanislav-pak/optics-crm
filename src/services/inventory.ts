@@ -3,7 +3,7 @@ import type {
   Product, ProductCategory, Brand, Stock, StockMovement,
   Supplier, PurchaseOrder, PurchaseOrderItem,
   Sale, SaleItem, SaleStatus, Revision, RevisionItem,
-  InventoryStats, StockAlert, Branch
+  InventoryStats, StockAlert, Branch, StockRequest
 } from '../types';
 import { WAREHOUSE_ID } from '../constants';
 
@@ -11,8 +11,8 @@ import { WAREHOUSE_ID } from '../constants';
 // ТОВАРЫ
 // ============================================
 
-export async function getProducts(branchId?: string) {
-  let query = supabase
+export async function getProducts(_branchId?: string) {
+  const { data, error } = await supabase
     .from('products')
     .select(`
       *,
@@ -23,9 +23,6 @@ export async function getProducts(branchId?: string) {
     .eq('is_active', true)
     .order('name');
 
-  if (branchId) query = query.eq('branch_id', branchId);
-
-  const { data, error } = await query;
   if (error) throw error;
   return data as Product[];
 }
@@ -94,6 +91,13 @@ export async function createProduct(product: Omit<Product, 'id' | 'created_at'>)
     .single();
 
   if (error) throw error;
+
+  // Автоматически создаём stock-запись с qty=0, чтобы товар сразу появился в списках
+  await supabase.from('stock').upsert(
+    { product_id: data.id, branch_id: product.branch_id, quantity: 0 },
+    { onConflict: 'product_id,branch_id', ignoreDuplicates: true }
+  );
+
   return data as Product;
 }
 
@@ -959,4 +963,75 @@ export async function getProductGroups(): Promise<string[]> {
   )];
 
   return groups.sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
+// ============================================
+// ЗАЯВКИ НА СКЛАД
+// ============================================
+
+export async function createStockRequest(params: {
+  branch_id: string;
+  created_by: string;
+  notes?: string;
+  items: Array<{ product_id: string; quantity: number }>;
+}) {
+  const { items, ...requestData } = params;
+  const { data: req, error } = await supabase
+    .from('stock_requests')
+    .insert(requestData)
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  const { error: itemsError } = await supabase
+    .from('stock_request_items')
+    .insert(items.map(i => ({ request_id: req.id, product_id: i.product_id, quantity: i.quantity })));
+  if (itemsError) throw itemsError;
+
+  return req as { id: string };
+}
+
+export async function getStockRequests(branchId?: string): Promise<StockRequest[]> {
+  let query = supabase
+    .from('stock_requests')
+    .select(`
+      *,
+      branch:branches(name),
+      creator:employees(name),
+      items:stock_request_items(id, quantity, product_id, product:products(id, name, sku))
+    `)
+    .order('created_at', { ascending: false });
+
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as StockRequest[];
+}
+
+export async function approveStockRequest(requestId: string, employeeId: string): Promise<void> {
+  const { data: req, error } = await supabase
+    .from('stock_requests')
+    .select('*, items:stock_request_items(product_id, quantity)')
+    .eq('id', requestId)
+    .single();
+  if (error || !req) throw new Error('Заявка не найдена');
+
+  for (const item of req.items as Array<{ product_id: string; quantity: number }>) {
+    await createTransfer(WAREHOUSE_ID, req.branch_id, item.product_id, item.quantity, employeeId);
+  }
+
+  const { error: updErr } = await supabase
+    .from('stock_requests')
+    .update({ status: 'approved', updated_at: new Date().toISOString() })
+    .eq('id', requestId);
+  if (updErr) throw updErr;
+}
+
+export async function rejectStockRequest(requestId: string, reason?: string): Promise<void> {
+  const { error } = await supabase
+    .from('stock_requests')
+    .update({ status: 'rejected', rejection_reason: reason ?? null, updated_at: new Date().toISOString() })
+    .eq('id', requestId);
+  if (error) throw error;
 }

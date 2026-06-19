@@ -6,12 +6,13 @@ import {
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers, updateProduct,
   logLabelPrint, getLabelPrintHistory, getProductById,
+  getStockRequests, approveStockRequest, rejectStockRequest,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
-import { WORKSHOP_BRANCH_ID } from '../constants';
+import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from '../constants';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder
+  StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder, StockRequest
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
@@ -31,10 +32,11 @@ import PrintLabelModal from '../components/Inventory/PrintLabelModal';
 import BarcodeScanner from '../components/Shared/BarcodeScanner';
 import CashSessionCard from '../components/Inventory/CashSessionCard';
 import ExpensesTab from '../components/Inventory/ExpensesTab';
+import StockRequestModal from '../components/Inventory/StockRequestModal';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels' | 'requests';
 
 interface InventoryPageProps {
   branchId: string;
@@ -199,6 +201,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
   const [reprintLoading, setReprintLoading] = useState<string | null>(null);
+  const [stockRequests, setStockRequests] = useState<StockRequest[]>([]);
+  const [showStockRequestModal, setShowStockRequestModal] = useState(false);
+  const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
@@ -414,6 +421,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (tab === 'labels') {
       loadPrintHistory(activeBranchId, role);
     }
+    if (tab === 'requests') {
+      loadStockRequests();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -595,6 +605,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     catch (e) { console.error('loadStats error:', e); }
   }
 
+  async function loadStockRequests() {
+    try {
+      const scopeId = (role === 'admin' || branchId === WAREHOUSE_ID) ? undefined : branchId;
+      const data = await getStockRequests(scopeId);
+      setStockRequests(data);
+    } catch (e) { console.error('loadStockRequests error:', e); }
+  }
+
   async function loadStock() {
     const scopeId = activeBranchId;
     try {
@@ -653,6 +671,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     await loadSales();
   }
 
+  const isWarehouseBranch = branchId === WAREHOUSE_ID;
+  const canSubmitRequest = !isWarehouseBranch && branchId !== WORKSHOP_BRANCH_ID && role !== 'admin';
+  const canSeeRequestsTab = role === 'admin' || isWarehouseBranch;
+  const newRequestsCount = stockRequests.filter(r => r.status === 'new').length;
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Обзор' },
     { key: 'products', label: 'Товары' },
@@ -663,6 +686,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
     { key: 'labels', label: 'Этикетки' },
+    ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: 'Заявки' }] : []),
   ];
 
   async function handleDeleteRevision(id: string, e: React.MouseEvent) {
@@ -754,17 +778,28 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       {/* Header */}
       {!storefront && (
         <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h1 className="text-xl font-semibold text-gray-900">Склад</h1>
-            {alerts.length > 0 && (
-              <button
-                onClick={() => setShowLowStock(true)}
-                className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-100 transition-colors"
-              >
-                <AlertTriangle size={16} />
-                <span>{alerts.length} товаров заканчивается</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {alerts.length > 0 && (
+                <button
+                  onClick={() => setShowLowStock(true)}
+                  className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                >
+                  <AlertTriangle size={16} />
+                  <span>{alerts.length} товаров заканчивается</span>
+                </button>
+              )}
+              {canSubmitRequest && (
+                <button
+                  onClick={() => setShowStockRequestModal(true)}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                >
+                  <Plus size={14} />
+                  Заявка на склад
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Tabs */}
@@ -801,6 +836,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 {t.key === 'labels' && unprintedProducts.length > 0 && tab !== 'labels' && (
                   <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
                     {unprintedProducts.length}
+                  </span>
+                )}
+                {t.key === 'requests' && newRequestsCount > 0 && tab !== 'requests' && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    {newRequestsCount}
                   </span>
                 )}
               </button>
@@ -2455,6 +2495,127 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           );
         })()}
 
+        {/* ЗАЯВКИ НА СКЛАД */}
+        {tab === 'requests' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">Заявки от филиалов</h2>
+              <button onClick={loadStockRequests} className="text-xs text-blue-600 hover:text-blue-800">Обновить</button>
+            </div>
+            {stockRequests.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-200">
+                Заявок нет
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {stockRequests.map(req => {
+                  const statusMap: Record<string, { label: string; cls: string }> = {
+                    new:      { label: 'Новая',     cls: 'bg-blue-100 text-blue-700' },
+                    approved: { label: 'Одобрена',  cls: 'bg-green-100 text-green-700' },
+                    rejected: { label: 'Отклонена', cls: 'bg-red-100 text-red-600' },
+                  };
+                  const st = statusMap[req.status] ?? { label: req.status, cls: 'bg-gray-100 text-gray-600' };
+                  const isRejecting = rejectingRequestId === req.id;
+                  const isLoading = requestActionLoading === req.id;
+                  return (
+                    <div key={req.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{req.branch?.name ?? '—'}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {req.creator?.name ?? '—'} · {new Date(req.created_at).toLocaleDateString('ru-RU')}
+                          </p>
+                          {req.notes && <p className="text-xs text-gray-500 mt-1 italic">{req.notes}</p>}
+                          {req.rejection_reason && (
+                            <p className="text-xs text-red-500 mt-1">Причина: {req.rejection_reason}</p>
+                          )}
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${st.cls}`}>{st.label}</span>
+                      </div>
+
+                      {/* Позиции */}
+                      <div className="space-y-1">
+                        {(req.items ?? []).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-600">
+                            <span>{(item.product as any)?.name ?? item.product_id}</span>
+                            <span className="font-medium">{item.quantity} шт</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Кнопки для склада/админа */}
+                      {req.status === 'new' && (
+                        <div className="border-t border-gray-100 pt-3 space-y-2">
+                          {isRejecting ? (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={rejectReason}
+                                onChange={e => setRejectReason(e.target.value)}
+                                placeholder="Причина отклонения (необязательно)..."
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setRejectingRequestId(null); setRejectReason(''); }}
+                                  className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                                >
+                                  Отмена
+                                </button>
+                                <button
+                                  disabled={isLoading}
+                                  onClick={async () => {
+                                    setRequestActionLoading(req.id);
+                                    try {
+                                      await rejectStockRequest(req.id, rejectReason || undefined);
+                                      await loadStockRequests();
+                                    } catch (e: any) { alert('Ошибка: ' + e.message); }
+                                    setRequestActionLoading(null);
+                                    setRejectingRequestId(null);
+                                    setRejectReason('');
+                                  }}
+                                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                                >
+                                  {isLoading ? 'Отклоняем...' : 'Подтвердить отклонение'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button
+                                disabled={isLoading}
+                                onClick={async () => {
+                                  setRequestActionLoading(req.id);
+                                  try {
+                                    await approveStockRequest(req.id, employeeId);
+                                    await loadStockRequests();
+                                    await loadAll();
+                                  } catch (e: any) { alert('Ошибка при одобрении: ' + e.message); }
+                                  setRequestActionLoading(null);
+                                }}
+                                className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                              >
+                                {isLoading ? 'Обрабатываем...' : 'Одобрить'}
+                              </button>
+                              <button
+                                disabled={isLoading}
+                                onClick={() => { setRejectingRequestId(req.id); setRejectReason(''); }}
+                                className="flex-1 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Отклонить
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ЭТИКЕТКИ */}
         {tab === 'labels' && (
           <div className="space-y-4">
@@ -3081,6 +3242,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       )}
       {showSuppliers && (
         <SuppliersModal onClose={() => setShowSuppliers(false)} />
+      )}
+
+      {showStockRequestModal && (
+        <StockRequestModal
+          branchId={branchId}
+          employeeId={employeeId}
+          onClose={() => setShowStockRequestModal(false)}
+          onSuccess={() => { setShowStockRequestModal(false); }}
+        />
       )}
 
       {showLowStock && (

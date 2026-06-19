@@ -441,6 +441,32 @@ export interface InventoryStats {
 }
 
 // ============================================
+// ЗАЯВКИ НА СКЛАД
+// ============================================
+
+export interface StockRequestItem {
+  id: string;
+  request_id: string;
+  product_id: string;
+  quantity: number;
+  product?: Product;
+}
+
+export interface StockRequest {
+  id: string;
+  branch_id: string;
+  created_by: string;
+  status: 'new' | 'approved' | 'rejected';
+  notes?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+  branch?: { name: string };
+  creator?: { name: string };
+  items?: StockRequestItem[];
+}
+
+// ============================================
 // МАСТЕРСКАЯ / WORKSHOP
 // ============================================
 
