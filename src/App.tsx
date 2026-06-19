@@ -441,7 +441,10 @@ function AppContent() {
           </div>
           <div className="min-w-0 overflow-hidden">
             <p className="text-sm font-medium text-[#e9edef] truncate">{employee.name}</p>
-            <p className="text-xs text-[#8696a0] truncate">{ROLE_LABELS[employee.role] ?? employee.role}</p>
+            <p className="text-xs text-[#8696a0] truncate">
+              {ROLE_LABELS[employee.role] ?? employee.role}
+              {employee.branch?.name ? ` · ${employee.branch.name}` : ''}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
