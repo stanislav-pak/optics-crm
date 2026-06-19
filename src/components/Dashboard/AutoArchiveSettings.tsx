@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { Archive, Clock, MessageSquareOff, Play, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Archive, Clock, MessageSquareOff, Play, CheckCircle, AlertCircle, Info, ShieldAlert, Save } from 'lucide-react';
 
 const LS_KEY_CLOSED   = 'autoArchive_closedDeals';
 const LS_KEY_INACTIVE = 'autoArchive_inactiveChats';
@@ -54,6 +54,45 @@ export function AutoArchiveSettings({ onBack }: AutoArchiveSettingsProps) {
   const [running,  setRunning]  = useState(false);
   const [result,   setResult]   = useState<ArchiveResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Порог скидки для алерта «На заметке»
+  const [discountThreshold, setDiscountThreshold] = useState<string>('10');
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+  const [thresholdSaved, setThresholdSaved]   = useState(false);
+  const [thresholdError, setThresholdError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'watchlist_discount_threshold')
+      .single()
+      .then(({ data }) => {
+        if (data?.value) setDiscountThreshold(data.value);
+      });
+  }, []);
+
+  const handleSaveThreshold = async () => {
+    const num = parseFloat(discountThreshold);
+    if (isNaN(num) || num < 1 || num > 99) {
+      setThresholdError('Введите число от 1 до 99');
+      return;
+    }
+    setThresholdSaving(true);
+    setThresholdError(null);
+    setThresholdSaved(false);
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ value: String(num), updated_at: new Date().toISOString() })
+      .eq('key', 'watchlist_discount_threshold');
+    setThresholdSaving(false);
+    if (error) {
+      setThresholdError(error.message);
+    } else {
+      setThresholdSaved(true);
+      setTimeout(() => setThresholdSaved(false), 3000);
+    }
+  };
 
   // Сохраняем в localStorage при каждом изменении
   useEffect(() => {
@@ -150,6 +189,53 @@ export function AutoArchiveSettings({ onBack }: AutoArchiveSettingsProps) {
               </div>
             </div>
             <Toggle checked={archiveInactive} onChange={setArchiveInactive} />
+          </div>
+        </div>
+
+        {/* ── Порог скидки ── */}
+        <div className="bg-[#202c33] rounded-xl overflow-hidden">
+          <div className="px-4 py-3 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <ShieldAlert size={15} className="text-orange-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[#e9edef]">Порог скидки для алерта</p>
+              <p className="text-xs text-[#8696a0] mt-0.5 leading-relaxed">
+                При скидке равной или выше указанного значения — в разделе «Контроль»
+                появится автоматический алерт.
+              </p>
+              <div className="flex items-center gap-2 mt-3">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={discountThreshold}
+                  onChange={e => {
+                    setDiscountThreshold(e.target.value.replace(/[^0-9.]/g, ''));
+                    setThresholdSaved(false);
+                    setThresholdError(null);
+                  }}
+                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-[#e9edef] text-center focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                />
+                <span className="text-sm text-[#8696a0]">%</span>
+                <button
+                  onClick={handleSaveThreshold}
+                  disabled={thresholdSaving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+                >
+                  {thresholdSaving ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : thresholdSaved ? (
+                    <CheckCircle size={14} />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  {thresholdSaved ? 'Сохранено' : 'Сохранить'}
+                </button>
+              </div>
+              {thresholdError && (
+                <p className="text-xs text-red-400 mt-1.5">{thresholdError}</p>
+              )}
+            </div>
           </div>
         </div>
 
