@@ -219,8 +219,8 @@ export function AutoArchiveSettings({ onBack }: AutoArchiveSettingsProps) {
                 <span className="text-sm text-[#8696a0]">%</span>
                 <button
                   onClick={handleSaveThreshold}
-                  disabled={thresholdSaving}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+                  disabled={thresholdSaving || thresholdSaved}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-sm rounded-lg transition-colors disabled:opacity-70 ${thresholdSaved ? 'bg-emerald-600' : 'bg-orange-600 hover:bg-orange-500'}`}
                 >
                   {thresholdSaving ? (
                     <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
