@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState, useRef } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { CRMSidebar } from './CRMSidebar';
 import { formatPhone } from '@/utils/formatters';
@@ -39,9 +40,10 @@ interface ManagerCRMPanelProps {
   onBack: () => void;
   employeeId?: string;
   onOpenChat?: (chat: Chat) => void;
+  onHelpClick?: () => void;
 }
 
-export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPanelProps) {
+export function ManagerCRMPanel({ onBack, employeeId, onOpenChat, onHelpClick }: ManagerCRMPanelProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -158,7 +160,12 @@ export function ManagerCRMPanel({ onBack, employeeId, onOpenChat }: ManagerCRMPa
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-[#e9edef] font-semibold text-base">CRM</h1>
+        <h1 className="text-[#e9edef] font-semibold text-base flex-1">CRM</h1>
+        {onHelpClick && (
+          <button onClick={onHelpClick} className="text-[#8696a0] hover:text-[#e9edef] transition-colors" title="Справка">
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">

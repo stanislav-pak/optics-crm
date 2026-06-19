@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -23,6 +24,7 @@ interface Branch { id: string; name: string; city: string; }
 
 interface TasksPanelProps {
   onBack?: () => void;
+  onHelpClick?: () => void;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -32,7 +34,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   none:     { label: 'Активна',   color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' },
 };
 
-export function TasksPanel({ onBack }: TasksPanelProps) {
+export function TasksPanel({ onBack, onHelpClick }: TasksPanelProps) {
   const { employee } = useAuth();
   const isAdmin = employee?.role === 'admin' || employee?.role === 'branch_admin';
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -177,6 +179,11 @@ export function TasksPanel({ onBack }: TasksPanelProps) {
           </button>
         )}
         <h1 className="flex-1 text-[#e9edef] font-semibold text-base">Задачи</h1>
+        {onHelpClick && (
+          <button onClick={onHelpClick} className="text-[#8696a0] hover:text-[#e9edef] transition-colors" title="Справка">
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        )}
         {isAdmin && (
           <button onClick={() => setShowCreate(true)}
             className="w-8 h-8 bg-emerald-500 hover:bg-emerald-600 rounded-full flex items-center justify-center transition-colors">

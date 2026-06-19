@@ -401,7 +401,7 @@ function AppContent() {
   const isManagerBtnActive = (view: string) =>
     mobileView === view && !activeChat;
 
-  const MobilePageHeader = ({ title }: { title: string }) => (
+  const MobilePageHeader = ({ title, onHelp }: { title: string; onHelp?: () => void }) => (
     <div className="flex items-center gap-3 px-4 py-3 bg-[#202c33] border-b border-white/10 flex-shrink-0">
       <button onClick={handleBackToList}
         className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2a3942] text-white active:scale-95 transition-transform">
@@ -409,7 +409,12 @@ function AppContent() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
       </button>
-      <span className="text-white font-semibold text-base">{title}</span>
+      <span className="text-white font-semibold text-base flex-1">{title}</span>
+      {onHelp && (
+        <button onClick={onHelp} className="text-[#8696a0] hover:text-[#e9edef] transition-colors flex-shrink-0" title="Справка">
+          <HelpCircle className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 
@@ -774,17 +779,17 @@ function AppContent() {
     <div className="flex-1 flex overflow-hidden">
       {isAdmin && adminView === 'watchlist' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="На заметке" />}
+          {isMobile && <MobilePageHeader title="На заметке" onHelp={() => setShowHelp(true)} />}
           <WatchlistPanel />
         </div>
       ) : isAdmin && adminView === 'settings' ? (
         <div className="flex-1 flex flex-col overflow-hidden overflow-y-auto bg-[#0b141a]">
-          {isMobile && <MobilePageHeader title="Настройки" />}
+          {isMobile && <MobilePageHeader title="Настройки" onHelp={() => setShowHelp(true)} />}
           <AutoArchiveSettings onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'inventory' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Склад" />}
+          {isMobile && <MobilePageHeader title="Склад" onHelp={() => setShowHelp(true)} />}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <InventoryPage
               branchId={employee?.branch_id}
@@ -795,7 +800,7 @@ function AppContent() {
         </div>
       ) : isAdmin && adminView === 'workshop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Мастерская" />}
+          {isMobile && <MobilePageHeader title="Мастерская" onHelp={() => setShowHelp(true)} />}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <WorkshopPage
               branchId={null}
@@ -839,33 +844,34 @@ function AppContent() {
         </div>
       ) : isAdmin && adminView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Задачи" />}
-          <TasksPanel onBack={handleBackToList} />
+          {isMobile && <MobilePageHeader title="Задачи" onHelp={() => setShowHelp(true)} />}
+          <TasksPanel onBack={handleBackToList} onHelpClick={() => setShowHelp(true)} />
         </div>
       ) : isAdmin && adminView === 'reports' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Аналитика" />}
+          {isMobile && <MobilePageHeader title="Аналитика" onHelp={() => setShowHelp(true)} />}
           <ReportsPanel onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'activity' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Активность" />}
+          {isMobile && <MobilePageHeader title="Активность" onHelp={() => setShowHelp(true)} />}
           <EmployeeActivity onBack={handleBackToList} />
         </div>
       ) : isAdmin && adminView === 'dashboard' && !activeChat ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isMobile && <MobilePageHeader title="Dashboard" />}
+          {isMobile && <MobilePageHeader title="Dashboard" onHelp={() => setShowHelp(true)} />}
           <AdminDashboard onChatSelect={handleChatSelect} activeChatId={activeChat?.id} />
         </div>
 
       ) : isManager && !isMobile && !activeChat && mobileView === 'tasks' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <TasksPanel onBack={() => setMobileView('list')} />
+          <TasksPanel onBack={() => setMobileView('list')} onHelpClick={() => setShowHelp(true)} />
         </div>
       ) : isManager && !isMobile && !activeChat && mobileView === 'manager-crm' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           <ManagerCRMPanel
             onBack={() => setMobileView('list')}
+            onHelpClick={() => setShowHelp(true)}
             employeeId={employee.id}
             onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); }}
           />
@@ -1013,11 +1019,11 @@ function AppContent() {
       <AuthContext.Provider value={{ employee, loading, refetch }}>
         <div className="flex flex-col h-screen bg-[#0b141a]">
           {mobileView === 'list' && Sidebar}
-          {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} />}
-          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); setMobileView('chat'); }} />}
+          {mobileView === 'tasks' && <TasksPanel onBack={() => setMobileView('list')} onHelpClick={() => setShowHelp(true)} />}
+          {mobileView === 'manager-crm' && <ManagerCRMPanel onBack={() => setMobileView('list')} employeeId={employee.id} onHelpClick={() => setShowHelp(true)} onOpenChat={(chat) => { setChatSource('crm'); chatSourceRef.current = 'crm'; setActiveChat(chat); setMobileView('chat'); }} />}
           {mobileView === 'inventory' && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <MobilePageHeader title="Склад" />
+              <MobilePageHeader title="Склад" onHelp={() => setShowHelp(true)} />
               <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
                 <InventoryPage
                   branchId={employee?.branch_id}
@@ -1030,7 +1036,7 @@ function AppContent() {
           )}
           {mobileView === 'shop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <MobilePageHeader title="Магазин" />
+              <MobilePageHeader title="Магазин" onHelp={() => setShowHelp(true)} />
               {/* Подраздел: Продажи | Предзаказы | Мастерская | Доплаты | Расходы */}
               <div className="bg-white border-b border-gray-100 px-3 pt-2 pb-1 space-y-1 flex-shrink-0">
                 {/* Ряд 1 — 2 вкладки по центру */}
@@ -1120,11 +1126,10 @@ function AppContent() {
           )}
           {mobileView === 'workshop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <MobilePageHeader title={
-                isAdmin || employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9'
-                  ? 'Мастерская'
-                  : 'Услуги мастерской'
-              } />
+              <MobilePageHeader
+                title={isAdmin || employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' ? 'Мастерская' : 'Услуги мастерской'}
+                onHelp={() => setShowHelp(true)}
+              />
               <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
                 {isAdmin || employee?.branch_id === '1104bc27-07bb-4930-93b2-19a2d92b71c9' ? (
                   <WorkshopPage
