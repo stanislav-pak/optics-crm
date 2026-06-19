@@ -249,23 +249,25 @@ export function WatchlistPanel() {
 export function useWatchlistCount(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    const fetch = async () => {
+    const fetchCount = async () => {
       const { count: c } = await supabase
         .from('watchlist_events')
         .select('id', { count: 'exact', head: true })
         .eq('is_reviewed', false);
       setCount(c ?? 0);
     };
-    fetch();
+    fetchCount();
+    // Polling каждые 30 секунд — fallback на случай если Realtime не доставит событие
+    const interval = setInterval(fetchCount, 30_000);
     const channel = supabase
       .channel('watchlist-badge')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'watchlist_events' }, () => { setCount((p) => p + 1); })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'watchlist_events' }, (payload) => {
-        if (payload.new.is_reviewed && !payload.old.is_reviewed) setCount((p) => Math.max(0, p - 1));
-        if (!payload.new.is_reviewed && payload.old.is_reviewed) setCount((p) => p + 1);
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'watchlist_events' }, () => { fetchCount(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'watchlist_events' }, () => { fetchCount(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, []);
   return count;
 }
