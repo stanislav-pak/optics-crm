@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { formatPhone } from '@/utils/formatters';
-import type { Chat, Message, Employee, Branch } from '../../types';
+import { formatPhone, formatMoney } from '@/utils/formatters';
+import type { Chat, Message, Employee, Branch, Sale } from '../../types';
 
 interface Props {
   chat: Chat;
@@ -30,6 +30,8 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
   const [loadingMedia, setLoadingMedia] = useState(true);
   const [archiving, setArchiving] = useState(false);
   const [mediaModal, setMediaModal] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [purchases, setPurchases] = useState<Sale[]>([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
 
   // Инлайн-редактирование имени
   const [editingName, setEditingName] = useState(false);
@@ -59,6 +61,20 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
       .limit(18)
       .then(({ data }) => { setMedia(data ?? []); setLoadingMedia(false); });
   }, [chat.id]);
+
+  // Загрузка истории покупок клиента
+  useEffect(() => {
+    if (!chat.client_id) { setLoadingPurchases(false); return; }
+    setLoadingPurchases(true);
+    supabase
+      .from('sales')
+      .select('*, items:sale_items(quantity, price, product:products(id, name))')
+      .eq('client_id', chat.client_id)
+      .in('status', ['paid', 'partially_refunded'])
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => { setPurchases((data as Sale[]) ?? []); setLoadingPurchases(false); });
+  }, [chat.client_id]);
 
   // Загрузка филиалов для переназначения
   useEffect(() => {
@@ -286,7 +302,40 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
             )}
           </div>
 
-          {/* ── СЕКЦИЯ 3: ДЕЙСТВИЯ ── */}
+          {/* ── СЕКЦИЯ 3: ИСТОРИЯ ПОКУПОК ── */}
+          <div className="px-4 py-4 border-b border-white/5">
+            <p className="text-[10px] text-[#8696a0] uppercase tracking-widest font-semibold mb-3">
+              История покупок {!loadingPurchases && purchases.length > 0 && <span className="text-[#d1d7db]">({purchases.length})</span>}
+            </p>
+            {loadingPurchases ? (
+              <div className="flex justify-center py-4">
+                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : purchases.length === 0 ? (
+              <p className="text-xs text-[#8696a0]">Нет покупок</p>
+            ) : (
+              <div className="space-y-2">
+                {purchases.map(sale => (
+                  <div key={sale.id} className="bg-white/5 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[11px] text-[#8696a0]">{formatDate(sale.created_at)}</p>
+                      <p className="text-xs font-medium text-emerald-400">{formatMoney(sale.total)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      {sale.items?.map((item, i) => (
+                        <p key={i} className="text-xs text-[#d1d7db] truncate">
+                          {item.product?.name ?? '—'}
+                          {item.quantity > 1 && <span className="text-[#8696a0]"> × {item.quantity}</span>}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── СЕКЦИЯ 4: ДЕЙСТВИЯ ── */}
           <div className="px-4 py-4 space-y-3">
             <p className="text-[10px] text-[#8696a0] uppercase tracking-widest font-semibold">Действия</p>
 
