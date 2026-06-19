@@ -319,23 +319,18 @@ export function AutoArchiveSettings({ onBack }: AutoArchiveSettingsProps) {
         {/* Техническая справка */}
         <div className="bg-white/[0.03] rounded-xl px-4 py-3 space-y-2">
           <p className="text-xs font-medium text-[#8696a0] uppercase tracking-wide">Как это работает</p>
-          <ul className="space-y-1.5 text-xs text-[#8696a0] leading-relaxed">
+          <ul className="space-y-2 text-xs text-[#8696a0] leading-relaxed">
             <li className="flex gap-2">
               <span className="text-[#aebac1] flex-shrink-0">1.</span>
-              При переходе сделки в «Закрыт» — триггер БД ставит{' '}
-              <code className="text-[#aebac1] bg-white/5 px-1 rounded">archive_after = NOW() + 24h</code>
+              <span>При переходе сделки в «Закрыт» — триггер ставит метку архивации через 24 часа</span>
             </li>
             <li className="flex gap-2">
               <span className="text-[#aebac1] flex-shrink-0">2.</span>
-              Каждый час pg_cron вызывает{' '}
-              <code className="text-[#aebac1] bg-white/5 px-1 rounded">auto_archive_chats()</code>{' '}
-              — архивирует чаты с истёкшим сроком и 30-дневным молчанием
+              <span>Каждый час сервер автоматически архивирует чаты с истёкшей меткой и чаты без активности 30+ дней</span>
             </li>
             <li className="flex gap-2">
               <span className="text-[#aebac1] flex-shrink-0">3.</span>
-              Edge Function{' '}
-              <code className="text-[#aebac1] bg-white/5 px-1 rounded">auto-archive</code>{' '}
-              используется для ручного запуска — работает с service_role ключом на сервере
+              <span>Кнопка «Архивировать сейчас» запускает тот же процесс вручную немедленно</span>
             </li>
           </ul>
         </div>
