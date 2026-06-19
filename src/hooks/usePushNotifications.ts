@@ -21,7 +21,6 @@ async function subscribeToPush(employeeId: string): Promise<void> {
   const reg = await navigator.serviceWorker.ready;
 
   let sub = await reg.pushManager.getSubscription();
-
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -29,20 +28,24 @@ async function subscribeToPush(employeeId: string): Promise<void> {
     });
   }
 
-  // Всегда делаем upsert, не только при первой подписке
+  const subJson = sub.toJSON() as { endpoint?: string };
+  const endpoint = subJson.endpoint ?? '';
+
+  // Upsert по employee_id + endpoint — каждое устройство хранит свою подписку (#14)
   const { data: existing } = await supabase
     .from('push_subscriptions')
     .select('id')
     .eq('employee_id', employeeId)
+    .eq('endpoint', endpoint)
     .maybeSingle();
 
   if (existing) {
     await supabase.from('push_subscriptions')
       .update({ subscription: sub.toJSON() })
-      .eq('employee_id', employeeId);
+      .eq('id', existing.id);
   } else {
     await supabase.from('push_subscriptions')
-      .insert({ employee_id: employeeId, subscription: sub.toJSON() });
+      .insert({ employee_id: employeeId, endpoint, subscription: sub.toJSON() });
   }
 }
 

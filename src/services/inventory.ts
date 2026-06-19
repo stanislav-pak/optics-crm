@@ -573,6 +573,15 @@ export async function getSales(branchId?: string) {
 // ============================================
 
 export async function createRevision(branchId: string, employeeId: string) {
+  // Блокируем создание второй активной ревизии (#8)
+  const { data: existing } = await supabase
+    .from('revisions')
+    .select('id')
+    .eq('branch_id', branchId)
+    .eq('status', 'in_progress')
+    .maybeSingle();
+  if (existing) throw new Error('Уже есть активная ревизия для этого филиала');
+
   // Создаём ревизию
   const { data: revision, error: revError } = await supabase
     .from('revisions')
@@ -640,7 +649,7 @@ export async function completeRevision(revisionId: string, employeeId: string) {
 
   // Корректирующие движения склада для всех расхождений
   const adjustments = items!
-    .filter(i => i.difference !== 0)
+    .filter(i => i.difference != null && i.difference !== 0)
     .map(i => ({
       product_id: i.product_id,
       branch_id: revision.branch_id,
@@ -1017,7 +1026,24 @@ export async function approveStockRequest(requestId: string, employeeId: string)
     .single();
   if (error || !req) throw new Error('Заявка не найдена');
 
-  for (const item of req.items as Array<{ product_id: string; quantity: number }>) {
+  const reqItems = req.items as Array<{ product_id: string; quantity: number }>;
+
+  // Проверяем наличие всех товаров до начала перемещений (#5)
+  for (const item of reqItems) {
+    const { data: stock } = await supabase
+      .from('stock')
+      .select('quantity')
+      .eq('product_id', item.product_id)
+      .eq('branch_id', WAREHOUSE_ID)
+      .maybeSingle();
+    const available = stock?.quantity ?? 0;
+    if (available < item.quantity) {
+      const { data: product } = await supabase.from('products').select('name').eq('id', item.product_id).maybeSingle();
+      throw new Error(`Недостаточно "${product?.name ?? item.product_id}" на складе: нужно ${item.quantity}, есть ${available}`);
+    }
+  }
+
+  for (const item of reqItems) {
     await createTransfer(WAREHOUSE_ID, req.branch_id, item.product_id, item.quantity, employeeId);
   }
 

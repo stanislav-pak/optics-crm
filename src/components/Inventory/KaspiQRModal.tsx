@@ -34,13 +34,17 @@ export default function KaspiQRModal({ amount, saleId, onConfirm, onCancel }: Pr
   useEffect(() => {
     if (status === 'confirmed') return;
     const timer = setInterval(() => {
-      setSeconds(s => {
-        if (s <= 1) { clearInterval(timer); onCancel(); return 0; }
-        return s - 1;
-      });
+      setSeconds(s => (s <= 1 ? 0 : s - 1));
     }, 1000);
     return () => clearInterval(timer);
   }, [status]);
+
+  // Вызываем onCancel когда таймер истёк (вне setState updater)
+  useEffect(() => {
+    if (seconds === 0 && status === 'waiting') {
+      onCancel();
+    }
+  }, [seconds, status]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 

@@ -201,6 +201,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
   const [reprintLoading, setReprintLoading] = useState<string | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [stockRequests, setStockRequests] = useState<StockRequest[]>([]);
   const [showStockRequestModal, setShowStockRequestModal] = useState(false);
   const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
@@ -440,11 +441,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   useEffect(() => {
     if (!activeBranchId) return;
 
-    const audioCtx = { current: null as AudioContext | null };
-
     const playSound = () => {
-      const ctx = audioCtx.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioCtx.current = ctx;
+      const ctx = audioCtxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioCtxRef.current = ctx;
       if (ctx.state === 'suspended') ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();

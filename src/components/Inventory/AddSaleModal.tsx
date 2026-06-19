@@ -201,6 +201,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     }
   }, [paidCash, paidKaspi, totalNow, paymentMethod]);
 
+  // Сбрасываем поля оплаты при смене метода (#15)
+  useEffect(() => {
+    setPaidCash('');
+    setPaidKaspi('');
+    setChange(0);
+  }, [paymentMethod]);
+
   // Автозаполнение "Получено наличными" только если поле не тронуто
   useEffect(() => {
     if (!paidCash) setPaidCash(totalNow > 0 ? String(totalNow) : '');
@@ -340,6 +347,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         }
       }
 
+      // Валидация смешанной оплаты: сумма должна покрывать итог (#1)
+      if (paymentMethod === 'mixed') {
+        const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
+        if (paid < total - 0.01) {
+          alert(`Недоплата ${(total - paid).toLocaleString()} ₸. Сумма наличных и Kaspi должна равняться итогу продажи.`);
+          isSubmittingRef.current = false;
+          setLoading(false);
+          return;
+        }
+      }
+
       const cashAmount = paymentMethod === 'cash' ? total :
         paymentMethod === 'kaspi_qr' ? 0 : parseFloat(paidCash || '0');
       const kaspiAmount = paymentMethod === 'kaspi_qr' ? total :
@@ -435,6 +453,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       }
       await supabase.from('sale_items').delete().eq('sale_id', tempSaleId);
       await supabase.from('sales').delete().eq('id', tempSaleId);
+      // Восстанавливаем остатки после отмены (#4)
+      await supabase.rpc('recalculate_stock', { p_branch_id: branchId });
     }
     setShowKaspiQR(false);
   };
@@ -1257,7 +1277,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
       {showKaspiQR && tempSaleId && (
         <KaspiQRModal
-          amount={total}
+          amount={totalNow}
           saleId={tempSaleId}
           onConfirm={handleKaspiConfirm}
           onCancel={handleKaspiCancel}

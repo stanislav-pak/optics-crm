@@ -83,7 +83,8 @@ function AppContent() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     const handler = (event: MessageEvent) => {
-      if (event.data?.type === 'PUSH_RECEIVED') {
+      // Играем звук только когда вкладка скрыта (#16)
+      if (event.data?.type === 'PUSH_RECEIVED' && document.visibilityState === 'hidden') {
         playNotificationSound();
       }
     };
@@ -119,15 +120,22 @@ function AppContent() {
 
   useEffect(() => {
     if (!employee?.branch_id) return;
-    const lastViewed = localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString();
-    supabase
-      .from('stock_movements')
-      .select('id', { count: 'exact', head: true })
-      .eq('to_branch_id', employee.branch_id)
-      .eq('type', 'transfer')
-      .eq('status', 'in_transit')
-      .gt('created_at', lastViewed)
-      .then(({ count }) => setHasPendingTransfers((count ?? 0) > 0));
+    const branchId = employee.branch_id;
+    const checkPending = async () => {
+      const lastViewed = localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString();
+      const { count } = await supabase
+        .from('stock_movements')
+        .select('id', { count: 'exact', head: true })
+        .eq('to_branch_id', branchId)
+        .eq('type', 'transfer')
+        .eq('status', 'in_transit')
+        .gt('created_at', lastViewed);
+      setHasPendingTransfers((count ?? 0) > 0);
+    };
+    checkPending();
+    // Polling каждые 30 сек чтобы badge не устаревал (#12)
+    const interval = setInterval(checkPending, 30000);
+    return () => clearInterval(interval);
   }, [employee?.branch_id]);
 
   useEffect(() => {
@@ -334,7 +342,9 @@ function AppContent() {
 
   useEffect(() => {
     if (!showCompanyChat) {
-      setTimeout(() => loadInternalUnread(), 500);
+      const empId = employee?.id;
+      // Захватываем id до таймаута — гарантируем что employee не стал null (#13)
+      setTimeout(() => { if (empId) loadInternalUnread(); }, 500);
     } else {
       setInternalUnread(0);
     }
