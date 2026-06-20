@@ -82,7 +82,7 @@ export function CRMSidebar({ chat, onBack }: CRMSidebarProps) {
   // Загрузка менеджеров для назначения задач (только для админа)
   useEffect(() => {
     if (!isAdmin) return;
-    supabase.from('employees').select('id, name').eq('role', 'manager').eq('is_active', true).order('name')
+    supabase.from('employees').select('id, name').eq('role', 'manager').eq('is_active', true).eq('is_system', false).order('name')
       .then(({ data }) => setManagers(data ?? []));
   }, [isAdmin]);
 

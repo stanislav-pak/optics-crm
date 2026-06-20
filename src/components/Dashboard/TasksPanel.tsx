@@ -79,7 +79,7 @@ export function TasksPanel({ onBack, onHelpClick }: TasksPanelProps) {
     fetchTasks();
     if (isAdmin) {
       supabase.from('branches').select('id, name, city').order('name').then(({ data }) => setBranches(data ?? []));
-      supabase.from('employees').select('id, name, branch_id').eq('role', 'manager').eq('is_active', true).order('name')
+      supabase.from('employees').select('id, name, branch_id').eq('role', 'manager').eq('is_active', true).eq('is_system', false).order('name')
         .then(({ data }) => { setManagers(data ?? []); setFilteredManagers(data ?? []); });
     }
   }, []);

@@ -62,6 +62,7 @@ export function EmployeeActivity({ onBack }: EmployeeActivityProps) {
       .select('id, name, email')
       .eq('role', 'manager')
       .eq('is_active', true)
+      .eq('is_system', false)
       .order('name');
 
     if (!emps) return;

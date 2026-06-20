@@ -22,6 +22,7 @@ export interface Employee {
   phone?: string;
   role: UserRole;
   is_active: boolean;
+  is_system: boolean;
   created_at: string;
   updated_at: string;
   branch?: Branch;

@@ -94,6 +94,7 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
       .select('id, name, role')
       .eq('branch_id', reassignBranch)
       .eq('is_active', true)
+      .eq('is_system', false)
       .order('name')
       .then(({ data }) => {
         setEmployees(data ?? []);

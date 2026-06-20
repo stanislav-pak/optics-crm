@@ -371,7 +371,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Загружаем сотрудников для фильтра продаж
   useEffect(() => {
-    supabase.from('employees').select('id, name, branch_id').order('name')
+    supabase.from('employees').select('id, name, branch_id').eq('is_system', false).order('name')
       .then(({ data }) => setSaleEmployees(data ?? []));
   }, []);
 

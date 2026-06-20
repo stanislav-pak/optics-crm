@@ -99,7 +99,7 @@ export function AdminDashboard({ onChatSelect, activeChatId }: AdminDashboardPro
   useEffect(() => {
     fetchChats();
     supabase.from('branches').select('id, name, city').order('city').then(({ data }) => setBranches(data ?? []));
-    supabase.from('employees').select('id, name, branch_id').eq('role', 'manager').eq('is_active', true).order('name').then(({ data }) => setEmployees(data ?? []));
+    supabase.from('employees').select('id, name, branch_id').eq('role', 'manager').eq('is_active', true).eq('is_system', false).order('name').then(({ data }) => setEmployees(data ?? []));
     const channel = supabase.channel('admin-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, fetchChats)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deal_stages' }, fetchChats)
