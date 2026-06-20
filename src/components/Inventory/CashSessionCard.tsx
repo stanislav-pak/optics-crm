@@ -72,7 +72,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     // Доплаты мастерской за сегодня (остатки при выдаче)
     const { data: workshopPayments } = await supabase
       .from('service_orders')
-      .select('service_price, parts_price, prepayment, remaining_payment_method, remaining_paid_at')
+      .select('service_price, parts_price, prepayment, original_prepayment, remaining_payment_method, remaining_paid_at')
       .eq('created_branch_id', branchId)
       .gte('remaining_paid_at', todayStr + 'T00:00:00')
       .lte('remaining_paid_at', todayStr + 'T23:59:59')
@@ -80,11 +80,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
     const cashWorkshop = (workshopPayments ?? [])
       .filter(o => o.remaining_payment_method === 'cash')
-      .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
+      .reduce((sum, o) => sum + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
     const kaspiWorkshop = (workshopPayments ?? [])
       .filter(o => o.remaining_payment_method === 'kaspi')
-      .reduce((sum, o) => sum + (o.service_price + o.parts_price - o.prepayment), 0);
+      .reduce((sum, o) => sum + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
     // Возвраты предоплат мастерской сегодня
     const { data: refunds } = await supabase
@@ -106,7 +106,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     // Возвраты доплат мастерской сегодня (remaining_refunded_at)
     const { data: remainingRefunds } = await supabase
       .from('service_orders')
-      .select('service_price, parts_price, prepayment, remaining_refund_method')
+      .select('service_price, parts_price, prepayment, original_prepayment, remaining_refund_method')
       .eq('created_branch_id', branchId)
       .gte('remaining_refunded_at', todayStr + 'T00:00:00')
       .lte('remaining_refunded_at', todayStr + 'T23:59:59')
@@ -114,11 +114,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
     const remainingRefundCash = (remainingRefunds ?? [])
       .filter(o => o.remaining_refund_method === 'cash')
-      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - o.prepayment), 0);
+      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
     const remainingRefundKaspi = (remainingRefunds ?? [])
       .filter(o => o.remaining_refund_method === 'kaspi')
-      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - o.prepayment), 0);
+      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
     // Возвраты товаров за сегодня (stock_movements type=return, price=null → берём из sale_items)
     const { data: returnMovements } = await supabase

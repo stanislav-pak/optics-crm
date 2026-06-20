@@ -216,12 +216,12 @@ function AppContent() {
     async function fetchCount() {
       const { data } = await supabase
         .from('service_orders')
-        .select('service_price, parts_price, prepayment')
+        .select('service_price, parts_price, prepayment, original_prepayment')
         .eq('created_branch_id', branchId)
         .not('status', 'in', '("done","cancelled")');
       const count = (data ?? []).filter(
-        (o: { service_price: number; parts_price: number; prepayment: number }) =>
-          o.service_price + o.parts_price - o.prepayment > 0
+        (o: { service_price: number; parts_price: number; prepayment: number; original_prepayment: number | null }) =>
+          o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment) > 0
       ).length;
       setPendingPaymentsCount(count);
     }

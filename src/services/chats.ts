@@ -56,10 +56,11 @@ export async function searchClientsForChat(
   branchId: string,
   allBranches: boolean
 ): Promise<ClientSearchResult[]> {
+  const safeSearch = search.replace(/[(),]/g, '');
   let q = supabase
     .from('clients')
     .select('id, name, phone')
-    .or(`name.ilike.%${search}%,phone.ilike.%${search}%`)
+    .or(`name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`)
     .order('name')
     .limit(15);
   if (!allBranches) q = q.eq('branch_id', branchId);
