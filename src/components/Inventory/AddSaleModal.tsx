@@ -117,11 +117,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   async function searchClientsByName(query: string) {
     if (!query.trim()) { setNameSuggestions([]); setShowSuggestions(false); return; }
+    const safeQuery = query.replace(/[(),]/g, '');
     const { data } = await supabase
       .from('clients')
       .select('id, name, phone, branch:branches(name)')
       .eq('branch_id', branchId)
-      .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .or(`name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%`)
       .limit(7);
     setNameSuggestions((data ?? []) as ClientSnap[]);
     setShowSuggestions(true);
@@ -347,11 +348,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         }
       }
 
-      // Валидация смешанной оплаты: сумма должна покрывать итог (#1)
+      // Валидация смешанной оплаты: сумма должна покрывать полный итог (товары + мастерская)
       if (paymentMethod === 'mixed') {
         const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
-        if (paid < total - 0.01) {
-          alert(`Недоплата ${(total - paid).toLocaleString()} ₸. Сумма наличных и Kaspi должна равняться итогу продажи.`);
+        if (paid < totalNow - 0.01) {
+          alert(`Недоплата ${(totalNow - paid).toLocaleString()} ₸. Сумма наличных и Kaspi должна равняться итогу продажи.`);
           isSubmittingRef.current = false;
           setLoading(false);
           return;
@@ -433,7 +434,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const handleKaspiConfirm = async () => {
     if (!tempSaleId) return;
-    await supabase.from('sales').update({ status: 'paid' }).eq('id', tempSaleId);
+    const { error } = await supabase.from('sales').update({ status: 'paid' }).eq('id', tempSaleId);
+    if (error) {
+      alert('Ошибка подтверждения оплаты. Проверьте статус продажи вручную в разделе Продажи.');
+      return;
+    }
     setShowKaspiQR(false);
     onSuccess();
     onClose();

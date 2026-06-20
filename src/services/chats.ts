@@ -20,10 +20,12 @@ export async function getChats(filters?: ChatListFilters): Promise<Chat[]> {
   if (filters?.branch_id) query = query.eq('branch_id', filters.branch_id);
 if (filters?.employee_id) query = query.eq('employee_id', filters.employee_id);
   if (filters?.search) {
+    const safeSearch = filters.search.replace(/[(),]/g, '');
     const { data: found } = await supabase
       .from('clients')
       .select('id')
-      .or(`name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
+      .or(`name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`)
+      .limit(100);
     const ids = (found ?? []).map((c: { id: string }) => c.id);
     if (ids.length === 0) return [];
     query = query.in('client_id', ids);

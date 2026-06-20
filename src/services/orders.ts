@@ -142,7 +142,10 @@ export async function createOrder(data: CreateOrderData): Promise<Order> {
           price: item.price,
         }))
       );
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      await supabase.from('orders').delete().eq('id', newId);
+      throw itemsError;
+    }
   }
 
   return getOrderById(newId);

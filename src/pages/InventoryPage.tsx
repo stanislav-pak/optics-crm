@@ -316,11 +316,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Realtime: обновляем status/payment_type в saleWorkshopOrders (карточки продаж)
   useEffect(() => {
+    const filter = role !== 'admin' && activeBranchId
+      ? { event: 'UPDATE' as const, schema: 'public', table: 'service_orders', filter: `created_branch_id=eq.${activeBranchId}` }
+      : { event: 'UPDATE' as const, schema: 'public', table: 'service_orders' };
     const channel = supabase
       .channel('inventory-sale-workshop-orders')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'service_orders' },
+        filter,
         (payload) => {
           const upd = payload.new as { sale_id?: string; status?: string; payment_type?: string | null };
           if (!upd.sale_id) return;
@@ -728,7 +731,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const hasActiveRevision = revisions.some(r => r.status === 'in_progress');
   const overviewBlocked = role === 'manager' && hasActiveRevision;
 
-  if (role === 'admin' && activeBranchId === '1104bc27-07bb-4930-93b2-19a2d92b71c9') {
+  if (role === 'admin' && activeBranchId === WORKSHOP_BRANCH_ID) {
     return (
       <div className="min-h-screen bg-gray-50">
         {allBranches.length > 0 && (

@@ -71,7 +71,7 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
       if (e1) throw e1;
 
       const pending = (activeData as ServiceOrder[]).filter(o => {
-        const effectivePrepayment = o.original_prepayment || o.prepayment;
+        const effectivePrepayment = o.original_prepayment ?? o.prepayment;
         return (o.service_price + o.parts_price - effectivePrepayment) > 0;
       });
 
@@ -175,8 +175,8 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
     <div className="min-h-screen bg-gray-50">
       {/* Заголовок */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">Доплаты мастерской</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Незакрытые доплаты и возвраты предоплат</p>
+        <h1 className="text-xl font-semibold text-gray-900">Доплаты и возвраты</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Незакрытые доплаты и возвраты предоплат по заказам мастерской</p>
       </div>
 
       <div className="p-4 space-y-3">
@@ -191,7 +191,7 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
             {/* Тип А: Активные с незакрытым остатком */}
             {pendingOrders.map(order => {
               const total = order.service_price + order.parts_price;
-              const effectivePrepayment = order.original_prepayment || order.prepayment;
+              const effectivePrepayment = order.original_prepayment ?? order.prepayment;
               const remainder = total - effectivePrepayment;
               return (
                 <div key={order.id} className="bg-white rounded-xl border border-orange-100 p-4 space-y-2.5">
@@ -252,7 +252,7 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
 
             {/* Тип Б: Отменённые, нужно вернуть предоплату */}
             {refundOrders.map(order => {
-              const origPrepayment = order.original_prepayment || order.prepayment;
+              const origPrepayment = order.original_prepayment ?? order.prepayment;
               return (
                 <div key={order.id} className="bg-white rounded-xl border border-red-100 p-4 space-y-2.5">
                   {/* Клиент + статус */}
@@ -303,8 +303,8 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 space-y-4">
             <h3 className="text-base font-semibold text-gray-900">
               {confirm.type === 'dopay'
-                ? `Принять доплату ₸${(confirm.order.service_price + confirm.order.parts_price - (confirm.order.original_prepayment || confirm.order.prepayment)).toLocaleString()} от ${confirm.order.client_name}?`
-                : `Вернуть предоплату ₸${(confirm.order.original_prepayment || confirm.order.prepayment).toLocaleString()} клиенту ${confirm.order.client_name}?`
+                ? `Принять доплату ₸${(confirm.order.service_price + confirm.order.parts_price - (confirm.order.original_prepayment ?? confirm.order.prepayment)).toLocaleString()} от ${confirm.order.client_name}?`
+                : `Вернуть предоплату ₸${(confirm.order.original_prepayment ?? confirm.order.prepayment).toLocaleString()} клиенту ${confirm.order.client_name}?`
               }
             </h3>
 

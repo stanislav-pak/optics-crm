@@ -50,7 +50,7 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
       // 3. Workshop remaining payments
       supabase
         .from('service_orders')
-        .select('service_price, parts_price, prepayment, remaining_payment_method')
+        .select('service_price, parts_price, prepayment, original_prepayment, remaining_payment_method')
         .eq('created_branch_id', branchId)
         .gte('remaining_paid_at', dateStart)
         .lte('remaining_paid_at', dateEnd)
@@ -109,13 +109,13 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     .filter(o => o.prepayment_method === 'kaspi')
     .reduce((s, o) => s + (o.prepayment ?? 0), 0);
 
-  // 3. Workshop remaining
+  // 3. Workshop remaining (используем original_prepayment — неизменяемое поле)
   const workshopRemainingCash = (remainingRes.data ?? [])
     .filter(o => o.remaining_payment_method === 'cash')
-    .reduce((s, o) => s + (o.service_price + o.parts_price - o.prepayment), 0);
+    .reduce((s, o) => s + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
   const workshopRemainingKaspi = (remainingRes.data ?? [])
     .filter(o => o.remaining_payment_method === 'kaspi')
-    .reduce((s, o) => s + (o.service_price + o.parts_price - o.prepayment), 0);
+    .reduce((s, o) => s + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
   // 4. Prepayment refunds
   const refundCash = (refundsRes.data ?? [])

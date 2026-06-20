@@ -9,9 +9,8 @@ interface Props {
   onCancel: () => void;
 }
 
-// ЗАГЛУШКА — заменить на реальные данные от заказчика
-const KASPI_MERCHANT_ID = 'YOUR_MERCHANT_ID';
-const KASPI_MERCHANT_NAME = 'Оптика';
+const KASPI_MERCHANT_ID = import.meta.env.VITE_KASPI_MERCHANT_ID ?? '';
+const KASPI_MERCHANT_NAME = import.meta.env.VITE_KASPI_MERCHANT_NAME ?? 'Оптика';
 
 export default function KaspiQRModal({ amount, saleId, onConfirm, onCancel }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,7 +47,10 @@ export default function KaspiQRModal({ amount, saleId, onConfirm, onCancel }: Pr
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+  const isConfirmingRef = useRef(false);
   const handleConfirm = () => {
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
     setStatus('confirmed');
     setTimeout(onConfirm, 1000);
   };

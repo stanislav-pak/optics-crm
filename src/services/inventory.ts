@@ -11,7 +11,7 @@ import { WAREHOUSE_ID } from '../constants';
 // ТОВАРЫ
 // ============================================
 
-export async function getProducts(_branchId?: string) {
+export async function getProducts() {
   const { data, error } = await supabase
     .from('products')
     .select(`
@@ -211,7 +211,7 @@ export async function getLowStockAlerts(branchId?: string) {
 // ДВИЖЕНИЯ СКЛАДА
 // ============================================
 
-export async function addStockMovement(movement: Omit<StockMovement, 'id' | 'created_at'>) {
+async function addStockMovement(movement: Omit<StockMovement, 'id' | 'created_at'>) {
   const { data, error } = await supabase
     .from('stock_movements')
     .insert(movement)
@@ -309,19 +309,7 @@ export async function createPurchaseOrder(
         .from('stock_movements').insert(warehouseMovements);
 
       if (!wMovError) {
-        // Upsert остатков на складе
-        for (const i of items) {
-          const { data: existing } = await supabase
-            .from('stock').select('quantity')
-            .eq('product_id', i.product_id)
-            .eq('branch_id', WAREHOUSE_ID)
-            .maybeSingle();
-          const currentQty = existing?.quantity ?? 0;
-          await supabase.from('stock').upsert(
-            { product_id: i.product_id, branch_id: WAREHOUSE_ID, quantity: currentQty + i.quantity },
-            { onConflict: 'product_id,branch_id' }
-          );
-        }
+        await supabase.rpc('recalculate_stock', { p_branch_id: WAREHOUSE_ID });
       }
     }
   }
@@ -1025,6 +1013,7 @@ export async function approveStockRequest(requestId: string, employeeId: string)
     .eq('id', requestId)
     .single();
   if (error || !req) throw new Error('Заявка не найдена');
+  if (req.status !== 'new') throw new Error('Заявка уже обработана');
 
   const reqItems = req.items as Array<{ product_id: string; quantity: number }>;
 
