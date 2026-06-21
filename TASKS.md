@@ -136,6 +136,53 @@
 
 ---
 
+## 🔵 ВЫПОЛНЕНО В ТЕКУЩЕЙ СЕССИИ
+
+### T30 — Заявки на склад (stock requests) `DONE`
+**Файлы:** `src/components/Inventory/StockRequestModal.tsx` (новый), `src/pages/InventoryPage.tsx`, `src/services/inventory.ts`, `src/types/index.ts`
+**Что сделано:**
+- Новая вкладка «Заявки» в InventoryPage (видна менеджерам-не-складу и сотрудникам склада)
+- StockRequestModal: список всех товаров с остатком на складе, поиск, +/−, заметки, отправка
+- Кнопка «Заявка на склад» в шапке InventoryPage для не-складских менеджеров
+- Синий бейдж на вкладке «Заявки» = количество новых (status=pending)
+- Одобрение: pre-validation наличия остатка по каждой позиции → `deduct_stock_atomic` RPC → статус → зачисление на филиал
+- Отклонение: поле причины, статус rejected
+
+---
+
+### T31 — QA аудит: 16 багов исправлено `DONE`
+**Файлы:** множественные (см. ниже)
+**Что сделано:**
+- Проведён полный аудит приложения: логика, математика, Realtime, push, AudioContext, UI
+- Исправлены 16 багов:
+  1. AddSaleModal: валидация mixed-оплаты перед созданием продажи
+  2. AddSaleModal: `amount={totalNow}` в KaspiQRModal (был total — устаревшая сумма)
+  3. AddSaleModal: guard от двойного submit через `isSubmittingRef`
+  4. AddSaleModal: rollback stock через `recalculate_stock` при отмене Kaspi
+  5. inventory.ts/approveStockRequest: pre-validation остатков до начала переводов
+  6. ReturnModal: `workshopPaidAmount` с явной проверкой null (не `??`) для `original_prepayment=0`
+  7. ReturnModal: ~35 дублирующихся атрибутов `className` объединены
+  8. inventory.ts/createRevision: guard от создания второй активной ревизии
+  9. KaspiQRModal: разделены два useEffect — countdown и onCancel
+  10. InventoryPage: `audioCtxRef = useRef` на уровне компонента (не в useEffect)
+  11. inventory.ts/completeRevision: фильтр `difference != null && !== 0` для stock_movements
+  12. App.tsx/hasPendingTransfers: clearInterval в cleanup (не было утечки таймера)
+  13. App.tsx: guard `empId` в setTimeout перед `loadInternalUnread`
+  14. usePushNotifications: upsert по `employee_id + endpoint` для multi-device
+  15. AddSaleModal: сброс `paidCash/paidKaspi` при смене способа оплаты
+  16. App.tsx: звук только при `visibilityState === 'hidden'`
+
+---
+
+### T32 — Multi-device push: endpoint column `DONE`
+**Файлы:** `src/hooks/usePushNotifications.ts`, migration `add_endpoint_to_push_subscriptions`
+**Что сделано:**
+- Добавлена колонка `endpoint text` в таблицу `push_subscriptions` через Supabase MCP
+- `usePushNotifications` перезаписан: upsert по `employee_id + endpoint`
+- Каждое устройство хранит свою подписку → уведомления приходят на все устройства
+
+---
+
 ## 🟢 МЕЛКО
 
 ### T18 — Непоследовательный формат денежных сумм `DONE`
@@ -209,6 +256,28 @@
 
 ---
 
+### T27 — Филиал «Склад» в форме регистрации `DONE`
+**Файл:** `src/components/Auth/SignupForm.tsx`
+**Что сделано:**
+- Добавлен филиал «Склад» в выпадающий список филиалов при регистрации нового сотрудника
+
+---
+
+### T28 — Кнопка добавления товара только для admin и склад-менеджера `DONE`
+**Файл:** `src/pages/InventoryPage.tsx`
+**Что сделано:**
+- Кнопка «Добавить товар» скрыта от обычных менеджеров
+- Доступна только admin и менеджерам филиала «Склад»
+
+---
+
+### T29 — Название филиала рядом с ролью в шапке `DONE`
+**Файл:** `src/App.tsx`
+**Что сделано:**
+- В шапке приложения рядом с ролью сотрудника отображается название его филиала
+
+---
+
 ### T23 — Подписка: напоминание об оплате и блокировка приложения `TODO`
 **Описание:** Функция абонентской поддержки — ежемесячный платёж. Дата задаётся вручную администратором.
 
@@ -235,10 +304,10 @@
 ---
 
 ## Статистика
-- Всего: 26 задач
+- Всего: 32 задачи
 - TODO: 1 (T23)
 - IN_PROGRESS: 0
-- DONE: 25
+- DONE: 31
 - SKIP: 0
 
 ## Исключено (Kaspi — не запущен)
