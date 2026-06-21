@@ -1746,7 +1746,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     'Итого': s.total,
                     'Наличными': s.paid_cash || 0,
                     'Kaspi QR': s.paid_kaspi || 0,
-                    'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : 'Смешанная',
+                    'Halyk': s.paid_halyk || 0,
+                    'Kaspi перевод': s.paid_kaspi_transfer || 0,
+                    'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : s.payment_method === 'halyk' ? 'Halyk' : s.payment_method === 'kaspi_transfer' ? 'Kaspi перевод' : 'Смешанная',
                     'Статус': STATUS_RU[s.status] ?? s.status,
                   }));
                   xlsxExport(rows, `продажи_${xlsxDate()}.xlsx`);
@@ -1820,12 +1822,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       <div className="pt-2 border-t border-gray-50">
                         <span className="text-xs text-gray-500">
                           {s.payment_method === 'cash' ? '💵 Наличные' :
-                           s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
-                          {s.paid_cash > 0 && s.paid_kaspi > 0 && (
-                            <span className="ml-1 text-gray-400">
-                              ({s.paid_cash.toLocaleString()}₸ + {s.paid_kaspi.toLocaleString()}₸)
-                            </span>
-                          )}
+                           s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
+                           s.payment_method === 'halyk' ? '🏦 Halyk' :
+                           s.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                         </span>
                       </div>
 
@@ -2274,7 +2273,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             <div className="pt-2 border-t border-gray-50">
                               <span className="text-xs text-gray-500">
                                 {relatedSale.payment_method === 'cash' ? '💵 Наличные' :
-                                 relatedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                                 relatedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
+                                 relatedSale.payment_method === 'halyk' ? '🏦 Halyk' :
+                                 relatedSale.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                               </span>
                             </div>
                           )}
@@ -2914,7 +2915,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>
                     {selectedSale.payment_method === 'cash' ? '💵 Наличные' :
-                     selectedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                     selectedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
+                     selectedSale.payment_method === 'halyk' ? '🏦 Halyk' :
+                     selectedSale.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                   </span>
                 </div>
                 {selectedSale.paid_cash > 0 && (
@@ -2929,10 +2932,22 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     <span>₸{selectedSale.paid_kaspi.toLocaleString()}</span>
                   </div>
                 )}
-                {selectedSale.paid_cash > 0 && (selectedSale.paid_cash + selectedSale.paid_kaspi) > selectedSale.total && (
+                {selectedSale.paid_halyk > 0 && (
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Halyk:</span>
+                    <span>₸{selectedSale.paid_halyk.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedSale.paid_kaspi_transfer > 0 && (
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Kaspi перевод:</span>
+                    <span>₸{selectedSale.paid_kaspi_transfer.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedSale.paid_cash > 0 && (selectedSale.paid_cash + selectedSale.paid_kaspi + selectedSale.paid_halyk + selectedSale.paid_kaspi_transfer) > selectedSale.total && (
                   <div className="flex justify-between text-sm font-medium text-green-600">
                     <span>Сдача:</span>
-                    <span>₸{(selectedSale.paid_cash + selectedSale.paid_kaspi - selectedSale.total).toLocaleString()}</span>
+                    <span>₸{(selectedSale.paid_cash + selectedSale.paid_kaspi + selectedSale.paid_halyk + selectedSale.paid_kaspi_transfer - selectedSale.total).toLocaleString()}</span>
                   </div>
                 )}
               </div>

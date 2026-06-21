@@ -363,7 +363,7 @@ export interface PurchaseOrderItem {
   product?: Product;
 }
 
-export type PaymentMethod = 'cash' | 'kaspi_qr' | 'mixed';
+export type PaymentMethod = 'cash' | 'kaspi_qr' | 'halyk' | 'kaspi_transfer' | 'mixed';
 export type SaleStatus = 'pending' | 'paid' | 'cancelled' | 'refunded' | 'partially_refunded';
 
 export interface Sale {
@@ -376,6 +376,8 @@ export interface Sale {
   total: number;
   paid_cash: number;
   paid_kaspi: number;
+  paid_halyk: number;
+  paid_kaspi_transfer: number;
   fiscal_receipt_number?: string;
   kaspi_payment_id?: string;
   notes?: string;

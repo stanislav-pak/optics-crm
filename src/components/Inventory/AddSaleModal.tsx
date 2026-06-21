@@ -37,9 +37,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [items, setItems] = useState<SaleItem[]>([]);
   const [clientId, setClientId] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientSnap | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'kaspi_qr' | 'mixed'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'kaspi_qr' | 'halyk' | 'kaspi_transfer' | 'mixed'>('cash');
   const [paidCash, setPaidCash] = useState('');
   const [paidKaspi, setPaidKaspi] = useState('');
+  const [paidHalyk, setPaidHalyk] = useState('');
+  const [paidKaspiTransfer, setPaidKaspiTransfer] = useState('');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -197,15 +199,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     if (paymentMethod === 'cash') {
       setChange(Math.max(0, parseFloat(paidCash || '0') - totalNow));
     } else if (paymentMethod === 'mixed') {
-      const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
+      const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0')
+        + parseFloat(paidHalyk || '0') + parseFloat(paidKaspiTransfer || '0');
       setChange(Math.max(0, paid - totalNow));
     }
-  }, [paidCash, paidKaspi, totalNow, paymentMethod]);
+  }, [paidCash, paidKaspi, paidHalyk, paidKaspiTransfer, totalNow, paymentMethod]);
 
   // Сбрасываем поля оплаты при смене метода (#15)
   useEffect(() => {
     setPaidCash('');
     setPaidKaspi('');
+    setPaidHalyk('');
+    setPaidKaspiTransfer('');
     setChange(0);
   }, [paymentMethod]);
 
@@ -350,22 +355,23 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
       // Валидация смешанной оплаты: сумма должна покрывать полный итог (товары + мастерская)
       if (paymentMethod === 'mixed') {
-        const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0');
+        const paid = parseFloat(paidCash || '0') + parseFloat(paidKaspi || '0')
+          + parseFloat(paidHalyk || '0') + parseFloat(paidKaspiTransfer || '0');
         if (paid < totalNow - 0.01) {
-          alert(`Недоплата ${(totalNow - paid).toLocaleString()} ₸. Сумма наличных и Kaspi должна равняться итогу продажи.`);
+          alert(`Недоплата ${(totalNow - paid).toLocaleString()} ₸. Общая сумма должна равняться итогу продажи.`);
           isSubmittingRef.current = false;
           setLoading(false);
           return;
         }
       }
 
-      const cashAmount = paymentMethod === 'cash' ? total :
-        paymentMethod === 'kaspi_qr' ? 0 : parseFloat(paidCash || '0');
-      const kaspiAmount = paymentMethod === 'kaspi_qr' ? total :
-        paymentMethod === 'cash' ? 0 : parseFloat(paidKaspi || '0');
+      const cashAmount = paymentMethod === 'cash' ? totalNow : paymentMethod === 'mixed' ? parseFloat(paidCash || '0') : 0;
+      const kaspiAmount = paymentMethod === 'kaspi_qr' ? totalNow : paymentMethod === 'mixed' ? parseFloat(paidKaspi || '0') : 0;
+      const halykAmount = paymentMethod === 'halyk' ? totalNow : paymentMethod === 'mixed' ? parseFloat(paidHalyk || '0') : 0;
+      const kaspiTransferAmount = paymentMethod === 'kaspi_transfer' ? totalNow : paymentMethod === 'mixed' ? parseFloat(paidKaspiTransfer || '0') : 0;
 
-      const needsKaspi = paymentMethod === 'kaspi_qr' || paymentMethod === 'mixed';
-      const initialStatus = needsKaspi ? 'pending' : 'paid';
+      const needsKaspiQR = paymentMethod === 'kaspi_qr' || (paymentMethod === 'mixed' && parseFloat(paidKaspi || '0') > 0);
+      const initialStatus = needsKaspiQR ? 'pending' : 'paid';
 
       const sale = await createSale(
         {
@@ -377,6 +383,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           total,
           paid_cash: cashAmount,
           paid_kaspi: kaspiAmount,
+          paid_halyk: halykAmount,
+          paid_kaspi_transfer: kaspiTransferAmount,
           notes: notes || undefined,
         },
         items.map(i => ({
@@ -415,7 +423,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         });
       }
 
-      if (needsKaspi) {
+      if (needsKaspiQR) {
         setTempSaleId(sale.id);
         setShowKaspiQR(true);
         setLoading(false);
@@ -1089,11 +1097,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                 {/* Способ оплаты */}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-2">Способ оплаты</label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {(['cash', 'kaspi_qr', 'mixed'] as const).map(m => (
-                      <button key={m} onClick={() => setPaymentMethod(m)}
-                        className={`py-2 rounded-lg text-xs font-medium transition-colors ${paymentMethod === m ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-                        {m === 'cash' ? '💵 Наличные' : m === 'kaspi_qr' ? '📱 Kaspi QR' : '💳 Смешанная'}
+                  <div className="grid grid-cols-3 gap-1 mb-1">
+                    {([
+                      { v: 'cash',           label: '💵 Наличные' },
+                      { v: 'kaspi_qr',       label: '📱 Kaspi QR' },
+                      { v: 'halyk',          label: '🏦 Halyk' },
+                      { v: 'kaspi_transfer', label: '💳 Kaspi пер.' },
+                      { v: 'mixed',          label: '🔀 Смешанная' },
+                    ] as const).map(({ v, label }) => (
+                      <button key={v} onClick={() => setPaymentMethod(v)}
+                        className={`py-2 rounded-lg text-xs font-medium transition-colors ${paymentMethod === v ? 'bg-green-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -1105,61 +1119,61 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                     <label className="block text-xs text-gray-500 mb-1">Получено наличными ₸</label>
                     <input type="text" inputMode="numeric" value={paidCash}
                       onChange={e => setPaidCash(e.target.value.replace(/[^0-9.]/g, ''))}
-                      onFocus={(e) => {
-                        const input = e.target;
-                        setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
-                          e.preventDefault();
-                          setPaidCash('');
-                        }
-                      }}
+                      onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}
+                      onKeyDown={e => { if (e.key === 'Backspace' && e.currentTarget.value.length === 1) { e.preventDefault(); setPaidCash(''); } }}
                       placeholder={totalNow.toString()}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    {change > 0 && (
-                      <p className="text-sm text-green-600 font-medium mt-1">Сдача: ₸{change.toLocaleString()}</p>
-                    )}
+                    {change > 0 && <p className="text-sm text-green-600 font-medium mt-1">Сдача: ₸{change.toLocaleString()}</p>}
+                  </div>
+                )}
+
+                {(paymentMethod === 'halyk' || paymentMethod === 'kaspi_transfer') && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
+                    {paymentMethod === 'halyk' ? '🏦 Перевод Halyk Bank — подтвердите получение вручную' : '💳 Kaspi перевод — подтвердите получение вручную'}
                   </div>
                 )}
 
                 {paymentMethod === 'mixed' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Наличные ₸</label>
-                      <input type="text" inputMode="numeric" value={paidCash}
-                        onChange={e => setPaidCash(e.target.value.replace(/[^0-9.]/g, ''))}
-                        onFocus={(e) => {
-                          const input = e.target;
-                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
-                            e.preventDefault();
-                            setPaidCash('');
-                          }
-                        }}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Наличные ₸</label>
+                        <input type="text" inputMode="numeric" value={paidCash}
+                          onChange={e => setPaidCash(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}
+                          onKeyDown={e => { if (e.key === 'Backspace' && e.currentTarget.value.length === 1) { e.preventDefault(); setPaidCash(''); } }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Kaspi QR ₸</label>
+                        <input type="text" inputMode="numeric" value={paidKaspi}
+                          onChange={e => setPaidKaspi(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}
+                          onKeyDown={e => { if (e.key === 'Backspace' && e.currentTarget.value.length === 1) { e.preventDefault(); setPaidKaspi(''); } }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Halyk ₸</label>
+                        <input type="text" inputMode="numeric" value={paidHalyk}
+                          onChange={e => setPaidHalyk(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}
+                          onKeyDown={e => { if (e.key === 'Backspace' && e.currentTarget.value.length === 1) { e.preventDefault(); setPaidHalyk(''); } }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Kaspi перевод ₸</label>
+                        <input type="text" inputMode="numeric" value={paidKaspiTransfer}
+                          onChange={e => setPaidKaspiTransfer(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}
+                          onKeyDown={e => { if (e.key === 'Backspace' && e.currentTarget.value.length === 1) { e.preventDefault(); setPaidKaspiTransfer(''); } }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Kaspi QR ₸</label>
-                      <input type="text" inputMode="numeric" value={paidKaspi}
-                        onChange={e => setPaidKaspi(e.target.value.replace(/[^0-9.]/g, ''))}
-                        onFocus={(e) => {
-                          const input = e.target;
-                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
-                            e.preventDefault();
-                            setPaidKaspi('');
-                          }
-                        }}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    </div>
-                    {change > 0 && (
-                      <p className="col-span-2 text-sm text-green-600 font-medium">Сдача: ₸{change.toLocaleString()}</p>
-                    )}
+                    {change > 0 && <p className="text-sm text-green-600 font-medium">Сдача: ₸{change.toLocaleString()}</p>}
                   </div>
                 )}
               </div>
