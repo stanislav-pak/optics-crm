@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
-import { createSale, getProductsFromStock, getProductByBarcode } from '../../services/inventory';
+import { createSale, getProductsFromStock, getProductByBarcode, createStockRequest } from '../../services/inventory';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
@@ -303,7 +303,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       try {
         const orderClientName = selectedClient?.name ?? newClientName ?? undefined;
         const orderClientPhone = selectedClient?.phone ?? newClientPhone ?? undefined;
-        await createOrder({
+        const newOrder = await createOrder({
           branch_id: branchId,
           created_by: employeeId,
           client_id: clientId || null,
@@ -322,6 +322,28 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             price: i.price,
           })),
         });
+
+        // При 100% оплате — авто-создаём заявку на склад
+        if (preorderPaymentType === 'full') {
+          const requestItems = items
+            .filter(i => !!i.product_id)
+            .map(i => ({ product_id: i.product_id!, quantity: i.quantity }));
+          if (requestItems.length > 0) {
+            const req = await createStockRequest({
+              branch_id: branchId,
+              created_by: employeeId,
+              order_id: newOrder.id,
+              notes: `Предзаказ: ${orderClientName || orderClientPhone || 'клиент'}`,
+              items: requestItems,
+            });
+            // Связываем заказ с заявкой
+            await supabase
+              .from('orders')
+              .update({ stock_request_id: req.id })
+              .eq('id', newOrder.id);
+          }
+        }
+
         window.dispatchEvent(new CustomEvent('preorder-created'));
         onClose();
       } catch (e: any) {

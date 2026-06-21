@@ -715,7 +715,8 @@ export async function createTransfer(
   toBranchId: string,
   productId: string,
   quantity: number,
-  employeeId: string
+  employeeId: string,
+  order_id?: string
 ) {
   // Получаем названия филиалов
   const { data: branches } = await supabase
@@ -747,6 +748,7 @@ export async function createTransfer(
     reference_type: 'transfer',
     created_by: employeeId,
     notes: `Перемещение в ${toName}`,
+    ...(order_id ? { order_id } : {}),
   });
 
   if (error) throw error;
@@ -782,6 +784,21 @@ export async function confirmTransfer(
   // Пересчитываем остатки получателя и отправителя
   await supabase.rpc('recalculate_stock', { p_branch_id: movement.to_branch_id });
   await supabase.rpc('recalculate_stock', { p_branch_id: movement.branch_id });
+
+  // Если перемещение привязано к предзаказу — проверяем, все ли позиции доставлены
+  if (movement.order_id) {
+    const { data: pending } = await supabase
+      .from('stock_movements')
+      .select('id')
+      .eq('order_id', movement.order_id)
+      .eq('status', 'in_transit');
+    if (!pending || pending.length === 0) {
+      await supabase
+        .from('orders')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', movement.order_id);
+    }
+  }
 }
 
 export async function getIncomingTransfers(branchId: string) {
@@ -789,9 +806,10 @@ export async function getIncomingTransfers(branchId: string) {
   const { data, error } = await supabase
     .from('stock_movements')
     .select(`
-      id, product_id, branch_id, to_branch_id, quantity, notes, created_at, status,
+      id, product_id, branch_id, to_branch_id, quantity, notes, created_at, status, order_id,
       product:products!stock_movements_product_id_fkey(id, name, sku),
-      from_branch:branches!stock_movements_branch_id_fkey(id, name)
+      from_branch:branches!stock_movements_branch_id_fkey(id, name),
+      order:orders!stock_movements_order_id_fkey(id, client_name, client_phone)
     `)
     .eq('to_branch_id', branchId)
     .eq('type', 'transfer')
@@ -970,6 +988,7 @@ export async function createStockRequest(params: {
   branch_id: string;
   created_by: string;
   notes?: string;
+  order_id?: string;
   items: Array<{ product_id: string; quantity: number }>;
 }) {
   const { items, ...requestData } = params;
@@ -995,7 +1014,8 @@ export async function getStockRequests(branchId?: string): Promise<StockRequest[
       *,
       branch:branches(name),
       creator:employees(name),
-      items:stock_request_items(id, quantity, product_id, product:products(id, name, sku))
+      items:stock_request_items(id, quantity, product_id, product:products(id, name, sku)),
+      order:orders!stock_requests_order_id_fkey(id, client_name, client_phone)
     `)
     .order('created_at', { ascending: false });
 
@@ -1033,7 +1053,7 @@ export async function approveStockRequest(requestId: string, employeeId: string)
   }
 
   for (const item of reqItems) {
-    await createTransfer(WAREHOUSE_ID, req.branch_id, item.product_id, item.quantity, employeeId);
+    await createTransfer(WAREHOUSE_ID, req.branch_id, item.product_id, item.quantity, employeeId, req.order_id ?? undefined);
   }
 
   const { error: updErr } = await supabase

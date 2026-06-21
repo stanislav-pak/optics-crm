@@ -25,6 +25,7 @@ export interface Order {
   prepayment_paid_at?: string | null;
   total_amount: number;
   source_branch_id?: string | null;
+  stock_request_id?: string | null;
   notes?: string;
   expected_date?: string | null;
   created_by: string;

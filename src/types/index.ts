@@ -317,6 +317,7 @@ export interface StockMovement {
   confirmed_by?: string;
   confirmed_at?: string;
   discrepancy?: number;
+  order_id?: string | null;
   // Relations
   product?: Product;
   branch?: Branch;
@@ -462,11 +463,13 @@ export interface StockRequest {
   status: 'new' | 'approved' | 'rejected';
   notes?: string;
   rejection_reason?: string;
+  order_id?: string | null;
   created_at: string;
   updated_at: string;
   branch?: { name: string };
   creator?: { name: string };
   items?: StockRequestItem[];
+  order?: { id: string; client_name?: string; client_phone?: string } | null;
 }
 
 // ============================================

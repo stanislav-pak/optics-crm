@@ -8,8 +8,10 @@ interface IncomingTransfer {
   quantity: number;
   created_at: string;
   notes?: string;
+  order_id?: string | null;
   product: { id: string; name: string; sku?: string };
   from_branch: { id: string; name: string };
+  order?: { id: string; client_name?: string; client_phone?: string } | null;
 }
 
 interface Props {
@@ -123,6 +125,12 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
                   </p>
                   {t.product?.sku && (
                     <p className="text-xs text-gray-400 mt-0.5">{t.product.sku}</p>
+                  )}
+                  {t.order_id && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                      <span>🛒 Предзаказ:</span>
+                      <span>{t.order?.client_name || t.order?.client_phone || 'клиент'}</span>
+                    </div>
                   )}
                 </div>
 

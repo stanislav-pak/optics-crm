@@ -2524,7 +2524,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     <div key={req.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{req.branch?.name ?? '—'}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900">{req.branch?.name ?? '—'}</p>
+                            {req.order_id && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                                🛒 Предзаказ: {(req as any).order?.client_name || (req as any).order?.client_phone || 'клиент'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {req.creator?.name ?? '—'} · {new Date(req.created_at).toLocaleDateString('ru-RU')}
                           </p>
