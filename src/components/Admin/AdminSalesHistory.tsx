@@ -57,7 +57,7 @@ export default function AdminSalesHistory() {
       {
         let q = supabase
           .from('sales')
-          .select(`*, client:clients(name, phone), employee:employees(name), items:sale_items(*, product:products(name))`)
+          .select(`*, branch:branches(name), client:clients(name, phone), employee:employees(name), items:sale_items(*, product:products(name))`)
           .order('created_at', { ascending: false })
           .limit(200);
         if (branchId) q = q.eq('branch_id', branchId);

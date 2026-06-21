@@ -2528,14 +2528,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             <p className="text-sm font-semibold text-gray-900">{req.branch?.name ?? '—'}</p>
                             {req.order_id && (
                               <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                                🛒 Предзаказ: {(req as any).order?.client_name || (req as any).order?.client_phone || 'клиент'}
+                                🛒 {(req as any).order?.client_name || (req as any).order?.client_phone || (req.notes?.replace('Предзаказ: ', '') ?? 'Предзаказ')}
                               </span>
                             )}
                           </div>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {req.creator?.name ?? '—'} · {new Date(req.created_at).toLocaleDateString('ru-RU')}
                           </p>
-                          {req.notes && <p className="text-xs text-gray-500 mt-1 italic">{req.notes}</p>}
+                          {req.notes && !req.order_id && <p className="text-xs text-gray-500 mt-1 italic">{req.notes}</p>}
                           {req.rejection_reason && (
                             <p className="text-xs text-red-500 mt-1">Причина: {req.rejection_reason}</p>
                           )}
