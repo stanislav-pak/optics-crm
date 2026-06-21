@@ -31,7 +31,7 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
       // 1. Sales
       supabase
         .from('sales')
-        .select('paid_cash, paid_kaspi, status')
+        .select('paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer, status')
         .eq('branch_id', branchId)
         .in('status', ['paid', 'refunded', 'partially_refunded'])
         .gte('created_at', dateStart)
@@ -96,7 +96,9 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
 
   // 1. Sales totals
   const salesRows = salesRes.data ?? [];
-  const salesCash = salesRows.reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
+  // Halyk и Kaspi перевод — ручной ввод, приравниваются к наличным
+  const salesCash = salesRows.reduce((s, x) =>
+    s + (Number(x.paid_cash) || 0) + (Number(x.paid_halyk) || 0) + (Number(x.paid_kaspi_transfer) || 0), 0);
   const salesKaspi = salesRows.reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
   const salesCount = salesRows.filter(x => x.status === 'paid').length;
   const avgCheck = salesCount > 0 ? (salesCash + salesKaspi) / salesCount : 0;

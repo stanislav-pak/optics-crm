@@ -42,13 +42,15 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     setLoading(true);
     const { data: sales } = await supabase
       .from('sales')
-      .select('total, paid_cash, paid_kaspi')
+      .select('total, paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer')
       .eq('branch_id', branchId)
       .in('status', ['paid', 'refunded', 'partially_refunded'])
       .gte('created_at', todayStr + 'T00:00:00')
       .lte('created_at', todayStr + 'T23:59:59');
 
-    const salesCash = (sales || []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
+    // Halyk и Kaspi перевод считаются как наличные (ручной ввод, без API)
+    const salesCash = (sales || []).reduce((s, x) =>
+      s + (Number(x.paid_cash) || 0) + (Number(x.paid_halyk) || 0) + (Number(x.paid_kaspi_transfer) || 0), 0);
     const salesKaspi = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
 
     // Предоплаты мастерской за сегодня (created_branch_id = этот филиал)
