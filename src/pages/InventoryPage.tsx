@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download, Printer } from 'lucide-react';
+import { AlertTriangle, Plus, Search, QrCode, Trash2, X, Users, Download, Printer, Pencil, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   getProducts, getProductsFromStock, getStock, getInventoryStats, getLowStockAlerts,
@@ -196,6 +196,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   });
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editGroupValue, setEditGroupValue] = useState('');
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
@@ -698,6 +700,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     await loadAll();
   }
 
+  async function renameGroup(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) { setEditingGroup(null); return; }
+    await supabase.from('products').update({ product_group: trimmed }).eq('product_group', oldName);
+    setEditingGroup(null);
+    await loadAll();
+  }
+
   async function deletePurchaseOrder(id: string) {
     if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
     const { error: itemsError } = await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
@@ -1044,15 +1054,47 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         {/* Заголовок группы */}
                         <div
                           className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 cursor-pointer select-none hover:bg-amber-100 active:bg-amber-100"
-                          onClick={() => toggleGroup(groupName)}
+                          onClick={() => editingGroup !== groupName && toggleGroup(groupName)}
                         >
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0">ГРУППА</span>
-                          <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
-                          <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">
-                            {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
-                            {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
-                          </span>
-                          <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
+                          {editingGroup === groupName ? (
+                            <>
+                              <input
+                                className="flex-1 text-sm font-semibold text-gray-800 bg-white border border-amber-300 rounded px-2 py-0.5 outline-none"
+                                value={editGroupValue}
+                                autoFocus
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => setEditGroupValue(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') renameGroup(groupName, editGroupValue);
+                                  if (e.key === 'Escape') setEditingGroup(null);
+                                }}
+                              />
+                              <button onClick={e => { e.stopPropagation(); renameGroup(groupName, editGroupValue); }} className="text-emerald-600 hover:text-emerald-700 flex-shrink-0">
+                                <Check size={15} />
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); setEditingGroup(null); }} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                                <X size={15} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
+                              <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">
+                                {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
+                                {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
+                              </span>
+                              {(role === 'admin' || role === 'branch_admin') && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setEditingGroup(groupName); setEditGroupValue(groupName); }}
+                                  className="text-amber-400 hover:text-amber-600 flex-shrink-0 p-0.5"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                              )}
+                              <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
+                            </>
+                          )}
                         </div>
                         {/* Варианты */}
                         {isExpanded && (
