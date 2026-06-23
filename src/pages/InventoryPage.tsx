@@ -1060,7 +1060,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           {editingGroup === groupName ? (
                             <>
                               <input
-                                className="flex-1 text-sm font-semibold text-gray-800 bg-white border border-amber-300 rounded px-2 py-0.5 outline-none"
+                                className="flex-1 min-w-0 text-sm font-semibold text-gray-800 bg-white border border-amber-300 rounded px-2 py-0.5 outline-none"
                                 value={editGroupValue}
                                 autoFocus
                                 onClick={e => e.stopPropagation()}
@@ -1070,11 +1070,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                   if (e.key === 'Escape') setEditingGroup(null);
                                 }}
                               />
-                              <div className="flex items-center gap-4 flex-shrink-0 ml-1">
-                                <button onClick={e => { e.stopPropagation(); renameGroup(groupName, editGroupValue); }} className="text-emerald-600 hover:text-emerald-700 p-1">
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <button onClick={e => { e.stopPropagation(); renameGroup(groupName, editGroupValue); }} className="text-emerald-600 hover:text-emerald-700 p-1.5">
                                   <Check size={18} />
                                 </button>
-                                <button onClick={e => { e.stopPropagation(); setEditingGroup(null); }} className="text-red-400 hover:text-red-600 p-1">
+                                <button onClick={e => { e.stopPropagation(); setEditingGroup(null); }} className="text-red-400 hover:text-red-600 p-1.5">
                                   <X size={18} />
                                 </button>
                               </div>
