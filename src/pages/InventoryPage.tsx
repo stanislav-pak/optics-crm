@@ -112,6 +112,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }>>({});
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Фильтры движений
@@ -724,10 +725,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     else console.error('deleteProduct error:', error);
   }
 
+  const productCategories = Array.from(
+    new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode?.includes(search)
+    (!selectedCategory || p.category_id === selectedCategory) &&
+    (!search ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(search.toLowerCase()) ||
+      p.barcode?.includes(search))
   );
 
   if (loading) {
@@ -962,6 +969,23 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 </svg>
               </button>
             </div>
+            {/* Фильтр по категориям */}
+            {productCategories.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => setSelectedCategory(null)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Все</button>
+                {productCategories.map(cat => (
+                  <button key={cat.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >{cat.name}</button>
+                ))}
+              </div>
+            )}
             {/* Кнопки — Экспорт и Добавить */}
             <div className="flex gap-2">
               <button
