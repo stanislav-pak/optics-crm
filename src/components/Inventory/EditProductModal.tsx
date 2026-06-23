@@ -44,6 +44,7 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
 
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [showNewBrand, setShowNewBrand] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
 
@@ -257,26 +258,44 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
           </div>
 
           {/* Группа */}
-          <div>
+          <div className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">Группа</label>
             <input
-              list="edit-product-groups"
               value={form.product_group}
               onChange={e => set('product_group', e.target.value)}
+              onFocus={() => setShowGroupDropdown(true)}
+              onBlur={() => setTimeout(() => setShowGroupDropdown(false), 150)}
               placeholder="Выберите или введите новую группу"
               className={inputCls}
+              autoComplete="off"
             />
-            <datalist id="edit-product-groups">
-              {groups.map(g => <option key={g} value={g} />)}
-            </datalist>
             {form.product_group && (
               <button
                 type="button"
+                onMouseDown={e => e.preventDefault()}
                 onClick={() => set('product_group', '')}
-                className="mt-1 text-xs text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-[34px] text-gray-400 hover:text-gray-600"
               >
-                Очистить группу
+                ✕
               </button>
+            )}
+            {showGroupDropdown && groups.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                {groups
+                  .filter(g => !form.product_group || g.toLowerCase().includes(form.product_group.toLowerCase()))
+                  .map(g => (
+                    <button
+                      key={g}
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { set('product_group', g); setShowGroupDropdown(false); }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      {g}
+                    </button>
+                  ))
+                }
+              </div>
             )}
           </div>
 
