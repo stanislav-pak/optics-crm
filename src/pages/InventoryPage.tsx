@@ -1070,12 +1070,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                   if (e.key === 'Escape') setEditingGroup(null);
                                 }}
                               />
-                              <button onClick={e => { e.stopPropagation(); renameGroup(groupName, editGroupValue); }} className="text-emerald-600 hover:text-emerald-700 flex-shrink-0 p-2">
-                                <Check size={16} />
-                              </button>
-                              <button onClick={e => { e.stopPropagation(); setEditingGroup(null); }} className="text-red-400 hover:text-red-600 flex-shrink-0 p-2 ml-1">
-                                <X size={16} />
-                              </button>
+                              <div className="flex items-center gap-4 flex-shrink-0 ml-1">
+                                <button onClick={e => { e.stopPropagation(); renameGroup(groupName, editGroupValue); }} className="text-emerald-600 hover:text-emerald-700 p-1">
+                                  <Check size={18} />
+                                </button>
+                                <button onClick={e => { e.stopPropagation(); setEditingGroup(null); }} className="text-red-400 hover:text-red-600 p-1">
+                                  <X size={18} />
+                                </button>
+                              </div>
                             </>
                           ) : (
                             <>
