@@ -380,6 +380,14 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
                   />
                 </div>
                 <div>
+                  <label className="block text-xs text-gray-500 mb-1">Градусы (AX)</label>
+                  <input type="number" step="1" min="0" max="180"
+                    onChange={e => setAttr('axis', e.target.value)}
+                    placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs text-gray-500 mb-1">Диаметр (мм)</label>
                   <input type="number" step="0.1"
                     onChange={e => setAttr('diameter', e.target.value)}

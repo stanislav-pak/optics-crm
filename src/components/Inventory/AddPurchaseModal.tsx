@@ -40,6 +40,8 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [lensProducts, setLensProducts] = useState<Set<string>>(new Set());
+  const [axisValues, setAxisValues] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -151,6 +153,12 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       unit: product.unit ?? 'шт',
       price: product.price ?? 0,
     }]);
+    const isLens = !!(product.category?.slug?.includes('lens') || product.category?.slug?.includes('contact'));
+    if (isLens) {
+      setLensProducts(prev => new Set([...prev, product.id]));
+      if (product.attributes?.axis != null)
+        setAxisValues(prev => ({ ...prev, [product.id]: String(product.attributes.axis) }));
+    }
     setSearch(product.name);
     setShowSearch(false);
   };
@@ -174,6 +182,19 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     if (items.length === 0) return;
     setLoading(true);
     try {
+      // Обновляем axis для линз
+      for (const item of items) {
+        const axisStr = axisValues[item.product_id];
+        if (lensProducts.has(item.product_id) && axisStr !== undefined && axisStr !== '') {
+          const axis = parseFloat(axisStr);
+          if (!isNaN(axis)) {
+            const product = products.find(p => p.id === item.product_id);
+            await supabase.from('products').update({
+              attributes: { ...(product?.attributes ?? {}), axis },
+            }).eq('id', item.product_id);
+          }
+        }
+      }
       await createPurchaseOrder(
         {
           supplier_id: supplierId || undefined,
@@ -339,6 +360,18 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
                     )}
                   </div>
 
+                  {lensProducts.has(item.product_id) && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 flex-shrink-0">Градусы (AX)</label>
+                      <input
+                        type="number" step="1" min="0" max="180"
+                        value={axisValues[item.product_id] ?? ''}
+                        onChange={e => setAxisValues(prev => ({ ...prev, [item.product_id]: e.target.value }))}
+                        placeholder="0"
+                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
                   <div className="flex justify-end">
                     {role === 'manager'
                       ? <span className="text-sm text-gray-500">Цена продажи: <span className="font-semibold text-gray-700">₸{item.price.toLocaleString()}</span></span>
