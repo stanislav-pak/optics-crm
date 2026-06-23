@@ -25,6 +25,7 @@ function sortAlpha<T extends { name: string }>(arr: T[]): T[] {
 export default function EditProductModal({ product, role, onClose, onSave }: Props) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [groups, setGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
     barcode: product.barcode ?? '',
     min_stock: String(product.min_stock ?? 0),
     description: String(product.attributes?.description ?? ''),
+    product_group: product.product_group ?? '',
   });
 
   const [showNewCategory, setShowNewCategory] = useState(false);
@@ -65,6 +67,10 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
   useEffect(() => {
     getCategories().then(data => setCategories(sortAlpha(data))).catch(console.error);
     getBrands().then(data => setBrands(sortAlpha(data))).catch(console.error);
+    supabase.from('products').select('product_group').not('product_group', 'is', null).then(({ data }) => {
+      const unique = [...new Set((data ?? []).map((d: { product_group: string | null }) => d.product_group).filter(Boolean))] as string[];
+      setGroups(unique.sort((a, b) => a.localeCompare(b, 'ru')));
+    });
   }, []);
 
   // Свайп вправо — закрыть
@@ -104,6 +110,7 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
         barcode: form.barcode || undefined,
         min_stock: parseInt(form.min_stock || '0'),
         attributes: attrs,
+        product_group: form.product_group.trim() || null,
       };
 
       const updated = await updateProduct(product.id, updates);
@@ -247,6 +254,30 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
               onChange={e => set('min_stock', e.target.value)}
               className={inputCls}
             />
+          </div>
+
+          {/* Группа */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Группа</label>
+            <input
+              list="edit-product-groups"
+              value={form.product_group}
+              onChange={e => set('product_group', e.target.value)}
+              placeholder="Выберите или введите новую группу"
+              className={inputCls}
+            />
+            <datalist id="edit-product-groups">
+              {groups.map(g => <option key={g} value={g} />)}
+            </datalist>
+            {form.product_group && (
+              <button
+                type="button"
+                onClick={() => set('product_group', '')}
+                className="mt-1 text-xs text-gray-400 hover:text-gray-600"
+              >
+                Очистить группу
+              </button>
+            )}
           </div>
 
           {/* Описание */}
