@@ -1084,7 +1084,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                 {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
                                 {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
                               </span>
-                              {(role === 'admin' || role === 'branch_admin') && (
+                              {(role === 'admin' || role === 'branch_admin' || (role === 'manager' && isWarehouseBranch)) && (
                                 <button
                                   onClick={e => { e.stopPropagation(); setEditingGroup(groupName); setEditGroupValue(groupName); }}
                                   className="text-amber-400 hover:text-amber-600 flex-shrink-0 p-0.5"
