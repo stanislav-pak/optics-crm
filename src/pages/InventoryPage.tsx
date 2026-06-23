@@ -1105,11 +1105,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             </>
                           ) : (
                             <>
-                              <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{groupName}</span>
-                              <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">
-                                {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
-                                {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
-                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold text-gray-800">{groupName}</div>
+                                <div className="text-xs text-gray-400 tabular-nums mt-0.5">
+                                  {groupProds.length} {groupProds.length === 1 ? 'товар' : groupProds.length < 5 ? 'товара' : 'товаров'}
+                                  {totalQty > 0 ? ` · ${totalQty} шт` : ' · нет в наличии'}
+                                </div>
+                              </div>
                               {(role === 'admin' || role === 'branch_admin' || (role === 'manager' && isWarehouseBranch)) && (
                                 <button
                                   onClick={e => { e.stopPropagation(); setEditingGroup(groupName); setEditGroupValue(groupName); }}
