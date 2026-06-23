@@ -80,9 +80,13 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   }, [products]);
 
   useEffect(() => {
-    const startX = { x: 0, y: 0 };
-    const onStart = (e: TouchEvent) => { startX.x = e.touches[0].clientX; startX.y = e.touches[0].clientY; };
+    const startX = { x: -1, y: 0 };
+    const onStart = (e: TouchEvent) => {
+      if ((e.target as HTMLElement).closest('[data-no-swipe="true"]')) { startX.x = -1; return; }
+      startX.x = e.touches[0].clientX; startX.y = e.touches[0].clientY;
+    };
     const onEnd = (e: TouchEvent) => {
+      if (startX.x === -1) return;
       const dx = e.changedTouches[0].clientX - startX.x;
       const dy = Math.abs(e.changedTouches[0].clientY - startX.y);
       if (dx > 60 && dy < 80) onClose();
@@ -408,7 +412,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
             {/* Фильтр по категориям */}
             {purchaseCategories.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+              <div data-no-swipe="true" className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                 <button
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => { setSelectedCategory(null); setShowSearch(true); }}
