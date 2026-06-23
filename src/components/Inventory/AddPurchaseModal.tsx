@@ -408,7 +408,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
             {/* Фильтр по категориям */}
             {purchaseCategories.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }} onTouchMove={e => e.stopPropagation()}>
                 <button
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => { setSelectedCategory(null); setShowSearch(true); }}
