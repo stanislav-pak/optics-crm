@@ -47,6 +47,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showKaspiQR, setShowKaspiQR] = useState(false);
   const [tempSaleId, setTempSaleId] = useState<string | null>(null);
@@ -178,10 +179,16 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     return () => { document.removeEventListener('touchstart', onStart); document.removeEventListener('touchend', onEnd); };
   }, []);
 
+  const saleCategories = Array.from(
+    new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode?.includes(search) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
+    (!selectedCategory || p.category_id === selectedCategory) &&
+    (!search ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.barcode?.includes(search) ||
+      p.sku?.toLowerCase().includes(search.toLowerCase()))
   );
 
   const total = items.reduce((sum, i) => sum + i.quantity * i.price, 0);
@@ -805,6 +812,23 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             {/* Поиск товара */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
+              {/* Фильтр по категориям */}
+              {saleCategories.length > 0 && (
+                <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { setSelectedCategory(null); setShowSearch(true); }}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >Все</button>
+                  {saleCategories.map(cat => (
+                    <button key={cat.id}
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { setSelectedCategory(selectedCategory === cat.id ? null : cat.id); setShowSearch(true); }}
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    >{cat.name}</button>
+                  ))}
+                </div>
+              )}
               <div className="relative">
                 <div className="flex gap-2">
                   <div className="flex-1 relative">

@@ -44,6 +44,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   const [axisValues, setAxisValues] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   // Кастомная единица: ключ — индекс позиции
   const [customUnits, setCustomUnits] = useState<Record<number, string>>({});
@@ -110,7 +111,13 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     (p.sku ?? '').toLowerCase().includes(q) ||
     (p.product_group ?? '').toLowerCase().includes(q);
 
-  const filteredAll = products.filter(matchesSearch);
+  const purchaseCategories = Array.from(
+    new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  const filteredAll = products.filter(p =>
+    matchesSearch(p) && (!selectedCategory || p.category_id === selectedCategory)
+  );
   const dropdownGrouped: Record<string, Product[]> = {};
   const dropdownUngrouped: Product[] = [];
   for (const p of filteredAll) {
@@ -399,6 +406,23 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
           {/* Поиск товара */}
           <div ref={searchRef} className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
+            {/* Фильтр по категориям */}
+            {purchaseCategories.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { setSelectedCategory(null); setShowSearch(true); }}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Все</button>
+                {purchaseCategories.map(cat => (
+                  <button key={cat.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { setSelectedCategory(selectedCategory === cat.id ? null : cat.id); setShowSearch(true); }}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >{cat.name}</button>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
