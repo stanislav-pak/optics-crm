@@ -1,0 +1,87 @@
+---
+source_file: "src/pages/InventoryPage.tsx"
+type: "code"
+community: "Inventory Page"
+location: "L1"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Inventory_Page
+---
+
+# InventoryPage.tsx
+
+## Connections
+- [[AddProductModal.tsx]] - `imports_from` [EXTRACTED]
+- [[AddPurchaseModal.tsx]] - `imports_from` [EXTRACTED]
+- [[AddSaleModal.tsx]] - `imports_from` [EXTRACTED]
+- [[App.tsx]] - `imports_from` [EXTRACTED]
+- [[BarcodeScanner.tsx]] - `imports_from` [EXTRACTED]
+- [[Branch_8]] - `imports` [EXTRACTED]
+- [[BranchDetailModal.tsx]] - `imports_from` [EXTRACTED]
+- [[CashSessionCard.tsx]] - `imports_from` [EXTRACTED]
+- [[EditProductModal.tsx]] - `imports_from` [EXTRACTED]
+- [[ExpensesTab.tsx]] - `imports_from` [EXTRACTED]
+- [[ExportBtn()]] - `contains` [EXTRACTED]
+- [[IncomingTransfersModal.tsx]] - `imports_from` [EXTRACTED]
+- [[InventoryPage()]] - `contains` [EXTRACTED]
+- [[InventoryPageProps]] - `contains` [EXTRACTED]
+- [[InventoryStats]] - `imports` [EXTRACTED]
+- [[LowStockModal.tsx]] - `imports_from` [EXTRACTED]
+- [[MV_TYPE_RU]] - `contains` [EXTRACTED]
+- [[MovementDetailModal.tsx]] - `imports_from` [EXTRACTED]
+- [[MovementsTable()]] - `contains` [EXTRACTED]
+- [[PrintLabelModal.tsx]] - `imports_from` [EXTRACTED]
+- [[Product]] - `imports` [EXTRACTED]
+- [[ProductDetailModal.tsx]] - `imports_from` [EXTRACTED]
+- [[PurchaseOrder]] - `imports` [EXTRACTED]
+- [[ReturnModal.tsx]] - `imports_from` [EXTRACTED]
+- [[Revision]] - `imports` [EXTRACTED]
+- [[RevisionModal()]] - `imports` [EXTRACTED]
+- [[RevisionModal.tsx]] - `imports_from` [EXTRACTED]
+- [[STATUS_RU_1]] - `contains` [EXTRACTED]
+- [[Sale]] - `imports` [EXTRACTED]
+- [[ServiceOrder]] - `imports` [EXTRACTED]
+- [[StatCard()]] - `contains` [EXTRACTED]
+- [[StatusBadge()]] - `contains` [EXTRACTED]
+- [[Stock]] - `imports` [EXTRACTED]
+- [[StockAlert]] - `imports` [EXTRACTED]
+- [[StockMovement]] - `imports` [EXTRACTED]
+- [[StockRequest]] - `imports` [EXTRACTED]
+- [[StockRequestModal.tsx]] - `imports_from` [EXTRACTED]
+- [[SuppliersModal.tsx]] - `imports_from` [EXTRACTED]
+- [[Tab_1]] - `contains` [EXTRACTED]
+- [[TransferModal.tsx]] - `imports_from` [EXTRACTED]
+- [[WS_STATUS_RU]] - `contains` [EXTRACTED]
+- [[WorkshopPage.tsx]] - `imports_from` [EXTRACTED]
+- [[WriteoffModal.tsx]] - `imports_from` [EXTRACTED]
+- [[approveStockRequest()]] - `imports` [EXTRACTED]
+- [[constants.ts]] - `imports_from` [EXTRACTED]
+- [[deleteRevision()]] - `imports` [EXTRACTED]
+- [[fetchServiceOrderBySaleId()]] - `imports` [EXTRACTED]
+- [[getIncomingTransfers()]] - `imports` [EXTRACTED]
+- [[getInventoryStats()]] - `imports` [EXTRACTED]
+- [[getLabelPrintHistory()]] - `imports` [EXTRACTED]
+- [[getLowStockAlerts()]] - `imports` [EXTRACTED]
+- [[getProductById()]] - `imports` [EXTRACTED]
+- [[getProducts()]] - `imports` [EXTRACTED]
+- [[getProductsFromStock()]] - `imports` [EXTRACTED]
+- [[getPurchaseOrders()]] - `imports` [EXTRACTED]
+- [[getRevisions()]] - `imports` [EXTRACTED]
+- [[getSales()]] - `imports` [EXTRACTED]
+- [[getStock()]] - `imports` [EXTRACTED]
+- [[getStockMovements()]] - `imports` [EXTRACTED]
+- [[getStockRequests()]] - `imports` [EXTRACTED]
+- [[index.ts]] - `imports_from` [EXTRACTED]
+- [[inventory.ts]] - `imports_from` [EXTRACTED]
+- [[logLabelPrint()]] - `imports` [EXTRACTED]
+- [[rejectStockRequest()]] - `imports` [EXTRACTED]
+- [[supabase]] - `imports` [EXTRACTED]
+- [[supabase.ts]] - `imports_from` [EXTRACTED]
+- [[updateProduct()]] - `imports` [EXTRACTED]
+- [[updateServiceOrderStatus()]] - `imports` [EXTRACTED]
+- [[workshop.ts]] - `imports_from` [EXTRACTED]
+- [[xlsxDate()]] - `contains` [EXTRACTED]
+- [[xlsxExport()]] - `contains` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Inventory_Page
