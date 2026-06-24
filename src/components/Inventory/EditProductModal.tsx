@@ -5,6 +5,8 @@ import { supabase } from '../../services/supabase';
 import type { Product, ProductCategory, Brand } from '../../types';
 import InlineCreate from './InlineCreate';
 
+const str = (v: string | number | undefined) => v === undefined || v === null ? '' : String(v);
+
 interface Props {
   product: Product;
   role: 'manager' | 'branch_admin' | 'admin';
@@ -38,8 +40,19 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
     sku: product.sku ?? '',
     barcode: product.barcode ?? '',
     min_stock: String(product.min_stock ?? 0),
-    description: String(product.attributes?.description ?? ''),
+    description: str(product.attributes?.description),
     product_group: product.product_group ?? '',
+    // Линзы
+    sphere: str(product.attributes?.sphere),
+    cylinder: str(product.attributes?.cylinder),
+    axis: str(product.attributes?.axis),
+    diameter: str(product.attributes?.diameter),
+    base_curve: str(product.attributes?.base_curve),
+    // Оправы
+    color: str(product.attributes?.color),
+    size: str(product.attributes?.size),
+    material: str(product.attributes?.material),
+    gender: str(product.attributes?.gender),
   });
 
   const [showNewCategory, setShowNewCategory] = useState(false);
@@ -47,6 +60,10 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
+
+  const selectedCategory = categories.find(c => c.id === form.category_id);
+  const isLenses = selectedCategory?.slug?.includes('lens') || selectedCategory?.slug?.includes('contact');
+  const isFrames = selectedCategory?.slug?.includes('frame') || selectedCategory?.slug?.includes('glass') || selectedCategory?.slug?.includes('sun');
 
   const handleCreateCategory = async (name: string) => {
     const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-zа-я0-9_]/gi, '');
@@ -96,9 +113,21 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
     setError(null);
     setLoading(true);
     try {
+      const num = (v: string) => v.trim() !== '' ? parseFloat(v) : undefined;
       const attrs = {
         ...product.attributes,
-        ...(form.description.trim() ? { description: form.description.trim() } : { description: undefined }),
+        description: form.description.trim() || undefined,
+        // Линзы
+        sphere: num(form.sphere),
+        cylinder: num(form.cylinder),
+        axis: num(form.axis),
+        diameter: num(form.diameter),
+        base_curve: num(form.base_curve),
+        // Оправы
+        color: form.color.trim() || undefined,
+        size: form.size.trim() || undefined,
+        material: form.material.trim() || undefined,
+        gender: (form.gender.trim() || undefined) as 'male' | 'female' | 'unisex' | 'kids' | undefined,
       };
 
       const updates: Partial<Product> = {
@@ -298,6 +327,115 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
               </div>
             )}
           </div>
+
+          {/* Параметры линз */}
+          {isLenses && (
+            <div className="border border-blue-100 bg-blue-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-blue-700">Параметры линз</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Оптическая сила (D)</label>
+                  <input type="number" step="0.25"
+                    value={form.sphere}
+                    onChange={e => set('sphere', e.target.value)}
+                    placeholder="-3.00"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Цилиндр</label>
+                  <input type="number" step="0.25"
+                    value={form.cylinder}
+                    onChange={e => set('cylinder', e.target.value)}
+                    placeholder="0.00"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Градусы (AX)</label>
+                  <input type="number" step="1" min="0" max="180"
+                    value={form.axis}
+                    onChange={e => set('axis', e.target.value)}
+                    placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Диаметр (мм)</label>
+                  <input type="number" step="0.1"
+                    value={form.diameter}
+                    onChange={e => set('diameter', e.target.value)}
+                    placeholder="14.2"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">База (BC)</label>
+                  <input type="number" step="0.1"
+                    value={form.base_curve}
+                    onChange={e => set('base_curve', e.target.value)}
+                    placeholder="8.6"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Параметры оправы */}
+          {isFrames && (
+            <div className="border border-purple-100 bg-purple-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-purple-700">Параметры оправы</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Цвет</label>
+                  <input
+                    value={form.color}
+                    onChange={e => set('color', e.target.value)}
+                    placeholder="Чёрный"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Размер</label>
+                  <input
+                    value={form.size}
+                    onChange={e => set('size', e.target.value)}
+                    placeholder="52-18-140"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Материал</label>
+                  <select
+                    value={form.material}
+                    onChange={e => set('material', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+                  >
+                    <option value="">—</option>
+                    <option value="metal">Металл</option>
+                    <option value="plastic">Пластик</option>
+                    <option value="titanium">Титан</option>
+                    <option value="acetate">Ацетат</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Для кого</label>
+                  <select
+                    value={form.gender}
+                    onChange={e => set('gender', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white"
+                  >
+                    <option value="">—</option>
+                    <option value="male">Мужские</option>
+                    <option value="female">Женские</option>
+                    <option value="unisex">Унисекс</option>
+                    <option value="kids">Детские</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Описание */}
           <div>
