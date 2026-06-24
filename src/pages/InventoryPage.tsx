@@ -1137,11 +1137,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                   onClick={() => setSelectedProduct(p)}
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-baseline gap-2">
-                                      <span className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</span>
-                                      {p.barcode && <span className="text-xs text-gray-400 flex-shrink-0 font-mono">{p.barcode}</span>}
-                                      <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">₸{p.price.toLocaleString()}</span>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="text-sm font-medium text-gray-900 leading-snug flex-1">{p.name}</span>
                                       <span className={`text-sm font-semibold flex-shrink-0 tabular-nums ${isLow ? 'text-red-500' : 'text-gray-900'}`}>{qty} {p.unit}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {p.barcode && <span className="text-xs text-gray-400 font-mono">{p.barcode}</span>}
+                                      <span className="text-xs text-gray-400 tabular-nums">₸{p.price.toLocaleString()}</span>
                                     </div>
                                   </div>
                                 </div>
