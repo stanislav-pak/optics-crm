@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { updateProduct, getCategories, getBrands } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import type { Product, ProductCategory, Brand } from '../../types';
@@ -58,6 +58,40 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [showNewBrand, setShowNewBrand] = useState(false);
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+
+  const [nktLoading, setNktLoading] = useState(false);
+  const [nktResult, setNktResult] = useState<{ nameRu: string; ntin: string; gtin?: string } | null>(null);
+  const [nktError, setNktError] = useState<string | null>(null);
+
+  const handleNktLookup = async () => {
+    const gtin = form.barcode.trim();
+    if (!/^\d{13,14}$/.test(gtin)) {
+      setNktError('Введите корректный штрихкод (13–14 цифр)');
+      setNktResult(null);
+      return;
+    }
+    setNktLoading(true);
+    setNktResult(null);
+    setNktError(null);
+    try {
+      const { supabase: sb } = await import('../../services/supabase');
+      const { data, error } = await sb.functions.invoke('nkt-lookup', { body: { gtin } });
+      if (error) throw error;
+      if (Array.isArray(data) && data.length > 0) {
+        setNktResult({ nameRu: data[0].nameRu, ntin: data[0].ntin, gtin: data[0].gtin });
+      } else if (data?.code === 'NOT_FOUND' || (Array.isArray(data) && data.length === 0)) {
+        setNktError('Товар не найден в НКТ');
+      } else if (data?.error) {
+        setNktError(data.error);
+      } else {
+        setNktError('Товар не найден в НКТ');
+      }
+    } catch {
+      setNktError('Ошибка при обращении к НКТ');
+    } finally {
+      setNktLoading(false);
+    }
+  };
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
 
@@ -253,26 +287,55 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
             )}
           </div>
 
-          {/* SKU и штрихкод */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Артикул</label>
-              <input
-                value={form.sku}
-                onChange={e => set('sku', e.target.value)}
-                placeholder="SKU"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Штрихкод</label>
+          {/* SKU */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Артикул</label>
+            <input
+              value={form.sku}
+              onChange={e => set('sku', e.target.value)}
+              placeholder="SKU"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Штрихкод + НКТ */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Штрихкод</label>
+            <div className="flex gap-2">
               <input
                 value={form.barcode}
-                onChange={e => set('barcode', e.target.value)}
-                placeholder="EAN-13"
+                onChange={e => { set('barcode', e.target.value); setNktResult(null); setNktError(null); }}
+                placeholder="EAN-13 / GTIN"
                 className={inputCls}
               />
+              <button
+                type="button"
+                onClick={handleNktLookup}
+                disabled={nktLoading || !form.barcode.trim()}
+                title="Проверить в Национальном каталоге товаров"
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {nktLoading
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Search size={14} />}
+                НКТ
+              </button>
             </div>
+            {nktResult && (
+              <div className="mt-2 flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <CheckCircle size={14} className="text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-green-800">
+                  <span className="font-medium">Найдено в НКТ:</span> {nktResult.nameRu}
+                  {nktResult.ntin && <span className="text-green-600 ml-1">(NTIN: {nktResult.ntin})</span>}
+                </div>
+              </div>
+            )}
+            {nktError && (
+              <div className="mt-2 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-700">{nktError}</span>
+              </div>
+            )}
           </div>
 
           {/* Мин. остаток */}
