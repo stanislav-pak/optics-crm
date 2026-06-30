@@ -139,12 +139,27 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
-                # CODE128: та же позиция что и EAN13, narrow подбирается по длине
-                # readable=0 всегда — текст под штрихкодом не нужен на 45×10 (цена слева)
+                # CODE128: правая половина, narrow=2 для коротких кодов
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
                 narrow = 2 if n_modules <= 90 else 1
+                # readable=0 — но TSC может игнорировать; перекроем авто-текст белым
                 cmd(f'BARCODE {x},{top_y},"128",{bar_h},0,0,{narrow},1,"{barcode}"')
+                if readable:
+                    text_y = top_y + bar_h
+                    cover_h = min(narrow * 14, H - text_y)
+                    if cover_h > 0:
+                        cover_w = n_modules * narrow
+                        w_bytes = (cover_w + 7) // 8
+                        white_row = bytes([0xFF] * w_bytes)
+                        bmp = bytearray()
+                        for _ in range(cover_h):
+                            bmp.extend(white_row)
+                        header = f'BITMAP {x},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
+                        result.extend(header + bytes(bmp) + b'\r\n')
+                    # Маленький текст поверх — шрифт "1" (как у EAN13)
+                    text_x = x + max(0, (n_modules * narrow - len(barcode) * 8) // 2)
+                    cmd(f'TEXT {text_x},{text_y + 2},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
