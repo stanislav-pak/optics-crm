@@ -143,7 +143,12 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
                 narrow = 2 if n_modules <= 90 else 1
-                cmd(f'BARCODE {x},{top_y},"128",{bar_h},{readable},0,{narrow},1,"{barcode}"')
+                # readable=0 — текст рисуем отдельно шрифтом "1" (как у EAN13)
+                cmd(f'BARCODE {x},{top_y},"128",{bar_h},0,0,{narrow},1,"{barcode}"')
+                if readable:
+                    bc_px = n_modules * narrow
+                    text_x = x + max(0, (bc_px - len(barcode) * 8) // 2)
+                    cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
