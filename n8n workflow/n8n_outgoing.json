@@ -49,7 +49,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "https://ygvsnecgmoiwlkzkerhu.supabase.co/rest/v1/messages?id=eq.={{ $('Build Request').item.json.message_id }}",
+        "url": "https://toxspgdkvxmpsvtecesy.supabase.co/rest/v1/messages?id=eq.={{ $('Build Request').item.json.message_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

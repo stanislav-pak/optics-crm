@@ -292,6 +292,19 @@
 
 ---
 
+### T34 — Миграция на новый Supabase-проект + WhatsApp инфраструктура `DONE`
+**Где:** Supabase MCP, n8n, PowerShell, Edge Functions
+**Что сделано:**
+- Новый Supabase-проект `toxspgdkvxmpsvtecesy` (аккаунт stanislavpak69020@gmail.com) — работает как основной
+- Включён `pg_net`, обновлена функция `notify_push_new_message` на новый URL, добавлен `SERVICE_ROLE_KEY` в vault
+- Задеплоена Edge Function `send-push` на новый проект, выставлены VAPID-секреты
+- Обновлён `.env.local` — новый URL и anon key
+- n8n outgoing workflow — URL обновлён на новый проект
+- `SUPABASE_ACCESS_TOKEN` сохранён как постоянная переменная окружения Windows → `npx supabase functions deploy` работает без ручного ввода токена
+- WhatsApp-цепочка проверена end-to-end: входящие ✅, исходящие ✅, push-уведомления ✅
+
+---
+
 ### T23 — Подписка: напоминание об оплате и блокировка приложения `TODO`
 **Описание:** Функция абонентской поддержки — ежемесячный платёж. Дата задаётся вручную администратором.
 
@@ -318,10 +331,10 @@
 ---
 
 ## Статистика
-- Всего: 33 задачи
+- Всего: 34 задачи
 - TODO: 1 (T23)
 - IN_PROGRESS: 0
-- DONE: 32
+- DONE: 33
 - SKIP: 0
 
 ## Исключено (Kaspi — не запущен)
