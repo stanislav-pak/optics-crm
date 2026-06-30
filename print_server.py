@@ -11,7 +11,7 @@ from flask import Flask, request, jsonify
 try:
     import win32print
 except ImportError:
-    print('Ошибка: установи pywin32 → pip install pywin32')
+    print('Error: install pywin32 -> pip install pywin32')
     sys.exit(1)
 
 app = Flask(__name__)
@@ -140,13 +140,14 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
-                # CODE128: правая половина, narrow=2 для коротких кодов
+                # CODE128: правая половина этикетки (после линии сгиба)
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
-                narrow = 2 if n_modules <= 90 else 1
+                # narrow=2 только если штрихкод + тихая зона влезает в правую половину
+                narrow = 2 if n_modules * 2 + 10 * 2 + margin_x <= W // 2 else 1
                 bc_w = n_modules * narrow
-                quiet = 10 * narrow  # тихая зона по CODE128 стандарту (10 модулей)
-                x_bc = max(x // 2, W - bc_w - quiet - margin_x)
+                quiet = 10 * narrow
+                x_bc = W - bc_w - quiet - margin_x
                 price_left_w = x_bc
                 bar_h_bc = max(20, H - top_y - narrow * 16)
                 cmd(f'BARCODE {x_bc},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
@@ -161,8 +162,8 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                             bmp.extend(white_row)
                         header = f'BITMAP {x_bc},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
                         result.extend(header + bytes(bmp) + b'\r\n')
-                    text_x = x_bc + max(0, (bc_w - len(barcode) * 12) // 2)
-                    cmd(f'TEXT {text_x},{text_y + 2},"2",0,1,1,"{barcode}"')
+                    text_x = x_bc + max(0, (bc_w - len(barcode) * 8) // 2)
+                    cmd(f'TEXT {text_x},{text_y + 2},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
