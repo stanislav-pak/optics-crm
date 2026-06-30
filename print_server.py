@@ -132,6 +132,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             x        = W - bar_w - margin_x    # прижать к правому краю
             bar_h    = max(20, H - top_y - 16)
 
+            price_left_w = x
             if len(barcode) == 13 and barcode.isdigit():
                 # EAN-13: BITMAP с тихими зонами
                 result.extend(_ean13_bitmap(barcode, x, top_y, bar_w, bar_h))
@@ -144,10 +145,11 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
                 narrow = 2 if n_modules <= 90 else 1
                 bc_w = n_modules * narrow
-                # Выравниваем по правому краю — правый край совпадает с EAN13
-                x_bc = max(x // 2, W - bc_w - margin_x)
+                quiet = 10 * narrow  # тихая зона по CODE128 стандарту (10 модулей)
+                x_bc = max(x // 2, W - bc_w - quiet - margin_x)
+                price_left_w = x_bc
                 bar_h_bc = max(20, H - top_y - narrow * 16)
-                cmd(f'BARCODE {x_bc},{top_y},"128",{bar_h_bc},0,0,{narrow},1,"{barcode}"')
+                cmd(f'BARCODE {x_bc},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
                     text_y = top_y + bar_h_bc
                     cover_h = min(narrow * 16, H - text_y)
@@ -159,8 +161,8 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                             bmp.extend(white_row)
                         header = f'BITMAP {x_bc},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
                         result.extend(header + bytes(bmp) + b'\r\n')
-                    text_x = x_bc + max(0, (bc_w - len(barcode) * 8) // 2)
-                    cmd(f'TEXT {text_x},{text_y + 2},"1",0,1,1,"{barcode}"')
+                    text_x = x_bc + max(0, (bc_w - len(barcode) * 12) // 2)
+                    cmd(f'TEXT {text_x},{text_y + 2},"2",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
@@ -176,7 +178,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                     formatted = ' '.join(reversed(parts))
                 except (ValueError, TypeError):
                     formatted = price_label[:8]
-                left_w = x
+                left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
                 p_y = max(0, (H - ch_h) // 2)
@@ -237,7 +239,7 @@ def print_label():
     try:
         tspl    = build_tspl(data, quantity)
         printer = find_tsc_printer()
-        print(f'  → {printer}  |  {data.get("size")}  |  x{quantity}  |  {data.get("barcode","—")}')
+        print(f'  -> {printer}  |  {data.get("size")}  |  x{quantity}  |  {data.get("barcode","-")}')
         send_raw(printer, tspl)
         return jsonify({'ok': True, 'printer': printer})
     except Exception as e:
@@ -257,14 +259,14 @@ def status():
 # ─── Запуск ──────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    print('─' * 50)
-    print('TSC TE200 Print Server — optics-crm')
-    print('─' * 50)
+    print('-' * 50)
+    print('TSC TE200 Print Server - optics-crm')
+    print('-' * 50)
     try:
         printer = find_tsc_printer()
-        print(f'Принтер найден: {printer}')
+        print(f'Printer found: {printer}')
     except Exception as e:
-        print(f'Предупреждение: принтер не найден ({e})')
-    print('Сервер запущен: http://127.0.0.1:5000')
-    print('─' * 50)
+        print(f'Warning: printer not found ({e})')
+    print('Server running: http://127.0.0.1:5000')
+    print('-' * 50)
     app.run(host='0.0.0.0', port=5000, debug=False)
