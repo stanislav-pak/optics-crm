@@ -52,7 +52,7 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
 
   const [nktLoading, setNktLoading] = useState(false);
-  const [nktResult, setNktResult] = useState<{ nameRu: string; ntin: string } | null>(null);
+  const [nktResult, setNktResult] = useState<{ nameRu: string; gtin?: string; ntin: string } | null>(null);
   const [nktStatus, setNktStatus] = useState<'idle' | 'not_found' | 'error'>('idle');
 
   const handleNktLookup = async () => {
@@ -69,8 +69,9 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
       const { data, error } = await supabase.functions.invoke('nkt-lookup', { body: { gtin } });
       if (error) throw error;
       if (Array.isArray(data) && data.length > 0) {
-        const found = { nameRu: data[0].nameRu, ntin: data[0].ntin };
+        const found = { nameRu: data[0].nameRu, gtin: data[0].gtin, ntin: data[0].ntin };
         setNktResult(found);
+        if (found.gtin) set('barcode', found.gtin);
         if (!form.name.trim()) set('name', found.nameRu);
       } else {
         setNktStatus('not_found');
@@ -375,6 +376,11 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
                 <CheckCircle size={14} className="text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 text-xs text-green-800">
                   <span className="font-medium">Найдено в НКТ:</span> {nktResult.nameRu}
+                  {(nktResult.gtin || nktResult.ntin) && (
+                    <span className="text-green-600 ml-1">
+                      (GTIN: {nktResult.gtin ?? nktResult.ntin})
+                    </span>
+                  )}
                   {form.name.trim() && form.name !== nktResult.nameRu && (
                     <button
                       type="button"

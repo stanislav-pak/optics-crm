@@ -60,7 +60,7 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
 
   const [nktLoading, setNktLoading] = useState(false);
-  const [nktResult, setNktResult] = useState<{ nameRu: string; ntin: string } | null>(null);
+  const [nktResult, setNktResult] = useState<{ nameRu: string; gtin?: string; ntin: string } | null>(null);
   const [nktStatus, setNktStatus] = useState<'idle' | 'not_found' | 'error'>('idle');
 
   const lookupNkt = async (gtin: string) => {
@@ -71,7 +71,7 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
       const { data, error } = await supabase.functions.invoke('nkt-lookup', { body: { gtin } });
       if (error) throw error;
       if (Array.isArray(data) && data.length > 0) {
-        setNktResult({ nameRu: data[0].nameRu, ntin: data[0].ntin });
+        setNktResult({ nameRu: data[0].nameRu, gtin: data[0].gtin, ntin: data[0].ntin });
       } else {
         setNktStatus('not_found');
       }
@@ -329,9 +329,22 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
             {nktResult && (
               <div className="mt-2 flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <CheckCircle size={14} className="text-green-600 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-green-800">
+                <div className="flex-1 text-xs text-green-800">
                   <span className="font-medium">Найдено в НКТ:</span> {nktResult.nameRu}
-                  {nktResult.ntin && <span className="text-green-600 ml-1">(NTIN: {nktResult.ntin})</span>}
+                  {(nktResult.gtin || nktResult.ntin) && (
+                    <span className="text-green-600 ml-1">
+                      (GTIN: {nktResult.gtin ?? nktResult.ntin})
+                    </span>
+                  )}
+                  {nktResult.gtin && nktResult.gtin !== form.barcode && (
+                    <button
+                      type="button"
+                      onClick={() => { set('barcode', nktResult.gtin!); setNktStatus('idle'); }}
+                      className="ml-2 underline text-green-700 hover:text-green-900"
+                    >
+                      Вставить GTIN
+                    </button>
+                  )}
                 </div>
               </div>
             )}
