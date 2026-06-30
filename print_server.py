@@ -123,51 +123,44 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     cmd('CLS')
 
     if h_mm <= 12:
-        # Узкая этикетка — только штрихкод
+        # Узкая этикетка — штрихкод справа + цена слева
         if barcode:
             readable = 1 if H >= 38 else 0
+            margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
+            top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
+            bar_w    = round(21 * DPI / 25.4)  # 21 мм ≈ 168 точек
+            x        = W - bar_w - margin_x    # прижать к правому краю
+            bar_h    = max(20, H - top_y - 16)
+
             if len(barcode) == 13 and barcode.isdigit():
-                # EAN-13 в ПРАВОЙ половине этикетки (после линии сгиба).
-                # BITMAP с тихими зонами: ~21 мм всего (полосы ~18 мм + белые поля),
-                # отступ 1 мм от правого края, 3 мм сверху.
-                margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
-                top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
-                bar_w    = round(21 * DPI / 25.4)  # 21 мм ≈ 168 точек
-                x        = W - bar_w - margin_x    # прижать к правому краю
-                bar_h    = max(20, H - top_y - 16)
+                # EAN-13: BITMAP с тихими зонами
                 result.extend(_ean13_bitmap(barcode, x, top_y, bar_w, bar_h))
                 if readable:
-                    # цифры по центру под штрихкодом (шрифт "1" ≈ 8 точек/символ)
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
-
-                # Цена на левой половине (ценник)
-                price_label = str(data.get('price_label', '')).strip()
-                if price_label:
-                    try:
-                        num = int(float(price_label))
-                        # Форматирование с пробелом: 12 500
-                        parts = []
-                        n = num
-                        while n >= 1000:
-                            parts.append(f'{n % 1000:03d}')
-                            n //= 1000
-                        parts.append(str(n))
-                        formatted = ' '.join(reversed(parts))
-                    except (ValueError, TypeError):
-                        formatted = price_label[:8]
-                    # Левая половина = от 0 до x (начало штрихкода)
-                    left_w = x  # ≈ 184 точки
-                    n = len(formatted)
-                    # Единый шрифт "3" × 1 (16×16 точек ≈ 2мм) для всех цен
-                    ch_w, ch_h = 18, 16
-                    p_x = max(2, (left_w - n * ch_w) // 2)
-                    p_y = max(0, (H - ch_h) // 2)
-                    cmd(f'TEXT {p_x},{p_y},"3",0,1,1,"{formatted}"')
             else:
-                # Прочие штрихкоды (CODE128) — нативная команда, M=1
-                bar_h = max(20, H - 16 - 14)
-                cmd(f'BARCODE 8,16,"128",{bar_h},{readable},0,1,1,"{barcode}"')
+                # CODE128: та же позиция что и EAN13 (правая половина)
+                cmd(f'BARCODE {x},{top_y},"128",{bar_h},{readable},0,1,1,"{barcode}"')
+
+            # Цена на левой половине (для EAN13 и CODE128)
+            price_label = str(data.get('price_label', '')).strip()
+            if price_label:
+                try:
+                    num = int(float(price_label))
+                    parts = []
+                    n = num
+                    while n >= 1000:
+                        parts.append(f'{n % 1000:03d}')
+                        n //= 1000
+                    parts.append(str(n))
+                    formatted = ' '.join(reversed(parts))
+                except (ValueError, TypeError):
+                    formatted = price_label[:8]
+                left_w = x
+                ch_w, ch_h = 18, 16
+                p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
+                p_y = max(0, (H - ch_h) // 2)
+                cmd(f'TEXT {p_x},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
             price = field_val('price_sale')
