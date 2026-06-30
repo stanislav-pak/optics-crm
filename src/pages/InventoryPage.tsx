@@ -201,6 +201,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [editGroupValue, setEditGroupValue] = useState('');
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [labelsSelectedCategory, setLabelsSelectedCategory] = useState<string | null>(null);
+  const [labelsSearch, setLabelsSearch] = useState('');
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
@@ -735,7 +736,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
   const filteredUnprintedProducts = unprintedProducts.filter(p =>
-    !labelsSelectedCategory || p.category_id === labelsSelectedCategory
+    (!labelsSelectedCategory || p.category_id === labelsSelectedCategory) &&
+    (!labelsSearch || p.name.toLowerCase().includes(labelsSearch.toLowerCase()))
   );
 
   const filteredProducts = products.filter(p =>
@@ -2710,6 +2712,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ЭТИКЕТКИ */}
         {tab === 'labels' && (
           <div className="space-y-4">
+            {/* Поиск */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={labelsSearch}
+                onChange={e => setLabelsSearch(e.target.value)}
+                placeholder="Поиск по наименованию..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             {/* Фильтр по категориям */}
             {labelsCategories.length > 0 && (
               <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
