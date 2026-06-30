@@ -2748,15 +2748,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       </div>
                       <div className="flex gap-1.5 flex-shrink-0">
                         <button
-                          onClick={async () => {
-                            await updateProduct(p.id, { label_printed: true });
-                            setUnprintedProducts(prev => prev.filter(x => x.id !== p.id));
-                          }}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded border border-gray-200 bg-white"
-                        >
-                          Пропустить
-                        </button>
-                        <button
                           onClick={() => setPrintQueueProduct(p)}
                           className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700"
                         >
