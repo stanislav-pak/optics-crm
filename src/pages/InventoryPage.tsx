@@ -200,6 +200,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
   const [editGroupValue, setEditGroupValue] = useState('');
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
+  const [labelsSelectedCategory, setLabelsSelectedCategory] = useState<string | null>(null);
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
@@ -728,6 +729,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const productCategories = Array.from(
     new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  const labelsCategories = Array.from(
+    new Map(unprintedProducts.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  const filteredUnprintedProducts = unprintedProducts.filter(p =>
+    !labelsSelectedCategory || p.category_id === labelsSelectedCategory
+  );
 
   const filteredProducts = products.filter(p =>
     (!selectedCategory || p.category_id === selectedCategory) &&
@@ -2701,17 +2710,37 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ЭТИКЕТКИ */}
         {tab === 'labels' && (
           <div className="space-y-4">
+            {/* Фильтр по категориям */}
+            {labelsCategories.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => setLabelsSelectedCategory(null)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${!labelsSelectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Все</button>
+                {labelsCategories.map(cat => (
+                  <button key={cat.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setLabelsSelectedCategory(labelsSelectedCategory === cat.id ? null : cat.id)}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${labelsSelectedCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >{cat.name}</button>
+                ))}
+              </div>
+            )}
             {/* Очередь печати */}
             {unprintedProducts.length > 0 ? (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <Printer size={15} className="text-amber-600 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-amber-800">
-                    Очередь печати — {unprintedProducts.length} {unprintedProducts.length === 1 ? 'товар' : unprintedProducts.length < 5 ? 'товара' : 'товаров'}
+                    Очередь печати — {filteredUnprintedProducts.length} {filteredUnprintedProducts.length === 1 ? 'товар' : filteredUnprintedProducts.length < 5 ? 'товара' : 'товаров'}
                   </h3>
                 </div>
                 <div className="space-y-1.5">
-                  {unprintedProducts.map(p => (
+                  {filteredUnprintedProducts.length === 0 && (
+                    <p className="text-xs text-amber-700 text-center py-1">Нет товаров в этой категории</p>
+                  )}
+                  {filteredUnprintedProducts.map(p => (
                     <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-100 px-3 py-2.5 gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
