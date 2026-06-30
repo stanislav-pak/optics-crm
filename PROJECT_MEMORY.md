@@ -1,8 +1,9 @@
-# optics-crm — Memory
+# optics-crm — Project Memory
+(проектная память в git — не путать с системной автопамятью Claude)
 
 ## Проект
 - Repo: github.com/stanislav-pak/optics-crm
-- Supabase: ygvsnecgmoiwlkzkerhu
+- Supabase: toxspgdkvxmpsvtecesy
 - Vercel: автодеплой при push в main
 - Клиент: сеть оптик "New Line" (Казахстан)
 
@@ -30,4 +31,4 @@
 - RLS политики добавлены вручную (employees_insert_stock, employees_update_stock)
 
 ## После каждой задачи
-npx vitest run → если зелёные → git add -A → git commit → git push
+npx vitest run → если зелёные → graphify update . → git add -A → git commit → git push
