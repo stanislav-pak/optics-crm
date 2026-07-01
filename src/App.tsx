@@ -27,6 +27,7 @@ import PendingPaymentsView from './components/Workshop/PendingPaymentsView';
 import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings';
 import CompanyChatList from './components/Chat/CompanyChatList';
 import HelpModal from './components/HelpModal';
+import ScrollToTopButton from './components/Shared/ScrollToTopButton';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 import { WORKSHOP_BRANCH_ID } from './constants';
@@ -1199,6 +1200,7 @@ function AppContent() {
         {Sidebar}
         {MainArea}
       </div>
+      <ScrollToTopButton />
       {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
       {showCompanyChat && (
         <CompanyChatList
