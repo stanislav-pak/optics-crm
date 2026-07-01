@@ -25,9 +25,11 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       try {
         setStatus('Запрос камеры...');
         const stream = await navigator.mediaDevices.getUserMedia({
+          // Без искусственного ограничения ширины — для мелких/плотных штрихкодов
+          // (например узкие этикетки со штрихкодом в половину ширины) меньше разрешение
+          // означает меньше пикселей на полоску и хуже распознавание.
           video: {
             facingMode: 'environment',
-            width: { ideal: 1280 },
             advanced: [{ focusMode: 'continuous' }],
           },
         });
