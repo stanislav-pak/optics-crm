@@ -122,6 +122,13 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     cmd('CODEPAGE 1251')
     cmd('CLS')
 
+    # Физическая калибровка узкой этикетки: печать садится смещённой вправо
+    # относительно реального края наклейки. TSPL REFERENCE эта прошивка игнорирует
+    # (проверено на печати), поэтому сдвигаем координаты напрямую в каждой команде —
+    # только у финальных X, которые реально уходят в TSPL, а не у промежуточных
+    # переменных (ширин/центрирования), чтобы не сломать взаимное расположение элементов.
+    SHIFT_X = round(15 * DPI / 25.4)  # 15 мм вправо
+
     if h_mm <= 12:
         # Узкая этикетка — штрихкод справа + цена слева
         if barcode:
@@ -137,10 +144,10 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             price_left_w = x
             if len(barcode) == 13 and barcode.isdigit():
                 # EAN-13: BITMAP с тихими зонами
-                result.extend(_ean13_bitmap(barcode, x, top_y, bar_w, bar_h))
+                result.extend(_ean13_bitmap(barcode, x + SHIFT_X, top_y, bar_w, bar_h))
                 if readable:
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
-                    cmd(f'TEXT {text_x},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
+                    cmd(f'TEXT {text_x + SHIFT_X},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
                 # CODE128: правая половина этикетки (после линии сгиба)
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
@@ -152,7 +159,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 x_bc = W - bc_w - quiet - margin_x
                 price_left_w = x_bc
                 bar_h_bc = max(20, H - top_y - narrow * 16)
-                cmd(f'BARCODE {x_bc},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
+                cmd(f'BARCODE {x_bc + SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
                     text_y = top_y + bar_h_bc
                     cover_h = min(narrow * 16, H - text_y)
@@ -162,10 +169,10 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                         bmp = bytearray()
                         for _ in range(cover_h):
                             bmp.extend(white_row)
-                        header = f'BITMAP {x_bc},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
+                        header = f'BITMAP {x_bc + SHIFT_X},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
                         result.extend(header + bytes(bmp) + b'\r\n')
                     text_x = x_bc + max(0, (bc_w - len(barcode) * 8) // 2)
-                    cmd(f'TEXT {text_x},{text_y + 2},"1",0,1,1,"{barcode}"')
+                    cmd(f'TEXT {text_x + SHIFT_X},{text_y + 2},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
@@ -185,7 +192,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
                 p_y = max(0, (H - ch_h) // 2)
-                cmd(f'TEXT {p_x},{p_y},"3",0,1,1,"{formatted}"')
+                cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
             price = field_val('price_sale')
