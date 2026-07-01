@@ -83,6 +83,8 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
+const PRINT_HISTORY_PAGE_SIZE = 30;
+
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const lastMovementsViewedRef = useRef<string>(
@@ -205,6 +207,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [labelsSort, setLabelsSort] = useState<'name' | 'price_desc' | 'price_asc' | 'created_at'>('created_at');
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
+  const [printHistoryHasMore, setPrintHistoryHasMore] = useState(false);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
   const [reprintLoading, setReprintLoading] = useState<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -255,9 +259,21 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   async function loadPrintHistory(branchId: string, userRole: string) {
     try {
       const scopeId = userRole !== 'admin' ? branchId : undefined;
-      const data = await getLabelPrintHistory(scopeId, 30);
+      const data = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, 0);
       setPrintHistory(data);
+      setPrintHistoryHasMore(data.length === PRINT_HISTORY_PAGE_SIZE);
     } catch (e) { console.error('loadPrintHistory error:', e); }
+  }
+
+  async function loadMorePrintHistory() {
+    setLoadingMoreHistory(true);
+    try {
+      const scopeId = role !== 'admin' ? activeBranchId : undefined;
+      const more = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, printHistory.length);
+      setPrintHistory(prev => [...prev, ...more]);
+      setPrintHistoryHasMore(more.length === PRINT_HISTORY_PAGE_SIZE);
+    } catch (e) { console.error('loadMorePrintHistory error:', e); }
+    setLoadingMoreHistory(false);
   }
 
   useEffect(() => {
@@ -2854,6 +2870,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </div>
                   ))}
                 </div>
+              )}
+              {printHistoryHasMore && (
+                <button
+                  onClick={loadMorePrintHistory}
+                  disabled={loadingMoreHistory}
+                  className="w-full py-2.5 text-sm text-blue-600 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100"
+                >
+                  {loadingMoreHistory ? 'Загрузка...' : 'Показать ещё'}
+                </button>
               )}
             </div>
           </div>

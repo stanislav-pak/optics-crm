@@ -929,20 +929,28 @@ export async function logLabelPrint(productId: string, employeeId: string, quant
   if (error) throw error;
 }
 
-export async function getLabelPrintHistory(branchId?: string, limit = 50) {
-  const { data, error } = await supabase
+export async function getLabelPrintHistory(branchId?: string, limit = 50, offset = 0) {
+  // product:products!inner — обязательный join, чтобы .eq('product.branch_id', ...) мог
+  // фильтровать ДО .range(). Раньше фильтр по филиалу шёл в JS после .limit(), и записи
+  // этого филиала вытеснялись из окна последних N более активными филиалами.
+  let query = supabase
     .from('label_print_history')
     .select(`
       *,
-      product:products(id, name, barcode, price, branch_id),
+      product:products!inner(id, name, barcode, price, branch_id),
       employee:employees(id, name)
     `)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
+  if (branchId) {
+    query = query.eq('product.branch_id', branchId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []) as Array<{
+  return (data ?? []) as Array<{
     id: string;
     product_id: string;
     printed_by: string;
@@ -951,11 +959,6 @@ export async function getLabelPrintHistory(branchId?: string, limit = 50) {
     product: { id: string; name: string; barcode?: string; price: number; branch_id?: string } | null;
     employee: { id: string; name: string } | null;
   }>;
-
-  if (branchId) {
-    return rows.filter(r => r.product?.branch_id === branchId);
-  }
-  return rows;
 }
 
 // ============================================
