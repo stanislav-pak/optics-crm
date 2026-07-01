@@ -19,11 +19,17 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   useEffect(() => {
     let cancelled = false;
 
+    let focusInterval: ReturnType<typeof setInterval> | null = null;
+
     const start = async () => {
       try {
         setStatus('Запрос камеры...');
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', advanced: [{ focusMode: 'continuous' }] },
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            advanced: [{ focusMode: 'continuous' }],
+          },
         });
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
@@ -35,6 +41,19 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         await video.play();
         if (cancelled) return;
         setStatus('Сканирование...');
+
+        // На части Android-браузеров `focusMode: 'continuous'` из getUserMedia
+        // молча игнорируется и реально применяется только через applyConstraints
+        // на уже запущенном треке. Пробуем сразу и повторяем периодически —
+        // на некоторых устройствах автофокус "засыпает" и его нужно подталкивать.
+        const [track] = stream.getVideoTracks();
+        const applyFocus = () => {
+          const caps = track.getCapabilities?.() as (MediaTrackCapabilities & { focusMode?: string[] }) | undefined;
+          if (!caps?.focusMode?.includes('continuous')) return;
+          track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => {});
+        };
+        applyFocus();
+        focusInterval = setInterval(applyFocus, 3000);
 
         const reader = new BrowserMultiFormatReader();
         readerRef.current = reader;
@@ -67,6 +86,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
     return () => {
       cancelled = true;
+      if (focusInterval) clearInterval(focusInterval);
       try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
