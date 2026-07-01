@@ -474,7 +474,18 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">-</button>
-                <span className="px-4 py-1.5 text-sm font-medium text-gray-900">{quantity}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={quantity}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    if (digits === '') { setQuantity(1); return; }
+                    setQuantity(Math.min(999, parseInt(digits, 10)));
+                  }}
+                  onBlur={() => setQuantity(q => Math.max(1, Math.min(999, q || 1)))}
+                  className="w-14 px-1 py-1.5 text-sm font-medium text-gray-900 text-center focus:outline-none"
+                />
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(999, q + 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
               </div>
