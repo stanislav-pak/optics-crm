@@ -202,6 +202,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [labelsSelectedCategory, setLabelsSelectedCategory] = useState<string | null>(null);
   const [labelsSearch, setLabelsSearch] = useState('');
+  const [labelsSort, setLabelsSort] = useState<'name' | 'price_desc' | 'price_asc' | 'created_at'>('created_at');
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
@@ -735,10 +736,20 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     new Map(unprintedProducts.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-  const filteredUnprintedProducts = unprintedProducts.filter(p =>
-    (!labelsSelectedCategory || p.category_id === labelsSelectedCategory) &&
-    (!labelsSearch || p.name.toLowerCase().includes(labelsSearch.toLowerCase()))
-  );
+  const filteredUnprintedProducts = unprintedProducts
+    .filter(p =>
+      (!labelsSelectedCategory || p.category_id === labelsSelectedCategory) &&
+      (!labelsSearch || p.name.toLowerCase().includes(labelsSearch.toLowerCase()))
+    )
+    .sort((a, b) => {
+      switch (labelsSort) {
+        case 'name': return a.name.localeCompare(b.name, 'ru');
+        case 'price_desc': return b.price - a.price;
+        case 'price_asc': return a.price - b.price;
+        case 'created_at':
+        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
 
   const filteredProducts = products.filter(p =>
     (!selectedCategory || p.category_id === selectedCategory) &&
@@ -2712,16 +2723,28 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {/* ЭТИКЕТКИ */}
         {tab === 'labels' && (
           <div className="space-y-4">
-            {/* Поиск */}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                value={labelsSearch}
-                onChange={e => setLabelsSearch(e.target.value)}
-                placeholder="Поиск по наименованию..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            {/* Поиск и сортировка */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={labelsSearch}
+                  onChange={e => setLabelsSearch(e.target.value)}
+                  placeholder="Поиск по наименованию..."
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <select
+                value={labelsSort}
+                onChange={e => setLabelsSort(e.target.value as typeof labelsSort)}
+                className="border border-gray-200 rounded-xl px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="created_at">По дате создания</option>
+                <option value="name">По наименованию</option>
+                <option value="price_desc">Цена: по убыванию</option>
+                <option value="price_asc">Цена: по возрастанию</option>
+              </select>
             </div>
             {/* Фильтр по категориям */}
             {labelsCategories.length > 0 && (
