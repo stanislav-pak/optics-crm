@@ -212,6 +212,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [reprintProduct, setReprintProduct] = useState<Product | null>(null);
   const [reprintLoading, setReprintLoading] = useState<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const printHistoryRef = useRef<HTMLDivElement>(null);
   const [stockRequests, setStockRequests] = useState<StockRequest[]>([]);
   const [showStockRequestModal, setShowStockRequestModal] = useState(false);
   const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
@@ -2761,6 +2762,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 <option value="price_desc">Цена: по убыванию</option>
                 <option value="price_asc">Цена: по возрастанию</option>
               </select>
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => printHistoryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="flex-shrink-0 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+                title="Перейти к истории печати"
+              >
+                История печати
+              </button>
             </div>
             {/* Фильтр по категориям */}
             {labelsCategories.length > 0 && (
@@ -2818,7 +2828,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             )}
 
             {/* История печати */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div ref={printHistoryRef} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
                 <div className="flex items-center gap-2">
                   <Printer size={14} className="text-gray-400 flex-shrink-0" />

@@ -475,7 +475,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
                 <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.max(1, q - 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-r border-gray-200">-</button>
                 <span className="px-4 py-1.5 text-sm font-medium text-gray-900">{quantity}</span>
-                <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(10, q + 1)); }}
+                <button type="button" onMouseDown={e => { e.preventDefault(); setQuantity(q => Math.min(999, q + 1)); }}
                   className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium border-l border-gray-200">+</button>
               </div>
             </div>
