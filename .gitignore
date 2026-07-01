@@ -26,3 +26,17 @@ dist-ssr
 
 # Knowledge graph (graphify)
 graphify-out/
+
+# Claude Code local settings (contains permission rules with live tokens/secrets)
+.claude/settings.local.json
+
+# PyInstaller build artifacts (final exe stays in dist/)
+build/
+*.spec
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Supabase CLI local cache
+supabase/.temp/
