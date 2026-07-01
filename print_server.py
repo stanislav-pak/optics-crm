@@ -128,8 +128,10 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             readable = 1 if H >= 38 else 0
             margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
             top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
-            bar_w    = round(21 * DPI / 25.4)  # 21 мм ≈ 168 точек
-            x        = W - bar_w - margin_x    # прижать к правому краю
+            # Ширина штрихкода — пропорционально половине этикетки (после линии сгиба),
+            # а не фиксированные мм — иначе штрихкод вылезает за сгиб при смене размера этикетки.
+            bar_w    = W // 2 - margin_x
+            x        = W - bar_w - margin_x    # прижать к правому краю (= W // 2, у линии сгиба)
             bar_h    = max(20, H - top_y - 16)
 
             price_left_w = x

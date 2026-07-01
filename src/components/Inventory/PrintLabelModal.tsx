@@ -12,9 +12,10 @@ interface Props {
   onPrinted?: (quantity: number) => void;
 }
 
-type LabelSize = '45x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
+type LabelSize = '40x10' | '45x10' | '28x20' | '40x30' | '40x25' | '50x30' | '58x40';
 
 const SIZES: { id: LabelSize; label: string; mm: [number, number] }[] = [
+  { id: '40x10', label: '40×10 мм', mm: [40, 10] },
   { id: '45x10', label: '45×10 мм', mm: [45, 10] },
   { id: '28x20', label: '28×20 мм', mm: [28, 20] },
   { id: '40x30', label: '40×30 мм', mm: [40, 30] },
@@ -58,7 +59,7 @@ function fieldValue(key: string, product: Product, customText?: string): string 
 
 export default function PrintLabelModal({ product, onClose, onPrinted }: Props) {
   const [fields,        setFields]        = useState<LabelField[]>(() => getDefaultFields(product));
-  const [size,          setSize]          = useState<LabelSize>('45x10');
+  const [size,          setSize]          = useState<LabelSize>('40x10');
   const [quantity,      setQuantity]      = useState(1);
   const [editingIp,     setEditingIp]     = useState(false);
   const [ipInput,       setIpInput]       = useState('');
@@ -110,8 +111,10 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
     // Для маленьких этикеток (≤12 мм высотой) — штрихкод справа, цена слева, линия сгиба
     if (currentSize.mm[1] <= 12) {
       // Позиции штрихкода совпадают с print_server.py (1мм отступ справа, 21мм ширина)
+      // Ширина штрихкода — пропорционально половине этикетки (после линии сгиба),
+      // а не фиксированные мм — иначе штрихкод вылезает за сгиб при смене размера этикетки.
       const marginPx = Math.round(1 * MM_TO_PX);
-      const barWPx   = Math.round(21 * MM_TO_PX);
+      const barWPx   = Math.round(canvasW / 2 - marginPx);
       const barX     = canvasW - barWPx - marginPx;
 
       if (product.barcode) {
@@ -297,7 +300,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
     }));
     const printCanvas = buildHighResCanvas();
     const image = printCanvas.toDataURL('image/png').split(',')[1];
-    const success = await printLabel({ name: product.name, barcode: product.barcode, price: product.price, price_label: size === '45x10' ? priceLabel : undefined, fields: activeFields, size, quantity, image });
+    const success = await printLabel({ name: product.name, barcode: product.barcode, price: product.price, price_label: (size === '40x10' || size === '45x10') ? priceLabel : undefined, fields: activeFields, size, quantity, image });
     if (success) onPrinted?.(quantity);
   }
 
@@ -441,7 +444,7 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
             <span>Размер: {currentSize.label} (TSC TE200){currentSize.mm[1] <= 12 ? ' — штрихкод + ценник' : ''}</span>
           </div>
 
-          {size === '45x10' && (
+          {(size === '40x10' || size === '45x10') && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Цена на ценнике ₸</label>
               <input
