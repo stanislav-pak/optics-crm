@@ -3,6 +3,7 @@ import { X, Pencil, Trash2, Printer } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import type { Product } from '../../types';
 import PrintLabelModal from './PrintLabelModal';
+import { WAREHOUSE_ID } from '../../constants';
 
 interface PurchaseHistoryItem {
   id: string;
@@ -30,6 +31,8 @@ export default function ProductDetailModal({ product, stock, branchId, role, onC
   const [showPrintLabel, setShowPrintLabel] = useState(false);
 
   const isLow = stock <= product.min_stock;
+  const isWarehouseBranch = branchId === WAREHOUSE_ID;
+  const canDelete = role !== 'manager' || isWarehouseBranch;
 
   useEffect(() => {
     setHistoryLoading(true);
@@ -211,7 +214,7 @@ export default function ProductDetailModal({ product, stock, branchId, role, onC
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          {role !== 'manager' && (
+          {canDelete && (
             <button
               onClick={onDelete}
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-red-200 text-red-500 rounded-xl text-sm hover:bg-red-50"
