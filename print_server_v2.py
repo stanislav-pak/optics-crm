@@ -169,7 +169,12 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
                     cmd(f'TEXT {text_x + BC_SHIFT_X},{top_y + bar_h + 2},"1",0,1,1,"{barcode}"')
             else:
-                # CODE128: правая половина этикетки (после линии сгиба)
+                # CODE128: правая половина этикетки (после линии сгиба).
+                # Использует нативную TSPL-команду BARCODE (не наш BITMAP, как у EAN-13),
+                # и на 10-значном коде она физически ушла на хвостик-полоску — на 32мм левее
+                # цели, хотя расчётный x_bc уже "прижат к правому краю". BC_SHIFT_X был
+                # откалиброван только по EAN-13; для нативного BARCODE нужен свой доп. сдвиг.
+                CODE128_EXTRA_SHIFT_X = round(32 * DPI / 25.4)
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
                 # narrow=2 только если штрихкод + тихая зона влезает в правую половину
@@ -181,7 +186,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 bar_h_bc = max(20, H - 2 * margin_x - (narrow * 16 + 2 if readable else 0))
                 content_h = bar_h_bc + (2 + narrow * 16 if readable else 0)
                 top_y = max(0, (H - content_h) // 2 - RAISE_Y)
-                cmd(f'BARCODE {x_bc + BC_SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
+                cmd(f'BARCODE {x_bc + BC_SHIFT_X + CODE128_EXTRA_SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
                     text_y = top_y + bar_h_bc
                     cover_h = min(narrow * 16, H - text_y)
@@ -191,10 +196,10 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                         bmp = bytearray()
                         for _ in range(cover_h):
                             bmp.extend(white_row)
-                        header = f'BITMAP {x_bc + BC_SHIFT_X},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
+                        header = f'BITMAP {x_bc + BC_SHIFT_X + CODE128_EXTRA_SHIFT_X},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
                         result.extend(header + bytes(bmp) + b'\r\n')
                     text_x = x_bc + max(0, (bc_w - len(barcode) * 8) // 2)
-                    cmd(f'TEXT {text_x + BC_SHIFT_X},{text_y + 2},"1",0,1,1,"{barcode}"')
+                    cmd(f'TEXT {text_x + BC_SHIFT_X + CODE128_EXTRA_SHIFT_X},{text_y + 2},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128) — по центру своей половины
             price_label = str(data.get('price_label', '')).strip()
