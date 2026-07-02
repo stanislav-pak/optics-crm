@@ -729,12 +729,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     await loadAll();
   }
 
-  async function ungroupProducts(groupName: string) {
-    if (!confirm(`Разгруппировать «${groupName}»? Товары останутся, просто перестанут быть в группе.`)) return;
-    await supabase.from('products').update({ product_group: null }).eq('product_group', groupName);
-    await loadAll();
-  }
-
   async function deletePurchaseOrder(id: string) {
     if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
     const { error: itemsError } = await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
@@ -1158,21 +1152,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                 </div>
                               </div>
                               {(role === 'admin' || role === 'branch_admin' || (role === 'manager' && isWarehouseBranch)) && (
-                                <>
-                                  <button
-                                    onClick={e => { e.stopPropagation(); setEditingGroup(groupName); setEditGroupValue(groupName); }}
-                                    className="text-amber-400 hover:text-amber-600 flex-shrink-0 p-0.5"
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button
-                                    onClick={e => { e.stopPropagation(); ungroupProducts(groupName); }}
-                                    className="text-red-300 hover:text-red-500 flex-shrink-0 p-0.5"
-                                    title="Разгруппировать"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </>
+                                <button
+                                  onClick={e => { e.stopPropagation(); setEditingGroup(groupName); setEditGroupValue(groupName); }}
+                                  className="text-amber-400 hover:text-amber-600 flex-shrink-0 p-0.5"
+                                >
+                                  <Pencil size={13} />
+                                </button>
                               )}
                               <span className="text-gray-400 flex-shrink-0 text-xs ml-1">{isExpanded ? '▼' : '▶'}</span>
                             </>
