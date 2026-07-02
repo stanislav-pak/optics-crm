@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, Keyboard } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { NotFoundException } from '@zxing/library';
 
@@ -15,6 +15,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const detectedRef = useRef(false);
   const [status, setStatus] = useState('Инициализация...');
   const [error, setError] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualValue, setManualValue] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +123,15 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
     onClose();
   };
 
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = manualValue.trim();
+    if (!value || detectedRef.current) return;
+    detectedRef.current = true;
+    onDetected(value);
+    handleClose();
+  };
+
   return (
     <div data-modal="true" className="fixed inset-0 z-[60] bg-black flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 bg-black/80">
@@ -163,8 +174,39 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         )}
       </div>
 
-      <div className="px-4 py-4 bg-black/80 text-center">
-        <p className="text-white/60 text-xs">Наведи камеру на штрихкод товара</p>
+      <div className="px-4 py-4 bg-black/80">
+        {manualMode ? (
+          <form onSubmit={handleManualSubmit} className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={manualValue}
+              onChange={e => setManualValue(e.target.value)}
+              placeholder="Введите штрихкод вручную"
+              className="flex-1 min-w-0 bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              disabled={!manualValue.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-40"
+            >
+              OK
+            </button>
+          </form>
+        ) : (
+          <div className="text-center space-y-2">
+            <p className="text-white/60 text-xs">Наведи камеру на штрихкод товара</p>
+            <button
+              type="button"
+              onClick={() => setManualMode(true)}
+              className="inline-flex items-center gap-1.5 text-white/70 hover:text-white text-xs underline underline-offset-2"
+            >
+              <Keyboard size={13} />
+              Штрихкод не считывается — ввести вручную
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
