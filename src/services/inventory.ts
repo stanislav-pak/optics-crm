@@ -929,7 +929,7 @@ export async function logLabelPrint(productId: string, employeeId: string, quant
   if (error) throw error;
 }
 
-export async function getLabelPrintHistory(branchId?: string, limit = 50, offset = 0) {
+export async function getLabelPrintHistory(branchId?: string, limit = 50, offset = 0, search?: string) {
   // product:products!inner — обязательный join, чтобы .eq('product.branch_id', ...) мог
   // фильтровать ДО .range(). Раньше фильтр по филиалу шёл в JS после .limit(), и записи
   // этого филиала вытеснялись из окна последних N более активными филиалами.
@@ -945,6 +945,9 @@ export async function getLabelPrintHistory(branchId?: string, limit = 50, offset
 
   if (branchId) {
     query = query.eq('product.branch_id', branchId);
+  }
+  if (search) {
+    query = query.ilike('product.name', `%${search}%`);
   }
 
   const { data, error } = await query;

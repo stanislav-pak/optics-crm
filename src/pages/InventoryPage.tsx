@@ -204,6 +204,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [unprintedProducts, setUnprintedProducts] = useState<Product[]>([]);
   const [labelsSelectedCategory, setLabelsSelectedCategory] = useState<string | null>(null);
   const [labelsSearch, setLabelsSearch] = useState('');
+  const [printHistorySearch, setPrintHistorySearch] = useState('');
   const [labelsSort, setLabelsSort] = useState<'name' | 'price_desc' | 'price_asc' | 'created_at'>('created_at');
   const [printQueueProduct, setPrintQueueProduct] = useState<Product | null>(null);
   const [printHistory, setPrintHistory] = useState<Awaited<ReturnType<typeof getLabelPrintHistory>>>([]);
@@ -257,10 +258,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (!error && data) setUnprintedProducts(data as Product[]);
   }
 
-  async function loadPrintHistory(branchId: string, userRole: string) {
+  async function loadPrintHistory(branchId: string, userRole: string, search?: string) {
     try {
       const scopeId = userRole !== 'admin' ? branchId : undefined;
-      const data = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, 0);
+      const data = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, 0, search);
       setPrintHistory(data);
       setPrintHistoryHasMore(data.length === PRINT_HISTORY_PAGE_SIZE);
     } catch (e) { console.error('loadPrintHistory error:', e); }
@@ -270,7 +271,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     setLoadingMoreHistory(true);
     try {
       const scopeId = role !== 'admin' ? activeBranchId : undefined;
-      const more = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, printHistory.length);
+      const search = printHistorySearch.trim() || undefined;
+      const more = await getLabelPrintHistory(scopeId, PRINT_HISTORY_PAGE_SIZE, printHistory.length, search);
       setPrintHistory(prev => [...prev, ...more]);
       setPrintHistoryHasMore(more.length === PRINT_HISTORY_PAGE_SIZE);
     } catch (e) { console.error('loadMorePrintHistory error:', e); }
@@ -279,7 +281,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   useEffect(() => {
     loadUnprintedProducts(activeBranchId, role);
-    loadPrintHistory(activeBranchId, role);
 
     const channel = supabase
       .channel(`print-station-${activeBranchId}`)
@@ -302,6 +303,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBranchId]);
+
+  useEffect(() => {
+    loadPrintHistory(activeBranchId, role, printHistorySearch.trim() || undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBranchId, printHistorySearch]);
 
 
   // Загружаем связанный заказ мастерской при открытии детали продажи
@@ -2846,8 +2852,22 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <span className="text-xs text-gray-400">{printHistory.length} записей</span>
                 )}
               </div>
+              <div className="px-4 py-2 border-b border-gray-100">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={printHistorySearch}
+                    onChange={e => setPrintHistorySearch(e.target.value)}
+                    placeholder="Поиск по наименованию..."
+                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
               {printHistory.length === 0 ? (
-                <div className="text-center py-10 text-sm text-gray-400">История пуста</div>
+                <div className="text-center py-10 text-sm text-gray-400">
+                  {printHistorySearch.trim() ? 'Ничего не найдено' : 'История пуста'}
+                </div>
               ) : (
                 <div className="divide-y divide-gray-50">
                   {printHistory.map(h => (
