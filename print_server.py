@@ -134,12 +134,18 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         if barcode:
             readable = 1 if H >= 38 else 0
             margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
-            top_y    = round(3 * DPI / 25.4)   # 3 мм ≈ 24 точки
+            top_y    = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек (подняли выше, было 3мм)
+            # Высота полосок считается от СТАРОГО отступа (3мм) — не от нового top_y.
+            # Раньше bar_h = H - top_y - 16 означало, что при уменьшении top_y полоски
+            # становились ВЫШЕ (съедая место, отведённое под цифры снизу). Нужно было
+            # просто поднять весь блок, а не увеличивать сами полоски — размер полосок
+            # остаётся как раньше, только стартует выше, оставляя больше места цифрам внизу.
+            ref_top_y = round(3 * DPI / 25.4)
             # Ширина штрихкода — пропорционально половине этикетки (после линии сгиба),
             # а не фиксированные мм — иначе штрихкод вылезает за сгиб при смене размера этикетки.
             bar_w    = W // 2 - margin_x
             x        = W - bar_w - margin_x    # прижать к правому краю (= W // 2, у линии сгиба)
-            bar_h    = max(20, H - top_y - 16)
+            bar_h    = max(20, H - ref_top_y - 16)
 
             price_left_w = x
             if len(barcode) == 13 and barcode.isdigit():
@@ -158,7 +164,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 quiet = 10 * narrow
                 x_bc = W - bc_w - quiet - margin_x
                 price_left_w = x_bc
-                bar_h_bc = max(20, H - top_y - narrow * 16)
+                bar_h_bc = max(20, H - ref_top_y - narrow * 16)
                 cmd(f'BARCODE {x_bc + SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
                     text_y = top_y + bar_h_bc
@@ -191,7 +197,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
-                p_y = max(0, (H - ch_h) // 2)
+                p_y = max(0, (H - ch_h) // 2 - 16)   # приподнято вместе со штрихкодом
                 cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
