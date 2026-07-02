@@ -117,7 +117,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         result.extend((text + '\r\n').encode('cp1251', errors='replace'))
 
     cmd(f'SIZE {w_mm} mm,{h_mm} mm')
-    cmd('GAP 3 mm,0 mm')
+    cmd('GAP 7 mm,0 mm')  # физический зазор на 40x10 ролике измерен ~6.5-7мм (было ошибочно 3мм)
     cmd('DIRECTION 0')
     cmd('CODEPAGE 1251')
     cmd('CLS')
