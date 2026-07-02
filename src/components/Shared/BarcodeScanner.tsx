@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Camera, Keyboard } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import { NotFoundException } from '@zxing/library';
+import { NotFoundException, DecodeHintType, BarcodeFormat } from '@zxing/library';
 
 interface Props {
   onDetected: (barcode: string) => void;
@@ -27,11 +27,13 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       try {
         setStatus('Запрос камеры...');
         const stream = await navigator.mediaDevices.getUserMedia({
-          // Без искусственного ограничения ширины — для мелких/плотных штрихкодов
-          // (например узкие этикетки со штрихкодом в половину ширины) меньше разрешение
-          // означает меньше пикселей на полоску и хуже распознавание.
+          // Явно просим высокое разрешение — без constraint браузер может сам выбрать
+          // низкое (например 640x480) по умолчанию, а мелким/плотным штрихкодам (узкие
+          // этикетки со штрихкодом в половину ширины) нужно больше пикселей на полоску.
           video: {
             facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
             advanced: [{ focusMode: 'continuous' }],
           },
         });
@@ -59,7 +61,14 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         applyFocus();
         focusInterval = setInterval(applyFocus, 3000);
 
-        const reader = new BrowserMultiFormatReader();
+        // TRY_HARDER заставляет zxing тратить больше времени на кадр ради надёжности —
+        // критично для мелких/плотных штрихкодов (узкая этикетка со штрихкодом в
+        // половину ширины). POSSIBLE_FORMATS сужает поиск до реально используемых
+        // форматов — меньше ложных срабатываний на других форматах, точнее и быстрее.
+        const hints = new Map();
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128]);
+        const reader = new BrowserMultiFormatReader(hints);
         readerRef.current = reader;
 
         await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
