@@ -197,7 +197,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
-                p_y = max(0, (H - ch_h) // 2 - 16)   # приподнято вместе со штрихкодом
+                p_y = top_y   # тот же отступ от края, что у штрихкода — после сгиба половинки совпадают
                 cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
