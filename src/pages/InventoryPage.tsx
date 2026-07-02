@@ -1612,12 +1612,15 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            ₸{(role !== 'manager'
-                              ? po.total
-                              : (po.items?.reduce((sum, i) => sum + i.quantity * ((i.product as any)?.price ?? 0), 0) ?? 0)
-                            ).toLocaleString()}
-                          </p>
+                          {(() => {
+                            const saleTotal = po.items?.reduce((sum, i) => sum + i.quantity * ((i.product as any)?.price ?? 0), 0) ?? 0;
+                            return (
+                              <p className="text-sm font-medium text-gray-900">
+                                ₸{saleTotal.toLocaleString()}
+                                {role !== 'manager' && ` / ₸${po.total.toLocaleString()}`}
+                              </p>
+                            );
+                          })()}
                           <StatusBadge status={po.status} />
                         </div>
                         {role !== 'manager' && (
