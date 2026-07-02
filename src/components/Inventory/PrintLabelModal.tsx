@@ -442,6 +442,19 @@ export default function PrintLabelModal({ product, onClose, onPrinted }: Props) 
 
           <div className="flex items-center justify-between text-xs text-gray-400 px-1">
             <span>Размер: {currentSize.label} (TSC TE200){currentSize.mm[1] <= 12 ? ' — штрихкод + ценник' : ''}</span>
+            {/* временный тест-переключатель роликов 40x10/45x10 — удалить после диагностики печати */}
+            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+              {(['40x10', '45x10'] as LabelSize[]).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); setSize(s); }}
+                  className={`px-2 py-1 font-medium ${size === s ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
 
           {(size === '40x10' || size === '45x10') && (
