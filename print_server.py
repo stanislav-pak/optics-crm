@@ -134,7 +134,8 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         if barcode:
             readable = 1 if H >= 38 else 0
             margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
-            top_y    = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек (подняли выше, было 3мм)
+            SHIFT_Y  = round(4 * DPI / 25.4)   # 4мм — сдвиг всего блока (цена+штрихкод) по вертикали
+            top_y    = max(0, round(1 * DPI / 25.4) - SHIFT_Y)
             # Высота полосок считается от СТАРОГО отступа (3мм) — не от нового top_y.
             # Раньше bar_h = H - top_y - 16 означало, что при уменьшении top_y полоски
             # становились ВЫШЕ (съедая место, отведённое под цифры снизу). Нужно было
@@ -197,7 +198,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
-                p_y = max(0, (H - ch_h) // 2)   # центр по высоте этикетки, а не прижато к краю
+                p_y = max(0, (H - ch_h) // 2 - SHIFT_Y)
                 cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
