@@ -68,7 +68,10 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         const hints = new Map();
         hints.set(DecodeHintType.TRY_HARDER, true);
         hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128]);
-        const reader = new BrowserMultiFormatReader(hints);
+        // По умолчанию zxing ждёt 500мс между попытками распознавания — это и даёт
+        // ощущение "долго не считывает", даже когда штрихкод уже в кадре. Уменьшаем
+        // задержку, не трогая TRY_HARDER/разрешение (те нужны для мелких штрихкодов).
+        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 100 });
         readerRef.current = reader;
 
         await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
