@@ -138,8 +138,14 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     # переменных (ширин/центрирования), чтобы не сломать взаимное расположение элементов.
     SHIFT_X = round(15 * DPI / 25.4)  # 15 мм вправо
     BC_SHIFT_X = SHIFT_X + round(1 * DPI / 25.4)   # +1мм доп. вправо только для блока штрихкод+цифры (от цены)
-    PRICE_SHIFT_X = SHIFT_X - round(6 * DPI / 25.4)   # цена заезжала за линию сгиба — сдвиг на 6мм в сторону хвостика
-    LOWER_Y = round(1 * DPI / 25.4)   # 1мм ниже — применяется ПОСЛЕ подъёма/клампа, а не вместо него
+    # PRICE_SHIFT_X и LOWER_Y для штрихкода — разные для EAN-13 и CODE128 (у них разный
+    # price_left_w, поэтому одинаковый сдвиг цены на них влияет по-разному). Значения
+    # для CODE128 (10-значный) подтверждены тестом — не трогать. Для EAN-13 (13-значный)
+    # подбираются отдельно.
+    PRICE_SHIFT_X_CODE128 = SHIFT_X - round(6 * DPI / 25.4)
+    PRICE_SHIFT_X_EAN13   = SHIFT_X - round(4 * DPI / 25.4)
+    LOWER_Y_CODE128 = round(1 * DPI / 25.4)   # подтверждено тестом — не трогать
+    LOWER_Y_EAN13   = 0   # подняли на 1мм выше относительно прежнего (убрали опускание)
     # Было 4.5мм, но это упирало цену в потолок холста (p_y=0) — при добавлении
     # +2.5мм к GAP-offset ниже цена уехала бы вместе со всем холстом ещё выше.
     # Уменьшаем внутренний подъём на те же 2.5мм, чтобы цена в сумме осталась
@@ -165,7 +171,8 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             if len(barcode) == 13 and barcode.isdigit():
                 # EAN-13: BITMAP с тихими зонами
                 content_h = bar_h + (2 + TEXT_H if readable else 0)
-                top_y = max(0, (H - content_h) // 2 - RAISE_Y) + LOWER_Y
+                top_y = max(0, (H - content_h) // 2 - RAISE_Y) + LOWER_Y_EAN13
+                price_shift_x = PRICE_SHIFT_X_EAN13
                 result.extend(_ean13_bitmap(barcode, x + BC_SHIFT_X, top_y, bar_w, bar_h))
                 if readable:
                     text_x = x + max(0, (bar_w - len(barcode) * 8) // 2)
@@ -187,7 +194,8 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 price_left_w = x_bc
                 bar_h_bc = max(20, H - 2 * margin_x - (narrow * 16 + 2 if readable else 0))
                 content_h = bar_h_bc + (2 + narrow * 16 if readable else 0)
-                top_y = max(0, (H - content_h) // 2 - RAISE_Y) + LOWER_Y
+                top_y = max(0, (H - content_h) // 2 - RAISE_Y) + LOWER_Y_CODE128
+                price_shift_x = PRICE_SHIFT_X_CODE128
                 cmd(f'BARCODE {x_bc + BC_SHIFT_X + CODE128_EXTRA_SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
                     text_y = top_y + bar_h_bc
@@ -220,8 +228,9 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
-                p_y = max(0, (H - ch_h) // 2 - RAISE_Y) + LOWER_Y
-                cmd(f'TEXT {max(0, p_x + PRICE_SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
+                # Вертикаль цены жалоб не вызывала ни у одного типа — не меняется по типу.
+                p_y = max(0, (H - ch_h) // 2 - RAISE_Y) + round(1 * DPI / 25.4)
+                cmd(f'TEXT {max(0, p_x + price_shift_x)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             name  = field_val('name')
             price = field_val('price_sale')
