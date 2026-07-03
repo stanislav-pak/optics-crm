@@ -305,6 +305,16 @@
 
 ---
 
+### T44 — NKT barcode lookup: автоопределение товара по штрихкоду `DONE` (2026-06-29)
+**Файлы:** `supabase/functions/nkt-lookup/`, `src/components/Inventory/EditProductModal.tsx`, `src/components/Inventory/AddProductModal.tsx`
+**Что сделано:**
+- Edge Function `nkt-lookup` — запрос в реестр товаров Казахстана (НКТ/GTIN) по штрихкоду
+- EditProductModal: автопроверка при открытии — если штрихкод есть, подтягивает данные товара из НКТ
+- AddProductModal: ручной запуск NKT-поиска при вводе штрихкода
+- Исправлено отображение GTIN вместо NTIN в результатах поиска
+
+---
+
 ### T39 — Двухэтапный запрос товара со склада + push-уведомления `DONE` (2026-07-02)
 **Файлы:** `src/components/Inventory/StockRequestModal.tsx`, `src/pages/InventoryPage.tsx`, `src/services/inventory.ts`
 **Что сделано:**
@@ -414,10 +424,10 @@
 ---
 
 ## Статистика
-- Всего: 43 задачи
+- Всего: 44 задачи
 - TODO: 1 (T23)
 - IN_PROGRESS: 0
-- DONE: 42
+- DONE: 43
 - SKIP: 0
 
 ## Исключено (Kaspi — не запущен)
