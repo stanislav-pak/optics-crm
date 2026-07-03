@@ -142,7 +142,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
     # price_left_w, поэтому одинаковый сдвиг цены на них влияет по-разному). Значения
     # для CODE128 (10-значный) подтверждены тестом — не трогать. Для EAN-13 (13-значный)
     # подбираются отдельно.
-    PRICE_SHIFT_X_CODE128 = SHIFT_X - round(6 * DPI / 25.4)
+    PRICE_SHIFT_X_CODE128 = SHIFT_X - round(3 * DPI / 25.4)   # было -6мм, +3мм от хвостика
     PRICE_SHIFT_X_EAN13   = SHIFT_X   # было -2мм, ещё +2мм от хвостика
     LOWER_Y_CODE128 = round(1 * DPI / 25.4)   # подтверждено тестом — не трогать
     LOWER_Y_EAN13   = 0   # подняли на 1мм выше относительно прежнего (убрали опускание)
@@ -183,7 +183,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 # и на 10-значном коде она физически ушла на хвостик-полоску — на 32мм левее
                 # цели, хотя расчётный x_bc уже "прижат к правому краю". BC_SHIFT_X был
                 # откалиброван только по EAN-13; для нативного BARCODE нужен свой доп. сдвиг.
-                CODE128_EXTRA_SHIFT_X = round(32 * DPI / 25.4)
+                CODE128_EXTRA_SHIFT_X = round(35 * DPI / 25.4)   # было 32мм, +3мм от хвостика
                 is_c128c = barcode.isdigit() and len(barcode) % 2 == 0
                 n_modules = (35 + (len(barcode) // 2) * 11) if is_c128c else (35 + len(barcode) * 11)
                 # narrow=2 только если штрихкод + тихая зона влезает в правую половину
