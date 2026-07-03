@@ -6,7 +6,7 @@ import {
   getStockMovements, getPurchaseOrders, getSales, getRevisions,
   deleteRevision, getIncomingTransfers, updateProduct,
   logLabelPrint, getLabelPrintHistory, getProductById,
-  getStockRequests, approveStockRequest, rejectStockRequest,
+  getStockRequests, approveStockRequest, shipStockRequest, rejectStockRequest,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from '../constants';
@@ -705,7 +705,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const isWarehouseBranch = branchId === WAREHOUSE_ID;
   const canSubmitRequest = !isWarehouseBranch && branchId !== WORKSHOP_BRANCH_ID && role !== 'admin';
   const canSeeRequestsTab = role === 'admin' || isWarehouseBranch;
-  const newRequestsCount = stockRequests.filter(r => r.status === 'new').length;
+  // Считаем и новые (ждут решения), и одобренные (ждут отправки) — оба требуют действия склада
+  const newRequestsCount = stockRequests.filter(r => r.status === 'new' || r.status === 'approved').length;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Обзор' },
@@ -2638,9 +2639,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               <div className="space-y-3">
                 {stockRequests.map(req => {
                   const statusMap: Record<string, { label: string; cls: string }> = {
-                    new:      { label: 'Новая',     cls: 'bg-blue-100 text-blue-700' },
-                    approved: { label: 'Одобрена',  cls: 'bg-green-100 text-green-700' },
-                    rejected: { label: 'Отклонена', cls: 'bg-red-100 text-red-600' },
+                    new:      { label: 'Новая',      cls: 'bg-blue-100 text-blue-700' },
+                    approved: { label: 'Одобрена',   cls: 'bg-amber-100 text-amber-700' },
+                    shipped:  { label: 'Отправлена', cls: 'bg-green-100 text-green-700' },
+                    rejected: { label: 'Отклонена',  cls: 'bg-red-100 text-red-600' },
                   };
                   const st = statusMap[req.status] ?? { label: req.status, cls: 'bg-gray-100 text-gray-600' };
                   const isRejecting = rejectingRequestId === req.id;
@@ -2722,9 +2724,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                                 onClick={async () => {
                                   setRequestActionLoading(req.id);
                                   try {
-                                    await approveStockRequest(req.id, employeeId);
+                                    await approveStockRequest(req.id);
                                     await loadStockRequests();
-                                    await loadAll();
                                   } catch (e: any) { alert('Ошибка при одобрении: ' + e.message); }
                                   setRequestActionLoading(null);
                                 }}
@@ -2741,6 +2742,27 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                               </button>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Одобрена, но ещё не отправлена — склад физически собрал товар */}
+                      {req.status === 'approved' && (
+                        <div className="border-t border-gray-100 pt-3">
+                          <button
+                            disabled={isLoading}
+                            onClick={async () => {
+                              setRequestActionLoading(req.id);
+                              try {
+                                await shipStockRequest(req.id, employeeId);
+                                await loadStockRequests();
+                                await loadAll();
+                              } catch (e: any) { alert('Ошибка при отправке: ' + e.message); }
+                              setRequestActionLoading(null);
+                            }}
+                            className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                          >
+                            {isLoading ? 'Отправляем...' : 'Отправить'}
+                          </button>
                         </div>
                       )}
                     </div>

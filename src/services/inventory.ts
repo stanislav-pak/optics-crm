@@ -990,6 +990,16 @@ export async function getProductGroups(): Promise<string[]> {
 // ЗАЯВКИ НА СКЛАД
 // ============================================
 
+async function notifyBranch(branchId: string, title: string, body: string) {
+  try {
+    await supabase.functions.invoke('send-push', {
+      body: { branch_id: branchId, title, body },
+    });
+  } catch (e) {
+    console.error('notifyBranch error:', e);
+  }
+}
+
 export async function createStockRequest(params: {
   branch_id: string;
   created_by: string;
@@ -1009,6 +1019,9 @@ export async function createStockRequest(params: {
     .from('stock_request_items')
     .insert(items.map(i => ({ request_id: req.id, product_id: i.product_id, quantity: i.quantity })));
   if (itemsError) throw itemsError;
+
+  const { data: branch } = await supabase.from('branches').select('name').eq('id', params.branch_id).maybeSingle();
+  await notifyBranch(WAREHOUSE_ID, 'Новая заявка на склад', `${branch?.name ?? 'Филиал'} запросил товар`);
 
   return req as { id: string };
 }
@@ -1032,14 +1045,36 @@ export async function getStockRequests(branchId?: string): Promise<StockRequest[
   return (data ?? []) as StockRequest[];
 }
 
-export async function approveStockRequest(requestId: string, employeeId: string): Promise<void> {
+// Шаг 1: склад проверяет заявку и подтверждает, что готов её выполнить.
+// Остатки ещё не трогаются — фактическое списание происходит на шаге отправки (shipStockRequest).
+export async function approveStockRequest(requestId: string): Promise<void> {
+  const { data: req, error } = await supabase
+    .from('stock_requests')
+    .select('branch_id, status')
+    .eq('id', requestId)
+    .single();
+  if (error || !req) throw new Error('Заявка не найдена');
+  if (req.status !== 'new') throw new Error('Заявка уже обработана');
+
+  const { error: updErr } = await supabase
+    .from('stock_requests')
+    .update({ status: 'approved', updated_at: new Date().toISOString() })
+    .eq('id', requestId);
+  if (updErr) throw updErr;
+
+  await notifyBranch(req.branch_id, 'Заявка одобрена', 'Склад готовит товар к отправке');
+}
+
+// Шаг 2: склад физически собрал товар и отправляет — только теперь происходит
+// фактическое списание со склада (та же логика, что раньше была внутри "одобрить").
+export async function shipStockRequest(requestId: string, employeeId: string): Promise<void> {
   const { data: req, error } = await supabase
     .from('stock_requests')
     .select('*, items:stock_request_items(product_id, quantity)')
     .eq('id', requestId)
     .single();
   if (error || !req) throw new Error('Заявка не найдена');
-  if (req.status !== 'new') throw new Error('Заявка уже обработана');
+  if (req.status !== 'approved') throw new Error('Заявка должна быть одобрена перед отправкой');
 
   const reqItems = req.items as Array<{ product_id: string; quantity: number }>;
 
@@ -1064,15 +1099,66 @@ export async function approveStockRequest(requestId: string, employeeId: string)
 
   const { error: updErr } = await supabase
     .from('stock_requests')
-    .update({ status: 'approved', updated_at: new Date().toISOString() })
+    .update({ status: 'shipped', updated_at: new Date().toISOString() })
     .eq('id', requestId);
   if (updErr) throw updErr;
+
+  await notifyBranch(req.branch_id, 'Товар отправлен', 'Проверьте входящие перемещения на филиале');
 }
 
 export async function rejectStockRequest(requestId: string, reason?: string): Promise<void> {
+  const { data: req } = await supabase
+    .from('stock_requests')
+    .select('branch_id')
+    .eq('id', requestId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('stock_requests')
     .update({ status: 'rejected', rejection_reason: reason ?? null, updated_at: new Date().toISOString() })
     .eq('id', requestId);
   if (error) throw error;
+
+  if (req) {
+    await notifyBranch(req.branch_id, 'Заявка отклонена', reason ? `Причина: ${reason}` : 'Склад отклонил заявку');
+  }
+}
+
+// Отклонение уже отправленного (in_transit) перемещения при приёмке на филиале —
+// товар возвращается на склад-отправитель компенсирующим движением type='return'.
+export async function rejectIncomingTransfer(movementId: string, employeeId: string, reason?: string): Promise<void> {
+  const { data: movement, error: fetchErr } = await supabase
+    .from('stock_movements')
+    .select('*')
+    .eq('id', movementId)
+    .single();
+  if (fetchErr || !movement) throw new Error('Перемещение не найдено');
+  if (movement.status !== 'in_transit') throw new Error('Перемещение уже обработано');
+
+  const { error: updErr } = await supabase
+    .from('stock_movements')
+    .update({
+      status: 'cancelled',
+      confirmed_by: employeeId,
+      confirmed_at: new Date().toISOString(),
+      notes: (movement.notes ?? '') + (reason ? ` (отклонено: ${reason})` : ' (отклонено филиалом)'),
+    })
+    .eq('id', movementId);
+  if (updErr) throw updErr;
+
+  const { error: returnErr } = await supabase.from('stock_movements').insert({
+    product_id: movement.product_id,
+    branch_id: movement.branch_id,
+    type: 'return',
+    status: 'completed',
+    quantity: movement.quantity,
+    reference_type: 'transfer_rejected',
+    created_by: employeeId,
+    notes: `Возврат: филиал отклонил перемещение${reason ? ` (${reason})` : ''}`,
+  });
+  if (returnErr) throw returnErr;
+
+  await supabase.rpc('recalculate_stock', { p_branch_id: movement.branch_id });
+
+  await notifyBranch(movement.branch_id, 'Перемещение отклонено', 'Филиал отклонил приёмку, товар возвращён на склад');
 }

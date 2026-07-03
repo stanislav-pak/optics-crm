@@ -460,7 +460,7 @@ export interface StockRequest {
   id: string;
   branch_id: string;
   created_by: string;
-  status: 'new' | 'approved' | 'rejected';
+  status: 'new' | 'approved' | 'shipped' | 'rejected';
   notes?: string;
   rejection_reason?: string;
   order_id?: string | null;

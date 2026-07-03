@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, PackageCheck, AlertTriangle, CheckCircle } from 'lucide-react';
-import { getIncomingTransfers, confirmTransfer } from '../../services/inventory';
+import { getIncomingTransfers, confirmTransfer, rejectIncomingTransfer } from '../../services/inventory';
 
 interface IncomingTransfer {
   id: string;
@@ -70,6 +70,24 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
     setSubmittingId(transferId);
     try {
       await confirmTransfer(transferId, confirmedQtys[transferId] ?? 0, employeeId);
+      setTransfers(prev => prev.filter(t => t.id !== transferId));
+      onUpdated();
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      submittingRef.current[transferId] = false;
+      setSubmittingId(null);
+    }
+  }
+
+  async function handleReject(transferId: string) {
+    if (submittingRef.current[transferId]) return;
+    const reason = window.prompt('Причина отклонения (необязательно):') ?? undefined;
+    submittingRef.current[transferId] = true;
+    setError(null);
+    setSubmittingId(transferId);
+    try {
+      await rejectIncomingTransfer(transferId, employeeId, reason || undefined);
       setTransfers(prev => prev.filter(t => t.id !== transferId));
       onUpdated();
     } catch (e: any) {
@@ -218,14 +236,23 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
                     </p>
                   )}
 
-                  {/* Кнопка подтверждения */}
-                  <button
-                    onClick={() => handleConfirm(t.id)}
-                    disabled={isSubmitting || confirmedQty === 0}
-                    className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors mt-1"
-                  >
-                    {isSubmitting ? 'Подтверждаем...' : 'Подтвердить приёмку'}
-                  </button>
+                  {/* Кнопки подтверждения / отклонения */}
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={() => handleReject(t.id)}
+                      disabled={isSubmitting}
+                      className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
+                    >
+                      Отклонить
+                    </button>
+                    <button
+                      onClick={() => handleConfirm(t.id)}
+                      disabled={isSubmitting || confirmedQty === 0}
+                      className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {isSubmitting ? 'Подтверждаем...' : 'Подтвердить приёмку'}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
