@@ -2,6 +2,7 @@
 import { AuthContext, useAuthProvider } from './hooks/useAuth';
 import { supabase } from './services/supabase';
 import { LoginForm } from './components/Auth/LoginForm';
+import { ResetPasswordForm } from './components/Auth/ResetPasswordForm';
 import { ChatList } from './components/Chat/ChatList';
 import { ChatWindow } from './components/Chat/ChatWindow';
 import { CRMSidebar } from './components/CRM/CRMSidebar';
@@ -49,7 +50,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 function AppContent() {
-  const { employee, loading, refetch } = useAuthProvider();
+  const { employee, loading, refetch, passwordRecovery, clearPasswordRecovery } = useAuthProvider();
   usePushNotifications(employee?.id);
 
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
@@ -371,6 +372,8 @@ function AppContent() {
       </div>
     );
   }
+
+  if (passwordRecovery) return <ResetPasswordForm onDone={clearPasswordRecovery} />;
 
   if (!employee) return <LoginForm onSuccess={refetch} />;
 

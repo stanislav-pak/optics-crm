@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { signIn } from '../../services/auth';
 import { SignupForm } from './SignupForm';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -12,9 +13,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSignup, setShowSignup] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   if (showSignup) {
     return <SignupForm onBack={() => setShowSignup(false)} />;
+  }
+
+  if (showForgotPassword) {
+    return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +61,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </div>
           <button onClick={handleSubmit} disabled={loading || !email || !password} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2.5 text-sm transition-colors mt-2">
             {loading ? 'Входим...' : 'Войти'}
+          </button>
+          <button onClick={() => setShowForgotPassword(true)} className="w-full text-[#8696a0] hover:text-[#d1d7db] text-sm transition-colors text-center">
+            Забыли пароль?
           </button>
           <button onClick={() => setShowSignup(true)} className="w-full text-[#8696a0] hover:text-[#d1d7db] text-sm transition-colors text-center">
             Нет аккаунта? Зарегистрироваться

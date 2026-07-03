@@ -7,12 +7,16 @@ interface AuthContextType {
   employee: Employee | null;
   loading: boolean;
   refetch: () => Promise<void>;
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   employee: null,
   loading: true,
   refetch: async () => {},
+  passwordRecovery: false,
+  clearPasswordRecovery: () => {},
 });
 
 export function useAuth() {
@@ -22,6 +26,7 @@ export function useAuth() {
 export function useAuthProvider(): AuthContextType {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   const fetchEmployee = async () => {
     try {
@@ -44,6 +49,9 @@ export function useAuthProvider(): AuthContextType {
     fetchEmployee();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Ссылка сброса пароля даёт временную сессию только для смены пароля —
+      // не должна вести себя как обычный вход (не подгружаем employee).
+      if (event === 'PASSWORD_RECOVERY') { setPasswordRecovery(true); setLoading(false); return; }
       if (event === 'SIGNED_IN') fetchEmployee();
       if (event === 'SIGNED_OUT') {
         setEmployee(null);
@@ -54,5 +62,5 @@ export function useAuthProvider(): AuthContextType {
     return () => subscription.unsubscribe();
   }, []);
 
-  return { employee, loading, refetch: fetchEmployee };
+  return { employee, loading, refetch: fetchEmployee, passwordRecovery, clearPasswordRecovery: () => setPasswordRecovery(false) };
 }
