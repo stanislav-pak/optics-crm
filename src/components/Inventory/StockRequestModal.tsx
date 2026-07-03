@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Trash2, Send } from 'lucide-react';
+import { X, Search, Trash2, Send, QrCode } from 'lucide-react';
 import { getProducts, createStockRequest } from '../../services/inventory';
 import { WAREHOUSE_ID } from '../../constants';
 import type { Product } from '../../types';
+import BarcodeScanner from '../Shared/BarcodeScanner';
 
 interface RequestItem {
   product_id: string;
@@ -23,6 +24,7 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
   const [items, setItems] = useState<RequestItem[]>([]);
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -55,6 +57,12 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
     }
     setSearch('');
     setShowSearch(false);
+  };
+
+  const handleBarcodeDetected = (barcode: string) => {
+    const found = products.find(p => p.barcode === barcode);
+    if (found) addItem(found);
+    setShowScanner(false);
   };
 
   const updateQty = (idx: number, qty: number) => {
@@ -129,38 +137,48 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
           {/* Поиск товара */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={e => { setSearch(e.target.value); setShowSearch(true); }}
-                onFocus={() => setShowSearch(true)}
-                onBlur={() => setTimeout(() => setShowSearch(false), 150)}
-                placeholder="Поиск по названию или артикулу..."
-                className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {showSearch && search && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                  {filtered.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-gray-400">Не найдено</p>
-                  ) : filtered.slice(0, 8).map(p => {
-                    const wQty = getWarehouseQty(p);
-                    return (
-                      <button key={p.id}
-                        onMouseDown={e => { e.preventDefault(); addItem(p); }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-900">{p.name}</p>
-                          {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${wQty > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                          склад: {wQty}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setShowSearch(true); }}
+                  onFocus={() => setShowSearch(true)}
+                  onBlur={() => setTimeout(() => setShowSearch(false), 150)}
+                  placeholder="Поиск по названию или артикулу..."
+                  className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {showSearch && search && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-gray-400">Не найдено</p>
+                    ) : filtered.slice(0, 8).map(p => {
+                      const wQty = getWarehouseQty(p);
+                      return (
+                        <button key={p.id}
+                          onMouseDown={e => { e.preventDefault(); addItem(p); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-900">{p.name}</p>
+                            {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${wQty > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                            склад: {wQty}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); setShowScanner(true); }}
+                className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex-shrink-0"
+                title="Сканировать штрихкод"
+              >
+                <QrCode size={18} />
+              </button>
             </div>
           </div>
 
@@ -188,6 +206,13 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
           </button>
         </div>
       </div>
+
+      {showScanner && (
+        <BarcodeScanner
+          onDetected={handleBarcodeDetected}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }
