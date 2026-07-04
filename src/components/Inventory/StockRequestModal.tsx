@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Search, Trash2, Send, QrCode } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Search, Trash2, Send, QrCode, Plus } from 'lucide-react';
 import { getProducts, createStockRequest } from '../../services/inventory';
 import { WAREHOUSE_ID } from '../../constants';
 import type { Product } from '../../types';
@@ -24,18 +24,32 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
   const [items, setItems] = useState<RequestItem[]>([]);
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getProducts().then(setProducts).catch(console.error);
   }, []);
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSearch(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const categories = Array.from(
+    new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  const q = search.toLowerCase().trim();
   const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode?.includes(search)
+    (!q || p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || (p.barcode ?? '').includes(search)) &&
+    (!selectedCategory || p.category_id === selectedCategory)
   );
 
   const getWarehouseQty = (p: Product) =>
@@ -138,9 +152,34 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
             </div>
           ))}
 
+          {items.length === 0 && (
+            <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl">
+              Добавьте товары через поиск ниже
+            </div>
+          )}
+
           {/* Поиск товара */}
-          <div>
+          <div ref={searchRef} className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">Добавить товар</label>
+
+            {/* Фильтр по категориям */}
+            {categories.length > 0 && (
+              <div data-no-swipe="true" className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { setSelectedCategory(null); setShowSearch(true); }}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Все</button>
+                {categories.map(cat => (
+                  <button key={cat.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { setSelectedCategory(selectedCategory === cat.id ? null : cat.id); setShowSearch(true); }}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >{cat.name}</button>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -148,32 +187,9 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
                   value={search}
                   onChange={e => { setSearch(e.target.value); setShowSearch(true); }}
                   onFocus={() => setShowSearch(true)}
-                  onBlur={() => setTimeout(() => setShowSearch(false), 150)}
                   placeholder="Поиск по названию или артикулу..."
                   className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {showSearch && search && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                    {filtered.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-gray-400">Не найдено</p>
-                    ) : filtered.slice(0, 8).map(p => {
-                      const wQty = getWarehouseQty(p);
-                      return (
-                        <button key={p.id}
-                          onMouseDown={e => { e.preventDefault(); addItem(p); }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-900">{p.name}</p>
-                            {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
-                          </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${wQty > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                            склад: {wQty}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
               <button
                 type="button"
@@ -184,6 +200,36 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
                 <QrCode size={18} />
               </button>
             </div>
+
+            {showSearch && (
+              <div
+                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-y-auto"
+                style={{ WebkitOverflowScrolling: 'touch', maxHeight: '280px' }}
+                onTouchMove={e => e.stopPropagation()}
+              >
+                {filtered.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-gray-400">Не найдено</p>
+                ) : filtered.map(p => {
+                  const wQty = getWarehouseQty(p);
+                  return (
+                    <button key={p.id}
+                      onClick={() => addItem(p)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 truncate">{p.name}</p>
+                        {p.sku && <p className="text-xs text-gray-400">{p.sku}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${wQty > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                          склад: {wQty}
+                        </span>
+                        <Plus size={14} className="text-blue-500" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Примечание */}
