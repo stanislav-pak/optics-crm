@@ -41,21 +41,13 @@ async function subscribeToPush(employeeId: string): Promise<void> {
   const endpoint = subJson.endpoint ?? '';
 
   // Upsert по employee_id + endpoint — каждое устройство хранит свою подписку (#14)
-  const { data: existing } = await supabase
+  const { error: upsertError } = await supabase
     .from('push_subscriptions')
-    .select('id')
-    .eq('employee_id', employeeId)
-    .eq('endpoint', endpoint)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase.from('push_subscriptions')
-      .update({ subscription: sub.toJSON() })
-      .eq('id', existing.id);
-  } else {
-    await supabase.from('push_subscriptions')
-      .insert({ employee_id: employeeId, endpoint, subscription: sub.toJSON() });
-  }
+    .upsert(
+      { employee_id: employeeId, endpoint, subscription: sub.toJSON() },
+      { onConflict: 'employee_id,endpoint' }
+    );
+  if (upsertError) throw upsertError;
   if (DEBUG_PUSH) alert('Push подключён, endpoint: ' + endpoint.slice(-24));
 }
 
