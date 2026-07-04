@@ -31,7 +31,7 @@ import HelpModal from './components/HelpModal';
 import ScrollToTopButton from './components/Shared/ScrollToTopButton';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
-import { WORKSHOP_BRANCH_ID } from './constants';
+import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from './constants';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -70,6 +70,7 @@ function AppContent() {
   const touchStartYRef = useRef(0);
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
+  const [stockRequestBadge, setStockRequestBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [showCompanyChat, setShowCompanyChat] = useState(false);
@@ -314,6 +315,29 @@ function AppContent() {
     };
   }, [employee?.branch_id]);
 
+  // Фоновая подписка на заявки на склад для бейджа на иконке (админ или сотрудники склада)
+  useEffect(() => {
+    const canSeeRequests = employee?.role === 'admin' || employee?.branch_id === WAREHOUSE_ID;
+    if (!canSeeRequests) { setStockRequestBadge(0); return; }
+
+    const computeStockRequestBadge = async () => {
+      const { data } = await supabase
+        .from('stock_requests')
+        .select('id')
+        .in('status', ['new', 'approved']);
+      setStockRequestBadge(data?.length ?? 0);
+    };
+
+    computeStockRequestBadge();
+
+    const channel = supabase
+      .channel('app-stock-requests-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_requests' }, computeStockRequestBadge)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [employee?.role, employee?.branch_id]);
+
   const loadInternalUnread = async () => {
     if (!employee?.id) return;
     const { data } = await supabase.rpc('get_unread_internal_count', {
@@ -352,7 +376,7 @@ function AppContent() {
     }
   }, [showCompanyChat]);
 
-  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0);
+  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0) + (stockRequestBadge || 0);
 
   useEffect(() => {
     if ('setAppBadge' in navigator) {
