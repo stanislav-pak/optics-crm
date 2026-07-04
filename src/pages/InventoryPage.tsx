@@ -2660,7 +2660,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             )}
                           </div>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {req.creator?.name ?? '—'} · {new Date(req.created_at).toLocaleDateString('ru-RU')}
+                            {req.creator?.name ?? '—'} · {new Date(req.created_at).toLocaleDateString('ru-RU')}, {new Date(req.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                           {req.notes && !req.order_id && <p className="text-xs text-gray-500 mt-1 italic">{req.notes}</p>}
                           {req.rejection_reason && (
