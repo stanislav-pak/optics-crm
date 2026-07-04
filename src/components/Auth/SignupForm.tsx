@@ -63,7 +63,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
           const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
           if (loginError) throw new Error('Неверный пароль для существующего аккаунта');
           if (!loginData.user) throw new Error('Ошибка входа');
-          await supabase.from('employees').insert({
+          const { error: empInsertError } = await supabase.from('employees').insert({
             user_id: loginData.user.id,
             branch_id: finalBranchId,
             name,
@@ -71,6 +71,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
             role: isAdmin ? 'admin' : 'manager',
             is_active: isAdmin,
           });
+          if (empInsertError) throw new Error(empInsertError.message);
           await supabase.auth.signOut();
           setSuccess(true);
           return;
