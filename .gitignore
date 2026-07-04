@@ -40,3 +40,8 @@ __pycache__/
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
