@@ -52,6 +52,9 @@ async function subscribeToPush(employeeId: string): Promise<void> {
 export function usePushNotifications(employeeId?: string) {
   useEffect(() => {
     if (!employeeId) return;
-    subscribeToPush(employeeId).catch(console.error);
+    subscribeToPush(employeeId).catch(e => {
+      console.error(e);
+      alert('Не удалось подключить push-уведомления: ' + (e?.message || e));
+    });
   }, [employeeId]);
 }
