@@ -2,9 +2,6 @@ import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-// Включается только в тестовом окружении (VITE_DEBUG_PUSH=true в Vercel test-проекте) —
-// подробные alert() на каждом шаге подписки, чтобы отловить причину тихого не-подключения на iOS PWA (#T45)
-const DEBUG_PUSH = import.meta.env.VITE_DEBUG_PUSH === 'true';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -18,15 +15,9 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 async function subscribeToPush(employeeId: string): Promise<void> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    if (DEBUG_PUSH) alert('Push не поддерживается браузером: serviceWorker=' + ('serviceWorker' in navigator) + ', PushManager=' + ('PushManager' in window));
-    return;
-  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    if (DEBUG_PUSH) alert('Разрешение на уведомления: "' + permission + '" (нужно "granted")');
-    return;
-  }
+  if (permission !== 'granted') return;
   const reg = await navigator.serviceWorker.ready;
 
   let sub = await reg.pushManager.getSubscription();
@@ -48,7 +39,6 @@ async function subscribeToPush(employeeId: string): Promise<void> {
       { onConflict: 'employee_id,endpoint' }
     );
   if (upsertError) throw upsertError;
-  if (DEBUG_PUSH) alert('Push подключён, endpoint: ' + endpoint.slice(-24));
 }
 
 export function usePushNotifications(employeeId?: string) {
