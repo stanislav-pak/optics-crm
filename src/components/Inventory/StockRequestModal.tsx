@@ -123,8 +123,12 @@ export default function StockRequestModal({ branchId, employeeId, onClose, onSuc
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={item.quantity}
-                    onChange={e => { const n = parseInt(e.target.value); if (n > 0) updateQty(idx, n); }}
+                    value={item.quantity === 0 ? '' : String(item.quantity)}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: val === '' ? 0 : parseInt(val) } : it));
+                    }}
+                    onBlur={() => { if (item.quantity < 1) updateQty(idx, 1); }}
                     className="w-12 text-center text-sm py-1.5 border-0 focus:outline-none"
                   />
                   <button type="button" onMouseDown={e => { e.preventDefault(); updateQty(idx, item.quantity + 1); }}
