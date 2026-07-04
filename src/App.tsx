@@ -861,6 +861,7 @@ function AppContent() {
               branchId={employee?.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              defaultTab={stockRequestBadge > 0 ? 'requests' : undefined}
             />
           </div>
         </div>
@@ -954,6 +955,7 @@ function AppContent() {
               branchId={employee?.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              defaultTab={stockRequestBadge > 0 ? 'requests' : undefined}
               onPendingTransfersChange={setHasPendingTransfers}
             />
           </div>
@@ -1100,6 +1102,7 @@ function AppContent() {
                   branchId={employee?.branch_id}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                  defaultTab={stockRequestBadge > 0 ? 'requests' : undefined}
                   onPendingTransfersChange={setHasPendingTransfers}
                 />
               </div>
