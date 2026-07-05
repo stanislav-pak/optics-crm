@@ -721,6 +721,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: 'Заявки' }] : []),
   ];
 
+  // Загрузить заявки сразу при открытии страницы (не дожидаясь клика на вкладку) —
+  // иначе бейдж новых заявок не появляется, пока сам не зайдёшь на вкладку
+  useEffect(() => {
+    if (canSeeRequestsTab) loadStockRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSeeRequestsTab, activeBranchId]);
+
   async function handleDeleteRevision(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm('Удалить ревизию?')) return;
