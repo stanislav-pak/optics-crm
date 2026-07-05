@@ -87,9 +87,6 @@ const PRINT_HISTORY_PAGE_SIZE = 30;
 
 export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey }: InventoryPageProps) {
   const lastTransferCheckRef = useRef(new Date().toISOString());
-  const lastMovementsViewedRef = useRef<string>(
-    localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString()
-  );
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
   const [activeBranchId, setActiveBranchId] = useState(branchId);
@@ -460,14 +457,13 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  // Точка-уведомление на вкладке Движения и кнопке Склада
+  // Точка-уведомление на вкладке Движения и кнопке Склада — держится, пока есть
+  // реально неподтверждённые входящие перемещения (не просто "непросмотренные")
   useEffect(() => {
-    const hasNew = inTransitMovements.some(
-      m => m.created_at > lastMovementsViewedRef.current
-    );
+    const hasNew = incomingTransfers.length > 0;
     setHasUnreadTransfers(hasNew);
     onPendingTransfersChange?.(hasNew);
-  }, [inTransitMovements]);
+  }, [incomingTransfers]);
 
   // Polling: проверка новых входящих перемещений каждые 15 секунд
   useEffect(() => {
@@ -886,13 +882,6 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 onClick={() => {
                   if (isOverviewBlocked) return;
                   setTab(t.key);
-                  if (t.key === 'movements') {
-                    const now = new Date().toISOString();
-                    lastMovementsViewedRef.current = now;
-                    localStorage.setItem('lastViewedMovements', now);
-                    setHasUnreadTransfers(false);
-                    onPendingTransfersChange?.(false);
-                  }
                 }}
                 className={`relative px-1.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
                   isOverviewBlocked ? 'opacity-40 cursor-not-allowed' :
