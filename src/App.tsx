@@ -584,58 +584,58 @@ function AppContent() {
           {isManager && !isMobile && (
             <>
               <button onClick={() => { setMobileView('tasks'); setActiveChat(null); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Задачи">
                 <div className="relative">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
                   {pendingTasksCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-violet-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                       {pendingTasksCount > 99 ? '99+' : pendingTasksCount}
                     </span>
                   )}
                 </div>
               </button>
               <button onClick={() => { setMobileView('manager-crm'); setActiveChat(null); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('manager-crm') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('manager-crm') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="CRM">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </button>
               {employee?.branch_id !== WORKSHOP_BRANCH_ID && (
               <button onClick={() => { setMobileView('shop'); setActiveChat(null); setWorkshopBadgeResetKey(k => k + 1); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Магазин">
                 <div className="relative">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                   {inventoryWorkshopBadge > 0 && mobileView !== 'shop' && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full" />
                   )}
                 </div>
               </button>
               )}
               <button onClick={() => { setMobileView('inventory'); setActiveChat(null); }}
-                className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Склад">
                 <div className="relative">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                   {mobileView !== 'inventory' && (
                     stockRequestBadge > 0 ? (
-                      <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                         {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
                       </span>
                     ) : hasPendingTransfers ? (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
                     ) : null
                   )}
                 </div>
               </button>
               {employee?.branch_id === WORKSHOP_BRANCH_ID && (
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
-                  className={`px-1 py-1 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                   title="Мастерская">
                   <div className="relative">
-                    <Wrench className="w-3.5 h-3.5" />
+                    <Wrench className="w-5 h-5" />
                     {workshopOrderBadgeCount > 0 && !isManagerBtnActive('workshop') && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full" />
                     )}
                   </div>
                 </button>
@@ -772,7 +772,7 @@ function AppContent() {
             <div className="relative">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
               {unreadChatsCount > 0 && mobileView !== 'list' && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-green-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                   {unreadChatsCount > 99 ? '99+' : unreadChatsCount}
                 </span>
               )}
@@ -784,7 +784,7 @@ function AppContent() {
             <div className="relative">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
               {pendingTasksCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-violet-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                   {pendingTasksCount > 99 ? '99+' : pendingTasksCount}
                 </span>
               )}
@@ -802,7 +802,7 @@ function AppContent() {
             <div className="relative">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
               {inventoryWorkshopBadge > 0 && mobileView !== 'shop' && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
               )}
             </div>
             <span className="text-[10px] font-medium">Магазин</span>
@@ -814,7 +814,7 @@ function AppContent() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               {mobileView !== 'inventory' && (
                 stockRequestBadge > 0 ? (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                     {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
                   </span>
                 ) : hasPendingTransfers ? (
@@ -830,7 +830,7 @@ function AppContent() {
               <div className="relative">
                 <Wrench className="w-5 h-5" />
                 {workshopOrderBadgeCount > 0 && mobileView !== 'workshop' && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
                 )}
               </div>
               <span className="text-[10px] font-medium">Мастерская</span>
