@@ -584,7 +584,7 @@ function AppContent() {
           {isManager && !isMobile && (
             <>
               <button onClick={() => { setMobileView('tasks'); setActiveChat(null); }}
-                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('tasks') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Задачи">
                 <div className="relative">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -596,13 +596,13 @@ function AppContent() {
                 </div>
               </button>
               <button onClick={() => { setMobileView('manager-crm'); setActiveChat(null); }}
-                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('manager-crm') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('manager-crm') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="CRM">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </button>
               {employee?.branch_id !== WORKSHOP_BRANCH_ID && (
               <button onClick={() => { setMobileView('shop'); setActiveChat(null); setWorkshopBadgeResetKey(k => k + 1); }}
-                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Магазин">
                 <div className="relative">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
@@ -613,7 +613,7 @@ function AppContent() {
               </button>
               )}
               <button onClick={() => { setMobileView('inventory'); setActiveChat(null); }}
-                className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Склад">
                 <div className="relative">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
@@ -630,7 +630,7 @@ function AppContent() {
               </button>
               {employee?.branch_id === WORKSHOP_BRANCH_ID && (
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
-                  className={`px-1.5 py-1.5 rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                   title="Мастерская">
                   <div className="relative">
                     <Wrench className="w-5 h-5" />
