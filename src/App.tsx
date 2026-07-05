@@ -57,7 +57,8 @@ function AppContent() {
   const [chatSource, setChatSource] = useState<'list' | 'crm'>('list');
   const chatSourceRef = useRef<'list' | 'crm'>('list');
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
-  const [hasPendingTransfers, setHasPendingTransfers] = useState(false);
+  const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
+  const hasPendingTransfers = pendingTransfersCount > 0;
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist' | 'sales-history'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
@@ -127,15 +128,13 @@ function AppContent() {
     if (!employee?.branch_id) return;
     const branchId = employee.branch_id;
     const checkPending = async () => {
-      const lastViewed = localStorage.getItem('lastViewedMovements') ?? new Date(0).toISOString();
       const { count } = await supabase
         .from('stock_movements')
         .select('id', { count: 'exact', head: true })
         .eq('to_branch_id', branchId)
         .eq('type', 'transfer')
-        .eq('status', 'in_transit')
-        .gt('created_at', lastViewed);
-      setHasPendingTransfers((count ?? 0) > 0);
+        .eq('status', 'in_transit');
+      setPendingTransfersCount(count ?? 0);
     };
     checkPending();
     // Polling каждые 30 сек чтобы badge не устаревал (#12)
@@ -376,7 +375,7 @@ function AppContent() {
     }
   }, [showCompanyChat]);
 
-  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0) + (stockRequestBadge || 0);
+  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0) + (stockRequestBadge || 0) + (pendingTransfersCount || 0);
 
   useEffect(() => {
     if ('setAppBadge' in navigator) {
@@ -954,7 +953,7 @@ function AppContent() {
               branchId={employee?.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-              onPendingTransfersChange={setHasPendingTransfers}
+              onPendingTransfersChange={setPendingTransfersCount}
             />
           </div>
         </div>
@@ -1100,7 +1099,7 @@ function AppContent() {
                   branchId={employee?.branch_id}
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
-                  onPendingTransfersChange={setHasPendingTransfers}
+                  onPendingTransfersChange={setPendingTransfersCount}
                 />
               </div>
             </div>

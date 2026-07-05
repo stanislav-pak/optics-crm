@@ -44,7 +44,7 @@ interface InventoryPageProps {
   role: 'manager' | 'branch_admin' | 'admin';
   defaultTab?: Tab;
   storefront?: boolean;
-  onPendingTransfersChange?: (has: boolean) => void;
+  onPendingTransfersChange?: (count: number) => void;
   onWorkshopBadgeChange?: (count: number) => void;
   onBadgeChange?: (count: number) => void;
   resetBadgeKey?: number;
@@ -460,9 +460,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   // Точка-уведомление на вкладке Движения и кнопке Склада — держится, пока есть
   // реально неподтверждённые входящие перемещения (не просто "непросмотренные")
   useEffect(() => {
-    const hasNew = incomingTransfers.length > 0;
-    setHasUnreadTransfers(hasNew);
-    onPendingTransfersChange?.(hasNew);
+    setHasUnreadTransfers(incomingTransfers.length > 0);
+    onPendingTransfersChange?.(incomingTransfers.length);
   }, [incomingTransfers]);
 
   // Polling: проверка новых входящих перемещений каждые 15 секунд
