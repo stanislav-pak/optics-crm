@@ -702,6 +702,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const isWarehouseBranch = branchId === WAREHOUSE_ID;
   const canSubmitRequest = !isWarehouseBranch && branchId !== WORKSHOP_BRANCH_ID && role !== 'admin';
   const canSeeRequestsTab = role === 'admin' || isWarehouseBranch;
+  // Печать этикеток — физический принтер стоит только на складе
+  const canSeeLabelsTab = role === 'admin' || isWarehouseBranch;
   // Считаем и новые (ждут решения), и одобренные (ждут отправки) — оба требуют действия склада
   const newRequestsCount = stockRequests.filter(r => r.status === 'new' || r.status === 'approved').length;
 
@@ -714,7 +716,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'writeoffs', label: 'Списания' },
     { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
-    { key: 'labels', label: 'Этикетки' },
+    ...(canSeeLabelsTab ? [{ key: 'labels' as Tab, label: 'Этикетки' }] : []),
     ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: 'Заявки' }] : []),
   ];
 
