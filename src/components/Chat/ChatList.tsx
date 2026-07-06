@@ -1,8 +1,10 @@
 ﻿import { useState, useEffect, useContext } from 'react';
+import { UserPlus, MessageCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useChats } from '../../hooks/useChats';
 import { AuthContext } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
+import { searchClientsForChat, openOrCreateChat } from '../../services/chats';
 import { formatPhone } from '@/utils/formatters';
 import type { Chat, ChatListFilters } from '../../types';
 import NewChatModal from './NewChatModal';
@@ -177,6 +179,8 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stageMap, setStageMap] = useState<Record<string, string>>({});
   const [amountMap, setAmountMap] = useState<Record<string, number | null>>({});
+  const [clientSuggestions, setClientSuggestions] = useState<Awaited<ReturnType<typeof searchClientsForChat>>>([]);
+  const [openingSuggestion, setOpeningSuggestion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -226,6 +230,33 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
 
   useEffect(() => { onUnreadChange?.(unreadCount); }, [unreadCount]);
 
+  // Подсказки клиентов без чата — верхний поиск находит их так же, как модал «Создать контакт»
+  useEffect(() => {
+    if (!employee || search.trim().length < 2) { setClientSuggestions([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await searchClientsForChat(search.trim(), employee.branch_id, isAdmin);
+        setClientSuggestions(res.filter(r => !r.chatId));
+      } catch {
+        setClientSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, employee, isAdmin]);
+
+  const handleOpenSuggestion = async (clientId: string) => {
+    if (!employee) return;
+    setOpeningSuggestion(clientId);
+    try {
+      const chat = await openOrCreateChat(clientId, employee.branch_id, employee.id);
+      setSearch('');
+      setClientSuggestions([]);
+      onChatSelect(chat);
+    } catch {
+      setOpeningSuggestion(null);
+    }
+  };
+
   const { from: periodFrom, to: periodTo } = getPeriodDates(activePeriod, customFrom, customTo);
 
   const filteredByDate = chats.filter(c => {
@@ -264,12 +295,10 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
           {employee && (
             <button
               onClick={() => setShowNewChat(true)}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/5 text-[#8696a0] hover:text-[#e9edef] active:scale-95 transition-all"
-              title="Новый чат"
+              className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 px-2.5 py-1.5 rounded-lg text-xs font-medium active:scale-95 transition-all"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <UserPlus className="w-3.5 h-3.5" />
+              Создать контакт
             </button>
           )}
           {isAdmin && (
@@ -391,11 +420,44 @@ export function ChatList({ activeChatId, onChatSelect, onUnreadChange }: ChatLis
         {error && (
           <div className="mx-4 mt-4 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">{error}</div>
         )}
-        {!loading && !error && filteredByStage.length === 0 && (
+        {!loading && !error && filteredByStage.length === 0 && clientSuggestions.length === 0 && (
           <div className="flex flex-col items-center justify-center h-40 text-center px-6">
             <p className="text-sm text-[#8696a0]">{search ? 'Ничего не найдено' : 'Нет чатов'}</p>
           </div>
         )}
+
+        {/* Подсказки: клиенты без чата, найденные по поиску — тап открывает/создаёт чат */}
+        {clientSuggestions.length > 0 && (
+          <div>
+            <p className="px-4 pt-2 pb-1 text-[10px] text-[#8696a0] uppercase tracking-wide">Контакты</p>
+            {clientSuggestions.map(result => (
+              <button
+                key={result.client.id}
+                onClick={() => handleOpenSuggestion(result.client.id)}
+                disabled={!!openingSuggestion}
+                className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-white/5 active:bg-white/5 transition-colors disabled:opacity-60"
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                  {result.client.name ? result.client.name[0].toUpperCase() : '#'}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-[#e9edef] text-sm font-medium truncate">
+                    {result.client.name || formatPhone(result.client.phone)}
+                  </p>
+                  <p className="text-[#8696a0] text-xs truncate">{formatPhone(result.client.phone)}</p>
+                </div>
+                {openingSuggestion === result.client.id ? (
+                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-400 text-xs flex-shrink-0">
+                    <MessageCircle size={13} /> Написать
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!loading && filteredByStage.map((chat) => (
           <ChatItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} onClick={() => onChatSelect(chat)}
             dealAmount={showAdminMobile && (activeStage === 'payment' || activeStage === 'closed') ? amountMap[chat.id] : null}

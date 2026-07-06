@@ -11,9 +11,10 @@ export async function getChats(filters?: ChatListFilters): Promise<Chat[]> {
     .from('chats')
     .select(`
       *,
-      client:clients(id, name, phone, status),
+      client:clients!inner(id, name, phone, status),
       employee:employees(id, name, role)
     `)
+    .eq('client.is_active', true)
     .order('last_message_at', { ascending: false });
 
   if (filters?.status) query = query.eq('status', filters.status);
@@ -60,6 +61,7 @@ export async function searchClientsForChat(
   let q = supabase
     .from('clients')
     .select('id, name, phone')
+    .eq('is_active', true)
     .or(`name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`)
     .order('name')
     .limit(15);
@@ -143,6 +145,11 @@ export async function createClientAndChat(
     .single();
   if (error || !newClient) throw new Error('Ошибка создания клиента');
   return openOrCreateChat(newClient.id, branchId, employeeId);
+}
+
+export async function deleteClient(clientId: string): Promise<void> {
+  const { error } = await supabase.from('clients').update({ is_active: false }).eq('id', clientId);
+  if (error) throw new Error(error.message);
 }
 
 export async function getChatById(id: string): Promise<Chat | null> {

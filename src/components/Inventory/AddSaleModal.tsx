@@ -114,6 +114,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         .from('clients')
         .select('id, name, phone')
         .eq('branch_id', branchId)
+        .eq('is_active', true)
         .order('name', { ascending: true });
       setClients((data ?? []) as ClientSnap[]);
     } catch (e) {
@@ -129,6 +130,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       .from('clients')
       .select('id, name, phone, branch:branches(name)')
       .eq('branch_id', branchId)
+      .eq('is_active', true)
       .or(`name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%`)
       .limit(7);
     setNameSuggestions((data ?? []) as ClientSnap[]);

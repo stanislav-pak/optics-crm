@@ -714,6 +714,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const canSeeLabelsTab = role === 'admin' || isWarehouseBranch;
   // Считаем и новые (ждут решения), и одобренные (ждут отправки) — оба требуют действия склада
   const newRequestsCount = stockRequests.filter(r => r.status === 'new' || r.status === 'approved').length;
+  // Для менеджера-заявителя — сколько его же заявок сменили статус с момента последнего просмотра
+  // «Истории заявок» (тот же localStorage, что и myRequestStatusBadge в App.tsx)
+  let myUnseenRequestCount = 0;
+  if (!canManageRequests) {
+    try {
+      const saved = localStorage.getItem('stock_request_seen_status');
+      const seenMap: Record<string, string> = saved ? JSON.parse(saved) : {};
+      myUnseenRequestCount = stockRequests.filter(r => r.status !== 'new' && seenMap[r.id] !== r.status).length;
+    } catch { /* ignore */ }
+  }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Обзор' },
@@ -926,10 +936,20 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     {unprintedProducts.length}
                   </span>
                 )}
-                {t.key === 'requests' && canManageRequests && newRequestsCount > 0 && tab !== 'requests' && (
-                  <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
-                    {newRequestsCount}
-                  </span>
+                {t.key === 'requests' && tab !== 'requests' && (
+                  canManageRequests ? (
+                    newRequestsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+                        {newRequestsCount}
+                      </span>
+                    )
+                  ) : (
+                    myUnseenRequestCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+                        {myUnseenRequestCount}
+                      </span>
+                    )
+                  )
                 )}
               </button>
               );

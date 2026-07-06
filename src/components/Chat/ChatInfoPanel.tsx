@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { deleteClient } from '../../services/chats';
 import { formatPhone, formatMoney } from '@/utils/formatters';
 import type { Chat, Message, Employee, Branch, Sale } from '../../types';
 
@@ -29,6 +31,7 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
   const [media, setMedia] = useState<Message[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
   const [archiving, setArchiving] = useState(false);
+  const [deletingClient, setDeletingClient] = useState(false);
   const [mediaModal, setMediaModal] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [purchases, setPurchases] = useState<Sale[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
@@ -143,6 +146,19 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
     await supabase.from('chats').update({ status: isArchived ? 'active' : 'archived' }).eq('id', chat.id);
     setArchiving(false);
     onArchive();
+  };
+
+  const handleDeleteClient = async () => {
+    if (!chat.client_id || deletingClient) return;
+    if (!window.confirm('Удалить контакт? Чат и история покупок останутся в базе, но клиент и чат исчезнут из списков.')) return;
+    setDeletingClient(true);
+    try {
+      await deleteClient(chat.client_id);
+      onArchive();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка удаления контакта');
+      setDeletingClient(false);
+    }
   };
 
   const saveReassign = async () => {
@@ -363,6 +379,20 @@ export function ChatInfoPanel({ chat, onClose, onArchive, onClientNameUpdate }: 
                 {archiving ? 'Загрузка...' : isArchived ? 'Восстановить чат' : 'Архивировать чат'}
               </span>
             </button>
+
+            {/* Удалить контакт (только admin / branch_admin) — обычный менеджер может только архивировать */}
+            {canReassign && (
+              <button
+                onClick={handleDeleteClient}
+                disabled={deletingClient}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium">
+                  {deletingClient ? 'Удаление...' : 'Удалить контакт'}
+                </span>
+              </button>
+            )}
 
             {/* Переназначить менеджера (только admin / branch_admin) */}
             {canReassign && (
