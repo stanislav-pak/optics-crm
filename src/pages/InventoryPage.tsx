@@ -735,6 +735,22 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSeeRequestsTab, activeBranchId]);
 
+  // Менеджер открыл «Историю заявок» — отмечаем текущие статусы как просмотренные,
+  // чтобы бейдж «статус моей заявки изменился» (App.tsx) погас до следующего изменения
+  useEffect(() => {
+    if (tab !== 'requests' || canManageRequests || stockRequests.length === 0) return;
+    const saved = localStorage.getItem('stock_request_seen_status');
+    const seenMap: Record<string, string> = saved ? JSON.parse(saved) : {};
+    let changed = false;
+    for (const req of stockRequests) {
+      if (seenMap[req.id] !== req.status) { seenMap[req.id] = req.status; changed = true; }
+    }
+    if (changed) {
+      localStorage.setItem('stock_request_seen_status', JSON.stringify(seenMap));
+      window.dispatchEvent(new CustomEvent('stock-request-status-read'));
+    }
+  }, [tab, stockRequests, canManageRequests]);
+
   async function handleDeleteRevision(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm('Удалить ревизию?')) return;

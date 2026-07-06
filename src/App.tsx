@@ -72,6 +72,7 @@ function AppContent() {
   const [workshopOrderBadgeCount, setWorkshopOrderBadgeCount] = useState(0);
   const [inventoryWorkshopBadge, setInventoryWorkshopBadge] = useState(0);
   const [stockRequestBadge, setStockRequestBadge] = useState(0);
+  const [myRequestStatusBadge, setMyRequestStatusBadge] = useState(0);
   const [mobileHistory, setMobileHistory] = useState<typeof mobileView[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [showCompanyChat, setShowCompanyChat] = useState(false);
@@ -337,6 +338,46 @@ function AppContent() {
     return () => { supabase.removeChannel(channel); };
   }, [employee?.role, employee?.branch_id]);
 
+  // Бейдж для менеджера филиала: статус его же заявки изменился (одобрена/отправлена/отклонена)
+  // с момента как он последний раз открывал «Историю заявок». 'new' не считаем — это его же
+  // собственное только что созданное состояние, тут ему нечего "узнавать".
+  useEffect(() => {
+    const branchId = employee?.branch_id;
+    const canTrack = !!branchId && employee?.role !== 'admin' && branchId !== WAREHOUSE_ID && branchId !== WORKSHOP_BRANCH_ID;
+    if (!canTrack) { setMyRequestStatusBadge(0); return; }
+
+    const computeBadge = async () => {
+      const { data } = await supabase
+        .from('stock_requests')
+        .select('id, status')
+        .eq('branch_id', branchId)
+        .neq('status', 'new');
+      if (!data) { setMyRequestStatusBadge(0); return; }
+      try {
+        const saved = localStorage.getItem('stock_request_seen_status');
+        const seen: Record<string, string> = saved ? JSON.parse(saved) : {};
+        setMyRequestStatusBadge(data.filter(r => seen[r.id] !== r.status).length);
+      } catch {
+        setMyRequestStatusBadge(data.length);
+      }
+    };
+
+    computeBadge();
+
+    const handleRead = () => computeBadge();
+    window.addEventListener('stock-request-status-read', handleRead);
+
+    const channel = supabase
+      .channel(`app-my-stock-request-status-${branchId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_requests', filter: `branch_id=eq.${branchId}` }, computeBadge)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('stock-request-status-read', handleRead);
+    };
+  }, [employee?.role, employee?.branch_id]);
+
   const loadInternalUnread = async () => {
     if (!employee?.id) return;
     const { data } = await supabase.rpc('get_unread_internal_count', {
@@ -375,7 +416,7 @@ function AppContent() {
     }
   }, [showCompanyChat]);
 
-  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0) + (stockRequestBadge || 0) + (pendingTransfersCount || 0);
+  const totalBadge = (unreadChatsCount || 0) + (workshopOrderBadgeCount || 0) + (inventoryWorkshopBadge || 0) + (internalUnread || 0) + (stockRequestBadge || 0) + (pendingTransfersCount || 0) + (myRequestStatusBadge || 0);
 
   useEffect(() => {
     if ('setAppBadge' in navigator) {
@@ -630,6 +671,10 @@ function AppContent() {
                       <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                         {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
                       </span>
+                    ) : myRequestStatusBadge > 0 ? (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                        {myRequestStatusBadge > 99 ? '99+' : myRequestStatusBadge}
+                      </span>
                     ) : hasPendingTransfers ? (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
                     ) : null
@@ -833,6 +878,10 @@ function AppContent() {
                 stockRequestBadge > 0 ? (
                   <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                     {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
+                  </span>
+                ) : myRequestStatusBadge > 0 ? (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                    {myRequestStatusBadge > 99 ? '99+' : myRequestStatusBadge}
                   </span>
                 ) : hasPendingTransfers ? (
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
