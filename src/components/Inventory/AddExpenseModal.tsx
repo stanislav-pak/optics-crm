@@ -6,6 +6,7 @@ import {
   createExpense,
   type ExpenseCategory,
 } from '../../services/expenses';
+import { isCashSessionOpenToday, todayStr } from '../../services/cashSessions';
 
 interface Props {
   branchId: string;
@@ -53,6 +54,15 @@ export default function AddExpenseModal({ branchId, employeeId, onClose, onCreat
   async function handleSave() {
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) return;
+
+    if (date === todayStr()) {
+      const sessionOpen = await isCashSessionOpenToday(branchId);
+      if (!sessionOpen) {
+        alert('Касса закрыта. Откройте кассу в разделе «Магазин» перед добавлением расхода.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       await createExpense({

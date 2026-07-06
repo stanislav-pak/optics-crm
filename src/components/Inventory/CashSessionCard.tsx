@@ -2,19 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { Banknote, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { getExpensesForDate } from '../../services/expenses';
-
-interface CashSession {
-  id: string;
-  branch_id: string;
-  date: string;
-  system_cash: number;
-  system_kaspi: number;
-  system_total: number;
-  actual_cash: number | null;
-  cash_discrepancy: number | null;
-  status: 'open' | 'closed';
-  closed_at: string | null;
-}
+import { getCashSession, openCashSession, closeCashSession, type CashSession } from '../../services/cashSessions';
 
 interface Props {
   branchId: string;
@@ -35,11 +23,40 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const isSubmittingRef = useRef(false);
   const [cashExpenses, setCashExpenses] = useState(0);
   const [cashExpenseItems, setCashExpenseItems] = useState<{name: string; amount: number}[]>([]);
+  const [opening, setOpening] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
   const loadSession = async () => {
     setLoading(true);
+    const existing = await getCashSession(branchId, todayStr);
+
+    if (!existing) {
+      // Касса ещё не открыта сегодня — не создаём сессию автоматически,
+      // ждём явного нажатия "Открыть кассу"
+      setSession(null);
+      setCashExpenses(0);
+      setCashExpenseItems([]);
+      setLoading(false);
+      return;
+    }
+
+    if (existing.status === 'closed') {
+      setSession(existing);
+      const exps = await getExpensesForDate(branchId, todayStr);
+      const cashExps = exps.filter(e => e.payment_method === 'cash');
+      const total = cashExps.reduce((s, e) => s + e.amount, 0);
+      setCashExpenses(total);
+      const byCat: Record<string, number> = {};
+      for (const e of cashExps) {
+        const key = e.category?.name ?? 'Прочее';
+        byCat[key] = (byCat[key] ?? 0) + e.amount;
+      }
+      setCashExpenseItems(Object.entries(byCat).map(([name, amount]) => ({ name, amount })));
+      setLoading(false);
+      return;
+    }
+
     const { data: sales } = await supabase
       .from('sales')
       .select('total, paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer')
@@ -157,40 +174,14 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop - refundKaspi - remainingRefundKaspi;
     const systemTotal = systemCash + systemKaspi;
 
-    const { data: existing } = await supabase
+    const { data: updated } = await supabase
       .from('cash_sessions')
-      .select('*')
-      .eq('branch_id', branchId)
-      .eq('date', todayStr)
-      .maybeSingle();
+      .update({ system_cash: systemCash, system_kaspi: systemKaspi, system_total: systemTotal })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    setSession((updated || existing) as CashSession);
 
-    if (existing) {
-      if (existing.status === 'open') {
-        const { data: updated } = await supabase
-          .from('cash_sessions')
-          .update({ system_cash: systemCash, system_kaspi: systemKaspi, system_total: systemTotal })
-          .eq('id', existing.id)
-          .select()
-          .single();
-        setSession((updated || existing) as CashSession);
-      } else {
-        setSession(existing as CashSession);
-      }
-    } else {
-      const { data: created } = await supabase
-        .from('cash_sessions')
-        .insert({
-          branch_id: branchId,
-          employee_id: employeeId,
-          date: todayStr,
-          system_cash: systemCash,
-          system_kaspi: systemKaspi,
-          system_total: systemTotal,
-        })
-        .select()
-        .single();
-      setSession((created || null) as CashSession | null);
-    }
     const exps = await getExpensesForDate(branchId, todayStr);
     const cashExps = exps.filter(e => e.payment_method === 'cash');
     const total = cashExps.reduce((s, e) => s + e.amount, 0);
@@ -218,23 +209,29 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     isSubmittingRef.current = true;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('close_cash_session', {
-        p_session_id: session.id,
-        p_actual_cash: parseFloat(actualCash),
-        p_employee_id: employeeId,
-        p_notes: notes || null,
-      });
-      if (error) {
-        alert(`Ошибка закрытия кассы: ${error.message}`);
-      } else {
-        setShowModal(false);
-        setActualCash('');
-        setNotes('');
-        loadSession();
-      }
+      await closeCashSession(session.id, parseFloat(actualCash), employeeId, notes);
+      setShowModal(false);
+      setActualCash('');
+      setNotes('');
+      loadSession();
+    } catch (e: any) {
+      alert(`Ошибка закрытия кассы: ${e.message}`);
     } finally {
       isSubmittingRef.current = false;
       setSaving(false);
+    }
+  };
+
+  const handleOpen = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      await openCashSession(branchId, employeeId);
+      await loadSession();
+    } catch (e: any) {
+      alert(`Ошибка открытия кассы: ${e.message}`);
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -246,7 +243,34 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     );
   }
 
-  if (!session) return null;
+  if (!session) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <Banknote className="w-4 h-4 text-gray-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">Касса сегодня</h3>
+          </div>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+            Не открыта
+          </span>
+        </div>
+        <p className="text-sm text-gray-500">
+          Откройте кассу, чтобы оформлять продажи и расходы сегодня.
+        </p>
+        <button
+          type="button"
+          onClick={handleOpen}
+          disabled={opening}
+          className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-colors"
+        >
+          {opening ? 'Открываем...' : 'Открыть кассу'}
+        </button>
+      </div>
+    );
+  }
 
   const isClosed = session.status === 'closed';
   const discrepancy = session.cash_discrepancy;

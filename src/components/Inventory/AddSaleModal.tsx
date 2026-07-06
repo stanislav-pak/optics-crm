@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
 import { createSale, getProductsFromStock, getProductByBarcode, createStockRequest } from '../../services/inventory';
+import { isCashSessionOpenToday } from '../../services/cashSessions';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
@@ -375,6 +376,14 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     }
 
     if (items.length === 0 && !addWorkshop) { isSubmittingRef.current = false; return; }
+
+    const sessionOpen = await isCashSessionOpenToday(branchId);
+    if (!sessionOpen) {
+      alert('Касса закрыта. Откройте кассу в разделе «Магазин» перед оформлением продажи.');
+      isSubmittingRef.current = false;
+      return;
+    }
+
     setLoading(true);
     try {
       // Проверяем актуальные остатки перед оформлением
