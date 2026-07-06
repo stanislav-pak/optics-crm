@@ -725,7 +725,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'returns', label: 'Возвраты' },
     { key: 'revisions', label: 'Ревизии' },
     ...(canSeeLabelsTab ? [{ key: 'labels' as Tab, label: 'Этикетки' }] : []),
-    ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: 'Заявки' }] : []),
+    ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: canManageRequests ? 'Заявки' : 'История заявок' }] : []),
   ];
 
   // Загрузить заявки сразу при открытии страницы (не дожидаясь клика на вкладку) —
@@ -2640,7 +2640,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         {tab === 'requests' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">Заявки от филиалов</h2>
+              <h2 className="text-sm font-semibold text-gray-700">{canManageRequests ? 'Заявки от филиалов' : 'История заявок на склад'}</h2>
               <button onClick={loadStockRequests} className="text-xs text-blue-600 hover:text-blue-800">Обновить</button>
             </div>
             {stockRequests.length === 0 ? (
