@@ -62,5 +62,17 @@ Supabase/PostgREST: `UPDATE` без соответствующей RLS-поли�
 ## MCP-доступ к тестовому проекту
 Supabase MCP-коннектор авторизован под `stanislavpak69020@gmail.com` — видит только прод (`toxspgdkvxmpsvtecesy`). Тестовый проект `afpvhenzqtadukrmgrye` зарегистрирован на **другой** Supabase-аккаунт (`indpak@mail.ru`), поэтому через MCP недоступен независимо от локального конфига. Договорились пока не подключать (можно через приглашение `stanislavpak69020@gmail.com` в Team тестового проекта) — до этого DB-фиксы в тест накатываются вручную через SQL-редактор Supabase по SQL, который даёт Claude.
 
+## КРИТИЧНО: правильная команда для проверки типов (2026-07-06)
+`npx tsc --noEmit` (голая команда) — **ничего не проверяет**. Корневой `tsconfig.json` — solution-файл (`"files": []` + `references` на `tsconfig.app.json`/`tsconfig.node.json`), без флага `--build` он не спускается в подпроекты. Весь сеанс (и, вероятно, раньше) отчёты "типы чистые" были фикцией — команда всегда возвращала пустой вывод, независимо от реальных ошибок.
+Правильно: `npx tsc --noEmit --project tsconfig.app.json`. В `tsconfig.app.json` уже добавлен `"ignoreDeprecations": "6.0"` (иначе TS 6.0.3 падает на устаревшем `baseUrl` ещё до проверки кода).
+После починки обнаружилось ~30 предсуществующих ошибок типов по всему проекту (не за эту сессию, не трогать без отдельной задачи на чистку) — в основном паттерн "Supabase relation вернулась как `X[]`, приведение к `X` не проходит" (повторяется в ChatInfoPanel, AddPurchaseModal, IncomingTransfersModal, MovementDetailModal, ReportsPanel, AddSaleModal и др.).
+**Правило:** для проверки своих правок — `npx tsc --noEmit --project tsconfig.app.json`, сравнивать count ошибок до/после своих изменений (не требовать нуля, требовать "не выросло из-за меня").
+
+## Способы оплаты продаж (2026-07-06)
+`sales.payment_method` — 5 значений: `cash`, `kaspi_qr`, `halyk`, `kaspi_transfer`, `mixed`. Halyk и Kaspi-перевод — банковские переводы, вбиваются вручную (нет API-подтверждения, в отличие от Kaspi QR) — физически в кассе их нет. Поэтому:
+- В `system_cash` (используется для "к сдаче наличными" и расхождения при закрытии кассы) входит **только** `paid_cash` — Halyk/Kaspi-перевод туда не входят (иначе кассир должен "сдать" деньги, которых физически нет).
+- Halyk/Kaspi-перевод показываются отдельными информационными строками — и в `CashSessionCard` (карточка менеджера), и в `AdminCashView`/`cashAdmin.ts` (отчёт админа) — обе точки должны оставаться синхронными, если меняешь одну.
+- `system_total`/"Итого" по-прежнему = вся выручка (cash + kaspi_qr + halyk + kaspi_transfer).
+
 ## После каждой задачи
-npx vitest run → если зелёные → graphify update . → проверить вживую через dev-test → git add -A → git commit → **стоп, ждать подтверждения** → git push (только после "ок")
+npx vitest run → если зелёные → `npx tsc --noEmit --project tsconfig.app.json` (сравнить с базовым количеством ошибок) → graphify update . → проверить вживую через dev-test → git add -A → git commit → **стоп, ждать подтверждения** → git push (только после "ок")
