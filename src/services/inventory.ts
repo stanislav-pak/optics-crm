@@ -1065,6 +1065,20 @@ export async function approveStockRequest(requestId: string): Promise<void> {
   await notifyBranch(req.branch_id, 'Заявка одобрена', 'Склад готовит товар к отправке');
 }
 
+// Правка количества до отправки — склад мог одобрить заявку, но физически
+// не набрать заявленный объём. Меняет позиции, ещё не влияет на остатки.
+export async function updateStockRequestItemQuantities(
+  items: Array<{ id: string; quantity: number }>
+): Promise<void> {
+  for (const item of items) {
+    const { error } = await supabase
+      .from('stock_request_items')
+      .update({ quantity: item.quantity })
+      .eq('id', item.id);
+    if (error) throw error;
+  }
+}
+
 // Шаг 2: склад физически собрал товар и отправляет — только теперь происходит
 // фактическое списание со склада (та же логика, что раньше была внутри "одобрить").
 export async function shipStockRequest(requestId: string, employeeId: string): Promise<void> {
@@ -1076,7 +1090,8 @@ export async function shipStockRequest(requestId: string, employeeId: string): P
   if (error || !req) throw new Error('Заявка не найдена');
   if (req.status !== 'approved') throw new Error('Заявка должна быть одобрена перед отправкой');
 
-  const reqItems = req.items as Array<{ product_id: string; quantity: number }>;
+  // Позиции, обнулённые правкой перед отправкой, исключаем — их не везём
+  const reqItems = (req.items as Array<{ product_id: string; quantity: number }>).filter(i => i.quantity > 0);
 
   // Проверяем наличие всех товаров до начала перемещений (#5)
   for (const item of reqItems) {

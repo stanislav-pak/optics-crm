@@ -7,6 +7,7 @@ import {
   deleteRevision, getIncomingTransfers, updateProduct,
   logLabelPrint, getLabelPrintHistory, getProductById,
   getStockRequests, approveStockRequest, shipStockRequest, rejectStockRequest,
+  updateStockRequestItemQuantities,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from '../constants';
@@ -216,6 +217,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [editedItemQuantities, setEditedItemQuantities] = useState<Record<string, number>>({});
 
   const markWorkshopOrderAsRead = (orderId: string) => {
     setReadWorkshopOrderIds(prev => {
@@ -2668,9 +2670,25 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       {/* Позиции */}
                       <div className="space-y-1">
                         {(req.items ?? []).map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-xs text-gray-600">
+                          <div key={idx} className="flex justify-between items-center gap-2 text-xs text-gray-600">
                             <span>{(item.product as any)?.name ?? item.product_id}</span>
-                            <span className="font-medium">{item.quantity} шт</span>
+                            {req.status === 'approved' ? (
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editedItemQuantities[item.id] ?? item.quantity}
+                                  onChange={e => {
+                                    const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setEditedItemQuantities(prev => ({ ...prev, [item.id]: val }));
+                                  }}
+                                  className="w-16 text-right font-medium border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
+                                <span>шт</span>
+                              </div>
+                            ) : (
+                              <span className="font-medium">{item.quantity} шт</span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2748,6 +2766,12 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             onClick={async () => {
                               setRequestActionLoading(req.id);
                               try {
+                                const changed = (req.items ?? [])
+                                  .filter(item => editedItemQuantities[item.id] !== undefined && editedItemQuantities[item.id] !== item.quantity)
+                                  .map(item => ({ id: item.id, quantity: editedItemQuantities[item.id] }));
+                                if (changed.length > 0) {
+                                  await updateStockRequestItemQuantities(changed);
+                                }
                                 await shipStockRequest(req.id, employeeId);
                                 await loadStockRequests();
                                 await loadAll();
