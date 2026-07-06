@@ -19,7 +19,7 @@ export interface AdminCashData {
   systemCash: number;
   systemKaspi: number;
   systemTotal: number;
-  session: { status: string; actual_cash: number | null; cash_discrepancy: number | null } | null;
+  session: { id: string; status: string; actual_cash: number | null; cash_discrepancy: number | null } | null;
 }
 
 export async function getAdminCashData(branchId: string, dateStart: string, dateEnd: string): Promise<AdminCashData> {
@@ -85,7 +85,7 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
       // 7. Cash session (последняя за период)
       supabase
         .from('cash_sessions')
-        .select('status, actual_cash, cash_discrepancy')
+        .select('id, status, actual_cash, cash_discrepancy')
         .eq('branch_id', branchId)
         .gte('date', dateFrom)
         .lte('date', dateTo)

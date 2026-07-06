@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, AlertTriangle, CheckCircle, Clock, Minus } from 'lucide-react';
 import type { Branch } from '../../types';
 import { getAdminBranches, getAdminCashData, getAdminStockValue, type AdminCashData } from '../../services/cashAdmin';
+import { getCashSessionClosures, type CashSessionClosure } from '../../services/cashSessions';
 
 type PeriodTab = 'today' | 'week' | 'month' | 'custom';
 
@@ -254,6 +255,7 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
   const [data, setData] = useState<AdminCashData | null>(null);
   const [loading, setLoading] = useState(true);
   const [stockValue, setStockValue] = useState<number | null>(null);
+  const [closures, setClosures] = useState<CashSessionClosure[]>([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -271,6 +273,13 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [branch.id, period, customStart, customEnd]);
+
+  // История закрытий (переоткрытий) для той же сессии, что показана в "Итоги закрытия"
+  useEffect(() => {
+    const sessionId = data?.session?.id;
+    if (!sessionId) { setClosures([]); return; }
+    getCashSessionClosures(sessionId).then(setClosures).catch(() => setClosures([]));
+  }, [data?.session?.id]);
 
   const hasWorkshop =
     data &&
@@ -445,6 +454,31 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
                     <span>Расхождений нет</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Предыдущие закрытия (если кассу переоткрывали в этот день) */}
+            {closures.length > 1 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Предыдущие закрытия этого дня</p>
+                {closures.slice(0, -1).map((c, idx) => {
+                  const hasDisc = Math.abs(c.cash_discrepancy) > 0;
+                  return (
+                    <div key={c.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2.5 py-2">
+                      <div className="text-gray-500">
+                        Закрытие {idx + 1} · {new Date(c.closed_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-gray-700 font-medium">{fmt(c.actual_cash)}</span>
+                        {hasDisc && (
+                          <span className={`ml-1.5 font-medium ${c.cash_discrepancy > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {fmt(Math.abs(c.cash_discrepancy))} {c.cash_discrepancy > 0 ? '(недостача)' : '(излишек)'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
