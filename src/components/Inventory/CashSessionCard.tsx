@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { Banknote, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { getExpensesForDate } from '../../services/expenses';
-import { getCashSession, openCashSession, closeCashSession, type CashSession } from '../../services/cashSessions';
+import {
+  getCashSession, openCashSession, closeCashSession, reopenCashSession, getCashSessionClosures,
+  type CashSession, type CashSessionClosure,
+} from '../../services/cashSessions';
 
 interface Props {
   branchId: string;
@@ -24,6 +27,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [cashExpenses, setCashExpenses] = useState(0);
   const [cashExpenseItems, setCashExpenseItems] = useState<{name: string; amount: number}[]>([]);
   const [opening, setOpening] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [closures, setClosures] = useState<CashSessionClosure[]>([]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -37,8 +42,16 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       setSession(null);
       setCashExpenses(0);
       setCashExpenseItems([]);
+      setClosures([]);
       setLoading(false);
       return;
+    }
+
+    try {
+      setClosures(await getCashSessionClosures(existing.id));
+    } catch (e) {
+      console.error('getCashSessionClosures error:', e);
+      setClosures([]);
     }
 
     if (existing.status === 'closed') {
@@ -235,6 +248,20 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     }
   };
 
+  const handleReopen = async () => {
+    if (!session || reopening) return;
+    if (!confirm('Переоткрыть кассу? Данные закрытия (сдано наличными, расхождение) будут сброшены.')) return;
+    setReopening(true);
+    try {
+      await reopenCashSession(session.id);
+      await loadSession();
+    } catch (e: any) {
+      alert(`Ошибка переоткрытия кассы: ${e.message}`);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-center">
@@ -354,6 +381,42 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
               </div>
             )}
           </div>
+        )}
+
+        {closures.length > 1 && (
+          <div className="border-t border-gray-100 pt-3 space-y-2">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">История закрытий за сегодня</p>
+            {closures.map((c, idx) => {
+              const cDiscrepancy = c.cash_discrepancy;
+              const cHasDiscrepancy = Math.abs(cDiscrepancy) > 0;
+              return (
+                <div key={c.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2.5 py-2">
+                  <div className="text-gray-500">
+                    Закрытие {idx + 1} · {new Date(c.closed_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="text-right">
+                    <span className="text-gray-700 font-medium">{fmt(c.actual_cash)}</span>
+                    {cHasDiscrepancy && (
+                      <span className={`ml-1.5 font-medium ${cDiscrepancy > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {cDiscrepancy > 0 ? '−' : '+'}{fmt(Math.abs(cDiscrepancy))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isClosed && (
+          <button
+            type="button"
+            onClick={handleReopen}
+            disabled={reopening}
+            className="w-full py-2 border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+          >
+            {reopening ? 'Открываем...' : 'Переоткрыть кассу'}
+          </button>
         )}
 
         {!isClosed && (
