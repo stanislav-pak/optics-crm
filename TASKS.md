@@ -11,35 +11,32 @@
 
 ---
 
-## 🟠 ПЕРЕДАЧА СЕССИИ (2026-07-06, конец дня — контекст был на пределе, продолжение в новой сессии)
+### T54 — Смешанная оплата: KaspiQRModal показывал полный итог вместо остатка `DONE` (2026-07-06)
+**Файл:** `src/components/Inventory/AddSaleModal.tsx`
 
-**Первым делом в начале новой сессии — сделать по порядку:**
+**Найдено пользователем при тестировании constraint-фикса (halyk/kaspi_transfer) на тестовом окружении:** при `paymentMethod === 'mixed'` с несколькими способами (напр. наличные 10к + Halyk 15к + Kaspi-перевод 5к + Kaspi QR 20к, итого 50к) — модал Kaspi QR показывал сумму к оплате 50 000 ₸ вместо реальных 20 000 ₸.
 
-1. **Проверить MCP Supabase** (`mcp__652f18a1...`) — весь конец прошлой сессии коннектор не отвечал (`list_projects` падал с "connector's server isn't responding"). Если ожил — сразу переходи к пункту 2. Если всё ещё не отвечает — сказать пользователю прямо, не пытаться обойти.
+**Причина:** `<KaspiQRModal amount={totalNow} .../>` — хардкод общего итога продажи, не учитывал что для mixed нужна только часть, приходящаяся на kaspi_qr (`kaspiAmount`, уже правильно считался и сохранялся в БД как `paid_kaspi`, но не передавался в UI-модал).
 
-2. **Накатить на ПРОД (Supabase `toxspgdkvxmpsvtecesy`) две миграции, которые есть только на тесте:**
+**Исправление:** добавлено состояние `kaspiQrAmount`, устанавливается вместе с `tempSaleId`/`setShowKaspiQR(true)` фактическим `kaspiAmount`; модал теперь показывает `amount={kaspiQrAmount}`.
 
-   a) Проверить, применилась ли уже (SQL ниже — идемпотентно, безопасно перезапустить):
-   ```sql
-   select
-     (select count(*) from pg_proc where proname = 'reopen_cash_session') as has_reopen_fn,
-     (select count(*) from pg_tables where tablename = 'cash_session_closures') as has_closures_table,
-     (select count(*) from pg_constraint where conname = 'sales_payment_method_check'
-        and pg_get_constraintdef(oid) like '%halyk%') as constraint_has_halyk;
-   ```
-   Если `has_reopen_fn`/`has_closures_table` = 0 → накатить T52-миграцию (таблица `cash_session_closures` + функция `reopen_cash_session` + её RLS-политика — полный SQL см. в истории чата этой сессии или переписку с пользователем, коммит `881081c`/предыдущий на T52 в TASKS.md).
-   Если `constraint_has_halyk` = 0 → накатить:
+**Проверено пользователем на тесте:** смешанная оплата (cash+halyk+kaspi_transfer+kaspi_qr) работает корректно, Kaspi QR показывает верный остаток.
+
+---
+
+## 🟠 ПЕРЕДАЧА СЕССИИ (обновлено 2026-07-06 — продолжение)
+
+**Статус:**
+1. ✅ MCP Supabase ожил, работает нормально.
+2. ✅ T52-миграция (таблица `cash_session_closures` + функция `reopen_cash_session` + RLS-политика) накатана на ПРОД (`toxspgdkvxmpsvtecesy`) и проверена — все три объекта на месте.
+3. ✅ Продажа с Halyk/Kaspi-переводом (в т.ч. смешанная оплата) протестирована пользователем на тестовом окружении — работает (по пути нашёлся и исправлен T54). Constraint `sales_payment_method_check` (halyk/kaspi_transfer) готов к накатке на прод — **ждёт подтверждения пользователя, накатывать ли сейчас**:
    ```sql
    ALTER TABLE sales DROP CONSTRAINT sales_payment_method_check;
    ALTER TABLE sales ADD CONSTRAINT sales_payment_method_check
      CHECK (payment_method = ANY (ARRAY['cash'::text, 'kaspi_qr'::text, 'halyk'::text, 'kaspi_transfer'::text, 'mixed'::text]));
    ```
-
-   b) **Важно:** пользователь ещё НЕ подтвердил, что constraint-фикс (halyk/kaspi_transfer) вообще заработал на тесте — он вставил SQL, но не написал результат теста продажи с этими способами оплаты. Спросить/проверить перед тем как катить на прод.
-
-3. **Запушить код** — 5 коммитов ждут в `main` локально, НЕ запушены (см. `git log origin/main..HEAD`): категория-фильтр/scope товаров, цена в приходах, разбивка Halyk/Kaspi-перевод, часы работы (docs), T52/T53 (docs). Пользователь ещё не дал финальное "ок, пушь" после последних правок — спросить перед пушем (правило: прод и тест на одной ветке, пуш уходит в оба сразу).
-
-4. Дальше — обычный TODO (T23), если пользователь не скажет иное.
+4. ⏳ **6 коммитов не запушены** (`git log origin/main..HEAD`) — пользователь попросил подождать с пушем. Спросить перед пушем ещё раз, когда будет готовность.
+5. Дальше — обычный TODO (T23), если пользователь не скажет иное.
 
 ---
 

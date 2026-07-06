@@ -52,6 +52,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [showScanner, setShowScanner] = useState(false);
   const [showKaspiQR, setShowKaspiQR] = useState(false);
   const [tempSaleId, setTempSaleId] = useState<string | null>(null);
+  const [kaspiQrAmount, setKaspiQrAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [change, setChange] = useState(0);
 
@@ -489,6 +490,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
       if (needsKaspiQR) {
         setTempSaleId(sale.id);
+        setKaspiQrAmount(kaspiAmount);
         setShowKaspiQR(true);
         setLoading(false);
         return;
@@ -1389,7 +1391,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
       {showKaspiQR && tempSaleId && (
         <KaspiQRModal
-          amount={totalNow}
+          amount={kaspiQrAmount}
           saleId={tempSaleId}
           onConfirm={handleKaspiConfirm}
           onCancel={handleKaspiCancel}
