@@ -343,7 +343,9 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
             {/* Продажи */}
             <Section title="Продажи">
               <Row label="Наличные" value={data.salesCash} />
-              <Row label="Kaspi" value={data.salesKaspi} />
+              <Row label="Kaspi QR" value={data.salesKaspi} />
+              {data.salesKaspiTransfer > 0 && <Row label="Kaspi перевод" value={data.salesKaspiTransfer} />}
+              {data.salesHalyk > 0 && <Row label="Halyk" value={data.salesHalyk} />}
               {data.salesCount > 0 && (
                 <>
                   <div className="flex justify-between text-sm">

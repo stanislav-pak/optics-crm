@@ -4,6 +4,8 @@ import type { Branch } from '../types';
 export interface AdminCashData {
   salesCash: number;
   salesKaspi: number;
+  salesHalyk: number;
+  salesKaspiTransfer: number;
   salesCount: number;
   avgCheck: number;
   workshopPrepaidCash: number;
@@ -96,12 +98,14 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
 
   // 1. Sales totals
   const salesRows = salesRes.data ?? [];
-  // Halyk и Kaspi перевод — ручной ввод, приравниваются к наличным
-  const salesCash = salesRows.reduce((s, x) =>
-    s + (Number(x.paid_cash) || 0) + (Number(x.paid_halyk) || 0) + (Number(x.paid_kaspi_transfer) || 0), 0);
+  // Halyk и Kaspi-перевод — банковские переводы (вбиваются вручную, без API),
+  // физически в кассе их нет — считаются отдельно от наличных
+  const salesCash = salesRows.reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
   const salesKaspi = salesRows.reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+  const salesHalyk = salesRows.reduce((s, x) => s + (Number(x.paid_halyk) || 0), 0);
+  const salesKaspiTransfer = salesRows.reduce((s, x) => s + (Number(x.paid_kaspi_transfer) || 0), 0);
   const salesCount = salesRows.filter(x => x.status === 'paid').length;
-  const avgCheck = salesCount > 0 ? (salesCash + salesKaspi) / salesCount : 0;
+  const avgCheck = salesCount > 0 ? (salesCash + salesKaspi + salesHalyk + salesKaspiTransfer) / salesCount : 0;
 
   // 2. Workshop prepayments
   const workshopPrepaidCash = (prepaidRes.data ?? [])
@@ -173,11 +177,13 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     salesCash + workshopPrepaidCash + workshopRemainingCash - refundCash - returnsCash;
   const systemKaspi =
     salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi - refundKaspi;
-  const systemTotal = systemCash + systemKaspi;
+  const systemTotal = systemCash + systemKaspi + salesHalyk + salesKaspiTransfer;
 
   return {
     salesCash,
     salesKaspi,
+    salesHalyk,
+    salesKaspiTransfer,
     salesCount,
     avgCheck,
     workshopPrepaidCash,

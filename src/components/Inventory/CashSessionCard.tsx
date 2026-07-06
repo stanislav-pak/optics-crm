@@ -29,6 +29,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [opening, setOpening] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [closures, setClosures] = useState<CashSessionClosure[]>([]);
+  const [systemHalyk, setSystemHalyk] = useState(0);
+  const [systemKaspiTransfer, setSystemKaspiTransfer] = useState(0);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -43,6 +45,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       setCashExpenses(0);
       setCashExpenseItems([]);
       setClosures([]);
+      setSystemHalyk(0);
+      setSystemKaspiTransfer(0);
       setLoading(false);
       return;
     }
@@ -66,6 +70,19 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
         byCat[key] = (byCat[key] ?? 0) + e.amount;
       }
       setCashExpenseItems(Object.entries(byCat).map(([name, amount]) => ({ name, amount })));
+
+      // Halyk/Kaspi-перевод не хранятся в самой сессии — пересчитываем и для закрытой,
+      // чтобы справочные суммы не обнулялись после закрытия/перезагрузки страницы
+      const { data: closedSales } = await supabase
+        .from('sales')
+        .select('paid_halyk, paid_kaspi_transfer')
+        .eq('branch_id', branchId)
+        .in('status', ['paid', 'refunded', 'partially_refunded'])
+        .gte('created_at', todayStr + 'T00:00:00')
+        .lte('created_at', todayStr + 'T23:59:59');
+      setSystemHalyk((closedSales ?? []).reduce((s, x) => s + (Number(x.paid_halyk) || 0), 0));
+      setSystemKaspiTransfer((closedSales ?? []).reduce((s, x) => s + (Number(x.paid_kaspi_transfer) || 0), 0));
+
       setLoading(false);
       return;
     }
@@ -78,10 +95,12 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .gte('created_at', todayStr + 'T00:00:00')
       .lte('created_at', todayStr + 'T23:59:59');
 
-    // Halyk и Kaspi перевод считаются как наличные (ручной ввод, без API)
-    const salesCash = (sales || []).reduce((s, x) =>
-      s + (Number(x.paid_cash) || 0) + (Number(x.paid_halyk) || 0) + (Number(x.paid_kaspi_transfer) || 0), 0);
+    // Halyk и Kaspi-перевод — банковские переводы (вбиваются вручную, без API),
+    // физически в кассе их нет — считаются отдельно от наличных, не входят в "к сдаче"
+    const salesCash = (sales || []).reduce((s, x) => s + (Number(x.paid_cash) || 0), 0);
     const salesKaspi = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi) || 0), 0);
+    const salesHalyk = (sales || []).reduce((s, x) => s + (Number(x.paid_halyk) || 0), 0);
+    const salesKaspiTransfer = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi_transfer) || 0), 0);
 
     // Предоплаты мастерской за сегодня (created_branch_id = этот филиал)
     const { data: workshopPrepayments } = await supabase
@@ -185,7 +204,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
     const systemCash = salesCash + prepaidCash + cashWorkshop - refundCash - saleReturnsCash - remainingRefundCash;
     const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop - refundKaspi - remainingRefundKaspi;
-    const systemTotal = systemCash + systemKaspi;
+    // Halyk/Kaspi-перевод не хранятся отдельными колонками в cash_sessions — пересчитываются
+    // каждый раз наравне с остальным, но не входят в system_cash (не требуют физической сдачи)
+    setSystemHalyk(salesHalyk);
+    setSystemKaspiTransfer(salesKaspiTransfer);
+    const systemTotal = systemCash + systemKaspi + salesHalyk + salesKaspiTransfer;
 
     const { data: updated } = await supabase
       .from('cash_sessions')
@@ -335,19 +358,28 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
             <p className="text-[10px] text-gray-500 uppercase tracking-wide">Наличные</p>
             <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(session.system_cash)}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi QR</p>
             <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(session.system_kaspi)}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Итого</p>
-            <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(session.system_total)}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi перевод</p>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(systemKaspiTransfer)}</p>
           </div>
+          <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(systemHalyk)}</p>
+          </div>
+        </div>
+
+        <div className="bg-emerald-50 rounded-lg p-2.5 text-center">
+          <p className="text-[10px] text-emerald-600 uppercase tracking-wide">Итого</p>
+          <p className="text-base font-bold text-emerald-700 mt-0.5">{fmt(session.system_total)}</p>
         </div>
 
         {cashExpenses > 0 && (
