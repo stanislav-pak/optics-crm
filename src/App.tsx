@@ -62,7 +62,7 @@ function AppContent() {
   const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist' | 'sales-history'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
-  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses' | 'orders'>('sales');
+  const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses' | 'orders' | 'returns'>('sales');
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [workshopBadgeCount, setWorkshopBadgeCount] = useState(0);
@@ -979,6 +979,14 @@ function AppContent() {
               >
                 Предзаказы
               </button>
+              <button
+                onClick={() => setShopSubView('returns')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  shopSubView === 'returns' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                Возвраты
+              </button>
             </div>
             {/* Ряд 2 — 3 вкладки на всю ширину */}
             <div className="flex justify-around">
@@ -1025,6 +1033,16 @@ function AppContent() {
           ) : shopSubView === 'orders' ? (
             <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
               <OrdersListView branchId={employee?.branch_id ?? ''} />
+            </div>
+          ) : shopSubView === 'returns' ? (
+            <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+              <InventoryPage
+                branchId={employee?.branch_id}
+                employeeId={employee.id}
+                role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                defaultTab="returns"
+                storefront={true}
+              />
             </div>
           ) : shopSubView === 'workshop' ? (
             <WorkshopManagerView
@@ -1127,6 +1145,14 @@ function AppContent() {
                   >
                     Предзаказы
                   </button>
+                  <button
+                    onClick={() => setShopSubView('returns')}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      shopSubView === 'returns' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    Возвраты
+                  </button>
                 </div>
                 {/* Ряд 2 — 3 вкладки на всю ширину */}
                 <div className="flex justify-around">
@@ -1173,6 +1199,16 @@ function AppContent() {
               ) : shopSubView === 'orders' ? (
                 <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
                   <OrdersListView branchId={employee?.branch_id ?? ''} />
+                </div>
+              ) : shopSubView === 'returns' ? (
+                <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+                  <InventoryPage
+                    branchId={employee?.branch_id}
+                    employeeId={employee.id}
+                    role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                    defaultTab="returns"
+                    storefront={true}
+                  />
                 </div>
               ) : shopSubView === 'workshop' ? (
                 <WorkshopManagerView

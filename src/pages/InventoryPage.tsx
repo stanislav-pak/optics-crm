@@ -90,6 +90,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
+  // При переключении под-вкладок в "Магазине" (Продажи/Возвраты) React переиспользует
+  // тот же экземпляр компонента — синхронизируем tab с новым defaultTab явно
+  useEffect(() => {
+    if (defaultTab) setTab(defaultTab);
+  }, [defaultTab]);
   const [activeBranchId, setActiveBranchId] = useState(branchId);
   const [prevActiveBranchId, setPrevActiveBranchId] = useState(branchId);
   const [allBranches, setAllBranches] = useState<{ id: string; name: string }[]>([]);
@@ -875,7 +880,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-1 mt-3 pb-1">
-            {tabs.filter(t => role === 'admin' || t.key !== 'sales').map(t => {
+            {tabs.filter(t => role === 'admin' || (t.key !== 'sales' && t.key !== 'returns')).map(t => {
               const isOverviewBlocked = t.key === 'overview' && overviewBlocked;
               return (
               <button
@@ -1680,7 +1685,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         )}
 
         {/* ПРОДАЖИ */}
-        {(tab === 'sales' || storefront) && (() => {
+        {tab === 'sales' && (() => {
           const now = new Date();
           const todayStr = now.toISOString().split('T')[0];
           const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
