@@ -11,6 +11,38 @@
 
 ---
 
+## 🟠 ПЕРЕДАЧА СЕССИИ (2026-07-06, конец дня — контекст был на пределе, продолжение в новой сессии)
+
+**Первым делом в начале новой сессии — сделать по порядку:**
+
+1. **Проверить MCP Supabase** (`mcp__652f18a1...`) — весь конец прошлой сессии коннектор не отвечал (`list_projects` падал с "connector's server isn't responding"). Если ожил — сразу переходи к пункту 2. Если всё ещё не отвечает — сказать пользователю прямо, не пытаться обойти.
+
+2. **Накатить на ПРОД (Supabase `toxspgdkvxmpsvtecesy`) две миграции, которые есть только на тесте:**
+
+   a) Проверить, применилась ли уже (SQL ниже — идемпотентно, безопасно перезапустить):
+   ```sql
+   select
+     (select count(*) from pg_proc where proname = 'reopen_cash_session') as has_reopen_fn,
+     (select count(*) from pg_tables where tablename = 'cash_session_closures') as has_closures_table,
+     (select count(*) from pg_constraint where conname = 'sales_payment_method_check'
+        and pg_get_constraintdef(oid) like '%halyk%') as constraint_has_halyk;
+   ```
+   Если `has_reopen_fn`/`has_closures_table` = 0 → накатить T52-миграцию (таблица `cash_session_closures` + функция `reopen_cash_session` + её RLS-политика — полный SQL см. в истории чата этой сессии или переписку с пользователем, коммит `881081c`/предыдущий на T52 в TASKS.md).
+   Если `constraint_has_halyk` = 0 → накатить:
+   ```sql
+   ALTER TABLE sales DROP CONSTRAINT sales_payment_method_check;
+   ALTER TABLE sales ADD CONSTRAINT sales_payment_method_check
+     CHECK (payment_method = ANY (ARRAY['cash'::text, 'kaspi_qr'::text, 'halyk'::text, 'kaspi_transfer'::text, 'mixed'::text]));
+   ```
+
+   b) **Важно:** пользователь ещё НЕ подтвердил, что constraint-фикс (halyk/kaspi_transfer) вообще заработал на тесте — он вставил SQL, но не написал результат теста продажи с этими способами оплаты. Спросить/проверить перед тем как катить на прод.
+
+3. **Запушить код** — 5 коммитов ждут в `main` локально, НЕ запушены (см. `git log origin/main..HEAD`): категория-фильтр/scope товаров, цена в приходах, разбивка Halyk/Kaspi-перевод, часы работы (docs), T52/T53 (docs). Пользователь ещё не дал финальное "ок, пушь" после последних правок — спросить перед пушем (правило: прод и тест на одной ветке, пуш уходит в оба сразу).
+
+4. Дальше — обычный TODO (T23), если пользователь не скажет иное.
+
+---
+
 ## 🔴 КРИТИЧНО
 
 ### T45 — Баги в заявках на склад (продолжение T39) `DONE` (2026-07-05)
@@ -495,6 +527,122 @@
 - RLS не разрешает не-admin обновлять уже закрытую сессию → переоткрытие идёт через новую `SECURITY DEFINER` RPC `reopen_cash_session` (та же схема, что `close_cash_session`), проверяет права через `get_user_branch_id()`
 - Новая таблица `cash_session_closures` — append-only лог каждого закрытия (снимок сумм на момент закрытия); переоткрытие её не трогает, только сбрасывает текущую сессию
 - Блок «Предыдущие закрытия сегодня» — и в карточке менеджера, и в отчёте админа (последнее закрытие не дублируется — оно уже видно в основном блоке «Итоги закрытия»)
+
+**SQL-миграция (применена на тесте 2026-07-06; статус на проде — ПРОВЕРИТЬ, см. "ПЕРЕДАЧА СЕССИИ" вверху файла):**
+```sql
+CREATE TABLE cash_session_closures (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES cash_sessions(id),
+  branch_id uuid NOT NULL REFERENCES branches(id),
+  closed_at timestamptz NOT NULL DEFAULT now(),
+  system_cash numeric NOT NULL,
+  system_kaspi numeric NOT NULL,
+  system_total numeric NOT NULL,
+  actual_cash numeric NOT NULL,
+  cash_discrepancy numeric NOT NULL,
+  notes text,
+  closed_by uuid REFERENCES employees(id)
+);
+
+ALTER TABLE cash_session_closures ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "employees_read_cash_session_closures" ON cash_session_closures
+  FOR SELECT
+  USING (get_user_role() = 'admin' OR branch_id = get_user_branch_id());
+
+CREATE OR REPLACE FUNCTION public.reopen_cash_session(p_session_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session cash_sessions%ROWTYPE;
+BEGIN
+  SELECT * INTO v_session FROM cash_sessions WHERE id = p_session_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Сессия не найдена'; END IF;
+  IF v_session.status != 'closed' THEN RAISE EXCEPTION 'Касса уже открыта'; END IF;
+  IF v_session.date != CURRENT_DATE THEN RAISE EXCEPTION 'Можно переоткрыть только сегодняшнюю кассу'; END IF;
+  IF get_user_role() != 'admin' AND get_user_branch_id() != v_session.branch_id THEN
+    RAISE EXCEPTION 'Недостаточно прав для переоткрытия кассы этого филиала';
+  END IF;
+
+  UPDATE cash_sessions SET
+    status = 'open',
+    actual_cash = NULL,
+    cash_discrepancy = NULL,
+    closed_at = NULL,
+    notes = NULL
+  WHERE id = p_session_id;
+END;
+$$;
+
+-- close_cash_session дополнительно пишет снимок в историю при каждом закрытии:
+CREATE OR REPLACE FUNCTION public.close_cash_session(p_session_id uuid, p_actual_cash numeric, p_employee_id uuid, p_notes text DEFAULT NULL::text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+  v_session       cash_sessions%ROWTYPE;
+  v_cash_expenses NUMERIC;
+  v_expected_cash NUMERIC;
+  v_discrepancy   NUMERIC;
+BEGIN
+  SELECT * INTO v_session FROM cash_sessions WHERE id = p_session_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Сессия не найдена'; END IF;
+  IF v_session.status = 'closed' THEN RAISE EXCEPTION 'Касса уже закрыта'; END IF;
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_cash_expenses
+  FROM expenses
+  WHERE branch_id      = v_session.branch_id
+    AND date           = v_session.date
+    AND payment_method = 'cash';
+
+  v_expected_cash := v_session.system_cash - v_cash_expenses;
+  v_discrepancy   := v_expected_cash - p_actual_cash;
+
+  UPDATE cash_sessions SET
+    actual_cash      = p_actual_cash,
+    cash_discrepancy = v_discrepancy,
+    status           = 'closed',
+    notes            = p_notes,
+    closed_at        = NOW()
+  WHERE id = p_session_id;
+
+  INSERT INTO cash_session_closures (
+    session_id, branch_id, closed_at, system_cash, system_kaspi, system_total,
+    actual_cash, cash_discrepancy, notes, closed_by
+  ) VALUES (
+    p_session_id, v_session.branch_id, NOW(), v_session.system_cash, v_session.system_kaspi, v_session.system_total,
+    p_actual_cash, v_discrepancy, p_notes, p_employee_id
+  );
+
+  IF ABS(v_discrepancy) > 0 THEN
+    INSERT INTO watchlist_events (
+      type, branch_id, employee_id, quantity, amount, notes, extra
+    ) VALUES (
+      'cash_discrepancy',
+      v_session.branch_id,
+      p_employee_id,
+      1,
+      ABS(v_discrepancy),
+      'Кассовое расхождение: ожидалось ' || v_expected_cash ||
+        ' ₸ (продажи ' || v_session.system_cash ||
+        ' - расходы ' || v_cash_expenses ||
+        '), сдано ' || p_actual_cash || ' ₸',
+      jsonb_build_object(
+        'system_cash',   v_session.system_cash,
+        'cash_expenses', v_cash_expenses,
+        'expected_cash', v_expected_cash,
+        'actual_cash',   p_actual_cash,
+        'discrepancy',   v_discrepancy,
+        'date',          v_session.date
+      )
+    );
+  END IF;
+END;
+$function$;
+```
 
 ---
 
