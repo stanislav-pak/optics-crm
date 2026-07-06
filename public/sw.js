@@ -1,4 +1,4 @@
-const SW_VERSION = 'v3-badge';
+const SW_VERSION = 'v4-badge-order';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -16,19 +16,24 @@ self.addEventListener('push', (event) => {
   const badgeCount = data.badge_count;
 
   const title = data.title || 'NewLine';
+  // Группируем повторные уведомления от одного отправителя/контекста в одну карточку
+  // (как в WhatsApp), а не по одному тегу на все подряд
+  const tag = title;
 
   event.waitUntil(
-    Promise.all([
-      typeof badgeCount === 'number' && 'setAppBadge' in self.registration
-        ? self.registration.setAppBadge(badgeCount).catch(() => {})
-        : Promise.resolve(),
-      self.registration.showNotification(title, {
+    (async () => {
+      if (typeof badgeCount === 'number' && 'setAppBadge' in self.registration) {
+        try { await self.registration.setAppBadge(badgeCount); } catch (e) {}
+      }
+      await self.registration.showNotification(title, {
         body: data.body || '',
         icon: data.icon || '/icon-192.png',
         badge: '/icon-192.png',
+        tag,
+        renotify: true,
         data: { url: data.url || '/' }
-      })
-    ])
+      });
+    })()
   );
 });
 
