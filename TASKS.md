@@ -24,19 +24,7 @@
 
 ---
 
-## 🟠 ПЕРЕДАЧА СЕССИИ (обновлено 2026-07-06 — продолжение)
-
-**Статус:**
-1. ✅ MCP Supabase ожил, работает нормально.
-2. ✅ T52-миграция (таблица `cash_session_closures` + функция `reopen_cash_session` + RLS-политика) накатана на ПРОД (`toxspgdkvxmpsvtecesy`) и проверена — все три объекта на месте.
-3. ✅ Продажа с Halyk/Kaspi-переводом (в т.ч. смешанная оплата) протестирована пользователем на тестовом окружении — работает (по пути нашёлся и исправлен T54). Constraint `sales_payment_method_check` (halyk/kaspi_transfer) готов к накатке на прод — **ждёт подтверждения пользователя, накатывать ли сейчас**:
-   ```sql
-   ALTER TABLE sales DROP CONSTRAINT sales_payment_method_check;
-   ALTER TABLE sales ADD CONSTRAINT sales_payment_method_check
-     CHECK (payment_method = ANY (ARRAY['cash'::text, 'kaspi_qr'::text, 'halyk'::text, 'kaspi_transfer'::text, 'mixed'::text]));
-   ```
-4. ⏳ **6 коммитов не запушены** (`git log origin/main..HEAD`) — пользователь попросил подождать с пушем. Спросить перед пушем ещё раз, когда будет готовность.
-5. Дальше — обычный TODO (T23), если пользователь не скажет иное.
+**2026-07-06, конец дня:** T52-миграция и constraint-фикс (halyk/kaspi_transfer) накатаны на прод и подтверждены, все 7 коммитов дня запушены в main (прод+тест). Дальше — обычный TODO (T23), если не будет других указаний.
 
 ---
 
@@ -696,10 +684,10 @@ $function$;
 ---
 
 ## Статистика
-- Всего: 53 задачи
+- Всего: 54 задачи
 - TODO: 1 (T23)
 - IN_PROGRESS: 0
-- DONE: 52
+- DONE: 53
 - SKIP: 0
 
 ## Исключено (Kaspi — не запущен)
