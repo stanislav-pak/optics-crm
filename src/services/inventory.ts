@@ -11,8 +11,8 @@ import { WAREHOUSE_ID } from '../constants';
 // ТОВАРЫ
 // ============================================
 
-export async function getProducts() {
-  const { data, error } = await supabase
+export async function getProducts(branchId?: string) {
+  let query = supabase
     .from('products')
     .select(`
       *,
@@ -22,6 +22,10 @@ export async function getProducts() {
     `)
     .eq('is_active', true)
     .order('name');
+
+  if (branchId) query = query.eq('branch_id', branchId);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as Product[];
@@ -34,7 +38,7 @@ export async function getProductsFromStock(branchId: string): Promise<Product[]>
     .select(`
       quantity,
       product:products(
-        id, name, sku, barcode, price, cost_price, unit, min_stock, is_active, branch_id, created_at,
+        id, name, sku, barcode, price, cost_price, unit, min_stock, is_active, branch_id, created_at, category_id,
         category:product_categories(id, name, slug),
         brand:brands(id, name),
         stock(quantity, branch_id)
