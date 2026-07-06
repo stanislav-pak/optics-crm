@@ -706,7 +706,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   const isWarehouseBranch = branchId === WAREHOUSE_ID;
   const canSubmitRequest = !isWarehouseBranch && branchId !== WORKSHOP_BRANCH_ID && role !== 'admin';
-  const canSeeRequestsTab = role === 'admin' || isWarehouseBranch;
+  // Склад/админ видят вкладку чтобы обрабатывать заявки; обычный менеджер филиала —
+  // чтобы видеть историю/статус своих же заявок (без кнопок одобрить/отклонить/отправить)
+  const canManageRequests = role === 'admin' || isWarehouseBranch;
+  const canSeeRequestsTab = canManageRequests || canSubmitRequest;
   // Печать этикеток — физический принтер стоит только на складе
   const canSeeLabelsTab = role === 'admin' || isWarehouseBranch;
   // Считаем и новые (ждут решения), и одобренные (ждут отправки) — оба требуют действия склада
@@ -907,7 +910,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     {unprintedProducts.length}
                   </span>
                 )}
-                {t.key === 'requests' && newRequestsCount > 0 && tab !== 'requests' && (
+                {t.key === 'requests' && canManageRequests && newRequestsCount > 0 && tab !== 'requests' && (
                   <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
                     {newRequestsCount}
                   </span>
@@ -2684,7 +2687,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         {(req.items ?? []).map((item, idx) => (
                           <div key={idx} className="flex justify-between items-center gap-2 text-xs text-gray-600">
                             <span>{(item.product as any)?.name ?? item.product_id}</span>
-                            {req.status === 'approved' ? (
+                            {req.status === 'approved' && canManageRequests ? (
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <input
                                   type="number"
@@ -2706,7 +2709,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       </div>
 
                       {/* Кнопки для склада/админа */}
-                      {req.status === 'new' && (
+                      {req.status === 'new' && canManageRequests && (
                         <div className="border-t border-gray-100 pt-3 space-y-2">
                           {isRejecting ? (
                             <div className="space-y-2">
@@ -2771,7 +2774,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       )}
 
                       {/* Одобрена, но ещё не отправлена — склад физически собрал товар */}
-                      {req.status === 'approved' && (
+                      {req.status === 'approved' && canManageRequests && (
                         <div className="border-t border-gray-100 pt-3">
                           <button
                             disabled={isLoading}

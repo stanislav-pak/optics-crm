@@ -514,9 +514,18 @@ function AppContent() {
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
               <button onClick={() => { setAdminView('inventory'); setActiveChat(null); if (isMobile) setMobileView('inventory'); }}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 relative ${isAdminBtnActive('inventory') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Склад">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                {!isAdminBtnActive('inventory') && (
+                  stockRequestBadge > 0 ? (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                      {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
+                    </span>
+                  ) : hasPendingTransfers ? (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  ) : null
+                )}
               </button>
               <button onClick={() => { setAdminView('expenses'); setActiveChat(null); if (isMobile) setMobileView('main'); }}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('expenses') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
@@ -694,10 +703,19 @@ function AppContent() {
           {/* НИЖНИЙ РЯД — нечётные колонки */}
           <button
             onClick={() => { setAdminView('inventory'); setActiveChat(null); setMobileView('main'); }}
-            className={`flex flex-col items-center gap-0 py-0.5 ${isAdminBtnActive('inventory') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
+            className={`relative flex flex-col items-center gap-0 py-0.5 ${isAdminBtnActive('inventory') ? 'text-emerald-400' : 'text-[#8696a0]'}`}
             style={{ gridColumn: 1, gridRow: 2 }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            {!isAdminBtnActive('inventory') && (
+              stockRequestBadge > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] bg-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                  {stockRequestBadge > 99 ? '99+' : stockRequestBadge}
+                </span>
+              ) : hasPendingTransfers ? (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+              ) : null
+            )}
             <span style={{ fontSize: '8px', lineHeight: '1', marginTop: '2px' }}>Склад</span>
           </button>
           <button
@@ -860,6 +878,7 @@ function AppContent() {
               branchId={employee?.branch_id}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              onPendingTransfersChange={setPendingTransfersCount}
             />
           </div>
         </div>

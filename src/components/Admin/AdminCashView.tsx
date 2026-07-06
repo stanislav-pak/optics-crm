@@ -143,7 +143,9 @@ function ListScreen({ onSelect, onBack }: ListScreenProps) {
   const loadedRows = rows.filter(r => !r.loading && r.data);
   const totalCash = loadedRows.reduce((s, r) => s + (r.data?.systemCash ?? 0), 0);
   const totalKaspi = loadedRows.reduce((s, r) => s + (r.data?.systemKaspi ?? 0), 0);
-  const totalAll = totalCash + totalKaspi;
+  const totalKaspiTransfer = loadedRows.reduce((s, r) => s + (r.data?.salesKaspiTransfer ?? 0), 0);
+  const totalHalyk = loadedRows.reduce((s, r) => s + (r.data?.salesHalyk ?? 0), 0);
+  const totalAll = loadedRows.reduce((s, r) => s + (r.data?.systemTotal ?? 0), 0);
 
   return (
     <div
@@ -178,19 +180,27 @@ function ListScreen({ onSelect, onBack }: ListScreenProps) {
         {/* Сводная карточка всех филиалов */}
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
           <p className="font-semibold text-gray-900 mb-3">Все филиалы</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-white/60 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Нал</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Наличные</p>
               <p className="text-sm font-bold text-gray-900">{fmt(totalCash)}</p>
             </div>
             <div className="bg-white/60 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi QR</p>
               <p className="text-sm font-bold text-gray-900">{fmt(totalKaspi)}</p>
             </div>
-            <div className="bg-emerald-500/20 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-emerald-700 uppercase tracking-wide">Итого</p>
-              <p className="text-sm font-bold text-emerald-800">{fmt(totalAll)}</p>
+            <div className="bg-white/60 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi перевод</p>
+              <p className="text-sm font-bold text-gray-900">{fmt(totalKaspiTransfer)}</p>
             </div>
+            <div className="bg-white/60 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+              <p className="text-sm font-bold text-gray-900">{fmt(totalHalyk)}</p>
+            </div>
+          </div>
+          <div className="bg-emerald-500/20 rounded-lg p-2 text-center mt-2">
+            <p className="text-[10px] text-emerald-700 uppercase tracking-wide">Итого</p>
+            <p className="text-sm font-bold text-emerald-800">{fmt(totalAll)}</p>
           </div>
         </div>
 
@@ -216,20 +226,30 @@ function ListScreen({ onSelect, onBack }: ListScreenProps) {
                   <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : data ? (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-gray-50 rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Нал</p>
-                    <p className="text-sm font-bold text-gray-900">{fmt(data.systemCash)}</p>
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Наличные</p>
+                      <p className="text-sm font-bold text-gray-900">{fmt(data.systemCash)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi QR</p>
+                      <p className="text-sm font-bold text-gray-900">{fmt(data.systemKaspi)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi перевод</p>
+                      <p className="text-sm font-bold text-gray-900">{fmt(data.salesKaspiTransfer)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+                      <p className="text-sm font-bold text-gray-900">{fmt(data.salesHalyk)}</p>
+                    </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Kaspi</p>
-                    <p className="text-sm font-bold text-gray-900">{fmt(data.systemKaspi)}</p>
-                  </div>
-                  <div className="bg-emerald-50 rounded-lg p-2 text-center">
+                  <div className="bg-emerald-50 rounded-lg p-2 text-center mt-2">
                     <p className="text-[10px] text-emerald-600 uppercase tracking-wide">Итого</p>
                     <p className="text-sm font-bold text-emerald-700">{fmt(data.systemTotal)}</p>
                   </div>
-                </div>
+                </>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-1">Ошибка загрузки</p>
               )}
