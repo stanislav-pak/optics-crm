@@ -579,7 +579,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
         .from('stock_movements')
         .select(`
           id, product_id, branch_id, to_branch_id, quantity, created_at, notes,
-          product:products!stock_movements_product_id_fkey(id, name, cost_price),
+          product:products!stock_movements_product_id_fkey(id, name, price, cost_price),
           from_branch:branches!stock_movements_branch_id_fkey(id, name)
         `)
         .eq('type', 'transfer')
@@ -1649,8 +1649,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   // kind === 'transfer'
                   const mv = entry.mv;
                   const product = mv.product;
+                  const salePrice = product?.price ?? 0;
+                  const saleTotal = mv.quantity * salePrice;
                   const costPrice = product?.cost_price ?? 0;
-                  const total = mv.quantity * costPrice;
+                  const costTotal = mv.quantity * costPrice;
                   return (
                     <div key={`tr-${mv.id}`} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100" onClick={() => setSelectedMovementId(mv.id)}>
                       <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
@@ -1663,11 +1665,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           {product?.name ?? '—'} · {mv.quantity} шт
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {costPrice > 0 ? `₸${costPrice.toLocaleString()} / шт · ` : ''}Из: {mv.from_branch?.name ?? '—'} · {new Date(mv.created_at).toLocaleDateString('ru-RU')}
+                          {salePrice > 0 ? `₸${salePrice.toLocaleString()} / шт · ` : ''}Из: {mv.from_branch?.name ?? '—'} · {new Date(mv.created_at).toLocaleDateString('ru-RU')}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-medium text-gray-900">₸{total.toLocaleString()}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          ₸{saleTotal.toLocaleString()}
+                          {role !== 'manager' && costPrice > 0 && ` / ₸${costTotal.toLocaleString()}`}
+                        </p>
                         <p className="text-[10px] text-purple-500 font-medium">Перемещение</p>
                       </div>
                     </div>
