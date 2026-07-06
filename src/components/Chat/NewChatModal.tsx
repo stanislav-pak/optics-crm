@@ -192,6 +192,13 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
                   <p className="text-[#8696a0] text-sm mb-3 text-center">
                     Клиент с таким номером не найден
                   </p>
+                  <input
+                    type="text"
+                    value={contactName ?? ''}
+                    onChange={e => setContactName(e.target.value || undefined)}
+                    placeholder="Имя клиента (необязательно)"
+                    className="w-full bg-[#202c33] rounded-xl px-3 py-2.5 text-sm text-[#d1d7db] placeholder-[#8696a0] outline-none mb-3"
+                  />
                   <button
                     onClick={handleCreateNew}
                     disabled={opening === 'new'}
@@ -204,7 +211,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
                     )}
                     <div className="text-left">
                       <p className="text-emerald-400 text-sm font-medium">Создать новый чат</p>
-                      <p className="text-[#8696a0] text-xs">{search.trim()}</p>
+                      <p className="text-[#8696a0] text-xs">{contactName || search.trim()}</p>
                     </div>
                   </button>
                 </>
@@ -315,6 +322,13 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
                 <p className="text-[#8696a0] text-sm mb-3 text-center">
                   Клиент с таким номером не найден
                 </p>
+                <input
+                  type="text"
+                  value={contactName ?? ''}
+                  onChange={e => setContactName(e.target.value || undefined)}
+                  placeholder="Имя клиента (необязательно)"
+                  className="w-full bg-[#202c33] rounded-xl px-3 py-2.5 text-sm text-[#d1d7db] placeholder-[#8696a0] outline-none mb-3"
+                />
                 <button
                   onClick={handleCreateNew}
                   disabled={opening === 'new'}
@@ -327,7 +341,7 @@ export default function NewChatModal({ employee, onClose, onChatOpen }: NewChatM
                   )}
                   <div className="text-left">
                     <p className="text-emerald-400 text-sm font-medium">Создать новый чат</p>
-                    <p className="text-[#8696a0] text-xs">{search.trim()}</p>
+                    <p className="text-[#8696a0] text-xs">{contactName || search.trim()}</p>
                   </div>
                 </button>
               </>
