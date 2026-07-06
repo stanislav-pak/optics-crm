@@ -30,6 +30,7 @@
 - Экспорт в Excel работает по всем модулям
 - RLS политики добавлены вручную (employees_insert_stock, employees_update_stock)
 - **iOS PWA push permission**: если `Notification.permission` стал `denied`, системный тумблер "Допуск уведомлений" в Настройках iPhone это НЕ сбрасывает (десинхронизация iOS). Чинится только полным удалением PWA + очисткой данных сайта в Safari + повторной установкой из Safari.
+- **iOS PWA badge-задержка (2026-07-06)**: `sw.js` вызывает `setAppBadge()` сразу при получении push, даже когда приложение закрыто — код правильный. Но на iOS бейдж на иконке домашнего экрана не перерисовывается сразу, пока приложение не откроют (Springboard не подхватывает значение из фонового Service Worker). Известное ограничение WebKit (не наш баг, воспроизводится и в других PWA/Firebase SDK). Пробовали твик — group notifications по `tag`, не помогло, откатили (риск: разные уведомления с одинаковым заголовком схлопывались бы в одну карточку). Рабочего решения нет.
 
 ## Тестовое окружение (T45/T47, 2026-07-04/05)
 Отдельные Supabase (`afpvhenzqtadukrmgrye`, аккаунт indpak@mail.ru) + Vercel (`optics-crm-test.vercel.app`) — схема 1:1 с продом, без бизнес-данных. Учётки для входа (все `123456`): admin `abc123@gmail.ru` (Склад), manager `sklad@gmail.com` (Склад), `Gum@gmail.com`/`Abaya@gmail.com`/`Djandosova@gmail.com`/`Masterskaya@gmail.com` (филиалы).
