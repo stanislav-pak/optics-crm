@@ -385,8 +385,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
         {closures.length > 1 && (
           <div className="border-t border-gray-100 pt-3 space-y-2">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">История закрытий за сегодня</p>
-            {closures.map((c, idx) => {
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Предыдущие закрытия сегодня</p>
+            {closures.slice(0, -1).map((c, idx) => {
               const cDiscrepancy = c.cash_discrepancy;
               const cHasDiscrepancy = Math.abs(cDiscrepancy) > 0;
               return (
@@ -398,7 +398,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
                     <span className="text-gray-700 font-medium">{fmt(c.actual_cash)}</span>
                     {cHasDiscrepancy && (
                       <span className={`ml-1.5 font-medium ${cDiscrepancy > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {cDiscrepancy > 0 ? '−' : '+'}{fmt(Math.abs(cDiscrepancy))}
+                        {fmt(Math.abs(cDiscrepancy))} {cDiscrepancy > 0 ? '(недостача)' : '(излишек)'}
                       </span>
                     )}
                   </div>
