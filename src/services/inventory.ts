@@ -321,6 +321,91 @@ export async function createPurchaseOrder(
   return po as PurchaseOrder;
 }
 
+// Редактирование уже сохранённого прихода. Позиции и движения склада пересоздаются
+// заново (не построчный diff) — проще и надёжнее при произвольных изменениях состава.
+// stock_movements не имеет триггера на DELETE (только на INSERT), поэтому после удаления
+// старых движений остатки пересчитываются явно через recalculate_stock.
+export async function updatePurchaseOrder(
+  purchaseOrderId: string,
+  order: { supplier_id?: string; notes?: string; received_at?: string; created_by?: string },
+  items: Omit<PurchaseOrderItem, 'id' | 'purchase_order_id' | 'created_at'>[]
+) {
+  const { data: existing, error: fetchError } = await supabase
+    .from('purchase_orders')
+    .select('branch_id, status')
+    .eq('id', purchaseOrderId)
+    .single();
+  if (fetchError || !existing) throw fetchError ?? new Error('Приход не найден');
+
+  const branchId = existing.branch_id!;
+  const total = items.reduce((sum, i) => sum + i.quantity * i.cost_price, 0);
+
+  const { error: delMovError } = await supabase
+    .from('stock_movements')
+    .delete()
+    .eq('reference_id', purchaseOrderId)
+    .eq('reference_type', 'purchase_order');
+  if (delMovError) throw delMovError;
+
+  const { error: delItemsError } = await supabase
+    .from('purchase_order_items')
+    .delete()
+    .eq('purchase_order_id', purchaseOrderId);
+  if (delItemsError) throw delItemsError;
+
+  const { error: updError } = await supabase
+    .from('purchase_orders')
+    .update({
+      supplier_id: order.supplier_id || null,
+      notes: order.notes || null,
+      received_at: order.received_at,
+      total,
+    })
+    .eq('id', purchaseOrderId);
+  if (updError) throw updError;
+
+  const { error: itemsError } = await supabase
+    .from('purchase_order_items')
+    .insert(items.map(i => ({ ...i, purchase_order_id: purchaseOrderId })));
+  if (itemsError) throw itemsError;
+
+  if (existing.status === 'received') {
+    const movements = items.map(i => ({
+      product_id: i.product_id,
+      branch_id: branchId,
+      type: 'in' as const,
+      quantity: i.quantity,
+      price: i.cost_price,
+      reference_id: purchaseOrderId,
+      reference_type: 'purchase_order',
+      created_by: order.created_by,
+    }));
+    const { error: movError } = await supabase.from('stock_movements').insert(movements);
+    if (movError) throw movError;
+
+    if (branchId !== WAREHOUSE_ID) {
+      const { data: branch } = await supabase.from('branches').select('name').eq('id', branchId).single();
+      const branchName = branch?.name ?? 'Филиал';
+      const warehouseMovements = items.map(i => ({
+        product_id: i.product_id,
+        branch_id: WAREHOUSE_ID,
+        type: 'in' as const,
+        quantity: i.quantity,
+        price: i.cost_price,
+        reference_id: purchaseOrderId,
+        reference_type: 'purchase_order',
+        notes: `Синхронизация: ${branchName}`,
+        created_by: order.created_by,
+      }));
+      const { error: wMovError } = await supabase.from('stock_movements').insert(warehouseMovements);
+      if (wMovError) throw wMovError;
+      await supabase.rpc('recalculate_stock', { p_branch_id: WAREHOUSE_ID });
+    }
+
+    await supabase.rpc('recalculate_stock', { p_branch_id: branchId });
+  }
+}
+
 export async function receivePurchaseOrder(orderId: string, employeeId: string) {
   // Получаем позиции
   const { data: items, error: itemsError } = await supabase

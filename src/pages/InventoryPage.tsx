@@ -174,7 +174,14 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [repeatPurchaseData, setRepeatPurchaseData] = useState<{ supplier_id?: string; items?: Array<{ product_id: string; quantity: number; cost_price: number }> } | undefined>(undefined);
+  const [repeatPurchaseData, setRepeatPurchaseData] = useState<{
+    supplier_id?: string;
+    items?: Array<{ product_id: string; quantity: number; cost_price: number }>;
+    purchaseOrderId?: string;
+    notes?: string;
+    received_at?: string;
+    branch_id?: string;
+  } | undefined>(undefined);
   const [selectedRevision, setSelectedRevision] = useState<Revision | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
@@ -777,11 +784,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }
 
   async function deletePurchaseOrder(id: string) {
-    if (!confirm('Удалить приход? Остатки не будут скорректированы автоматически.')) return;
+    if (!confirm('Удалить приход? Связанные остатки на складе будут пересчитаны автоматически.')) return;
     const { error: itemsError } = await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
-    if (itemsError) { console.error('deletePurchaseOrder items error:', itemsError); return; }
+    if (itemsError) { alert('Ошибка удаления: ' + itemsError.message); return; }
     const { error: poError } = await supabase.from('purchase_orders').delete().eq('id', id);
-    if (poError) { console.error('deletePurchaseOrder error:', poError); return; }
+    if (poError) { alert('Ошибка удаления: ' + poError.message); return; }
     await loadAll();
   }
 
@@ -1673,7 +1680,31 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           })()}
                           <StatusBadge status={po.status} />
                         </div>
-                        {role !== 'manager' && (
+                        {(role !== 'manager' || isWarehouseBranch) && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setRepeatPurchaseData({
+                                supplier_id: (po.supplier as any)?.id ?? po.supplier_id,
+                                items: po.items?.map(i => ({
+                                  product_id: i.product_id,
+                                  quantity: i.quantity,
+                                  cost_price: i.cost_price,
+                                })) ?? [],
+                                purchaseOrderId: po.id,
+                                notes: po.notes,
+                                received_at: po.received_at ?? po.created_at,
+                                branch_id: po.branch_id,
+                              });
+                              setShowAddPurchase(true);
+                            }}
+                            className="text-gray-300 hover:text-blue-500 flex-shrink-0 p-0.5"
+                            title="Редактировать приход"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {(role !== 'manager' || isWarehouseBranch) && (
                           <button
                             onClick={e => { e.stopPropagation(); deletePurchaseOrder(po.id); }}
                             className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5"

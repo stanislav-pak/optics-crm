@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Trash2, Search, Plus, QrCode } from 'lucide-react';
-import { createPurchaseOrder, getProducts, getProductByBarcode } from '../../services/inventory';
+import { createPurchaseOrder, updatePurchaseOrder, getProducts, getProductByBarcode } from '../../services/inventory';
 import type { Product, Supplier, Branch } from '../../types';
 import { supabase } from '../../services/supabase';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -19,6 +19,12 @@ interface OrderItem {
 interface InitialData {
   supplier_id?: string;
   items?: Array<{ product_id: string; quantity: number; cost_price: number }>;
+  // Если задан purchaseOrderId — модал работает в режиме редактирования уже
+  // сохранённого прихода (правит существующую запись), а не создаёт новую
+  purchaseOrderId?: string;
+  notes?: string;
+  received_at?: string;
+  branch_id?: string;
 }
 
 interface Props {
@@ -69,6 +75,9 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
   useEffect(() => {
     if (!initialData || products.length === 0) return;
     if (initialData.supplier_id) setSupplierId(initialData.supplier_id);
+    if (initialData.notes) setNotes(initialData.notes);
+    if (initialData.received_at) setDate(initialData.received_at.slice(0, 10));
+    if (initialData.branch_id) setReceivingBranchId(initialData.branch_id);
     if (initialData.items && initialData.items.length > 0) {
       const mapped: OrderItem[] = initialData.items.flatMap(i => {
         const p = products.find(pr => pr.id === i.product_id);
@@ -78,6 +87,8 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
       if (mapped.length > 0) setItems(mapped);
     }
   }, [products]);
+
+  const isEditing = !!initialData?.purchaseOrderId;
 
   useEffect(() => {
     const startX = { x: -1, y: 0 };
@@ -206,23 +217,38 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
           }
         }
       }
-      await createPurchaseOrder(
-        {
-          supplier_id: supplierId || undefined,
-          branch_id: receivingBranchId,
-          status: 'received' as const,
-          total,
-          notes: notes || undefined,
-          created_by: employeeId,
-          received_at: new Date(date).toISOString(),
-        },
-        items.map(i => ({
-          product_id: i.product_id,
-          quantity: i.quantity,
-          cost_price: i.cost_price,
-          unit: i.unit,
-        }))
-      );
+      const itemsPayload = items.map(i => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        cost_price: i.cost_price,
+        unit: i.unit,
+      }));
+
+      if (isEditing) {
+        await updatePurchaseOrder(
+          initialData!.purchaseOrderId!,
+          {
+            supplier_id: supplierId || undefined,
+            notes: notes || undefined,
+            created_by: employeeId,
+            received_at: new Date(date).toISOString(),
+          },
+          itemsPayload
+        );
+      } else {
+        await createPurchaseOrder(
+          {
+            supplier_id: supplierId || undefined,
+            branch_id: receivingBranchId,
+            status: 'received' as const,
+            total,
+            notes: notes || undefined,
+            created_by: employeeId,
+            received_at: new Date(date).toISOString(),
+          },
+          itemsPayload
+        );
+      }
       if (supplierId) localStorage.setItem('purchase_last_supplier', supplierId);
       onSuccess();
       onClose();
@@ -239,7 +265,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Приходная накладная</h2>
+          <h2 className="text-base font-semibold text-gray-900">{isEditing ? 'Редактирование прихода' : 'Приходная накладная'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
@@ -251,7 +277,8 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             <select
               value={receivingBranchId}
               onChange={e => setReceivingBranchId(e.target.value)}
-              disabled={role === 'manager'}
+              disabled={role === 'manager' || isEditing}
+              title={isEditing ? 'Филиал получения нельзя изменить при редактировании' : undefined}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:bg-gray-50"
             >
               {branches.map(b => (
@@ -537,7 +564,7 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
             disabled={loading || items.length === 0}
             className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Сохраняем...' : `Принять приход (${items.length} поз.)`}
+            {loading ? 'Сохраняем...' : isEditing ? `Сохранить изменения (${items.length} поз.)` : `Принять приход (${items.length} поз.)`}
           </button>
         </div>
       </div>
