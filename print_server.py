@@ -201,14 +201,35 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 p_y = (H - ch_h) // 2 - SHIFT_Y
                 cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
-            name  = field_val('name')
-            price = field_val('price_sale')
-            y = 0
-            if name:
-                cmd(f'TEXT {W//2},{y},"1",0,1,1,"{name}"')
-                y += 12
-            if price and y < H:
-                cmd(f'TEXT {W//2},{y},"1",0,1,1,"{price}"')
+            # Нет штрихкода — цена по центру на всю ширину этикетки
+            price_label = str(data.get('price_label', '')).strip()
+            if price_label:
+                try:
+                    num = int(float(price_label))
+                    parts = []
+                    n = num
+                    while n >= 1000:
+                        parts.append(f'{n % 1000:03d}')
+                        n //= 1000
+                    parts.append(str(n))
+                    formatted = ' '.join(reversed(parts))
+                except (ValueError, TypeError):
+                    formatted = price_label[:8]
+                ch_w, ch_h = 18, 16
+                p_x = max(2, (W - len(formatted) * ch_w) // 2)
+                p_y = (H - ch_h) // 2
+                cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
+            else:
+                name  = field_val('name')
+                price = field_val('price_sale')
+                y = 2
+                if name:
+                    n_x = max(2, (W - len(name) * 8) // 2)
+                    cmd(f'TEXT {max(0, n_x + SHIFT_X)},{y},"1",0,1,1,"{name}"')
+                    y += 14
+                if price and y < H:
+                    n_x = max(2, (W - len(price) * 8) // 2)
+                    cmd(f'TEXT {max(0, n_x + SHIFT_X)},{y},"1",0,1,1,"{price}"')
     else:
         # Большая этикетка — название + штрихкод + цена
         name  = field_val('name')
