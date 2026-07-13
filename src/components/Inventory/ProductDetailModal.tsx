@@ -224,6 +224,13 @@ export default function ProductDetailModal({ product, stock, branchId, role, onC
             </button>
           )}
           <button
+            onClick={() => setShowPrintLabel(true)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm hover:bg-gray-50"
+          >
+            <Printer size={15} />
+            Этикетка
+          </button>
+          <button
             onClick={onEdit}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
           >
