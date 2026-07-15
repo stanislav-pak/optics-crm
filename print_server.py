@@ -117,7 +117,15 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         result.extend((text + '\r\n').encode('cp1251', errors='replace'))
 
     cmd(f'SIZE {w_mm} mm,{h_mm} mm')
-    cmd('GAP 7 mm,0 mm')  # физический зазор на 40x10 ролике измерен ~6.5-7мм (было ошибочно 3мм)
+    # GAP m,n — m: физический зазор между этикетками. ИСПРАВЛЕНО (2026-07-14, T65): реальный
+    # замер пользователя линейкой по фото с разметкой — 2.5мм (не 6.5-7мм, как считалось
+    # раньше). Скорее всего именно это враньё в длине зазора (не офсет) было корневой причиной
+    # нестабильности датчика при подборе +20/-20/-40/-30мм в предыдущих прогонах — принтер был
+    # настроен ждать зазор втрое длиннее реального. Офсет (n) сброшен на 0 — все прежние
+    # подобранные значения калибровались против неверной базы m=7мм, они больше не актуальны.
+    gap_offset_mm = 0
+    cmd(f'GAP 2.5 mm,{gap_offset_mm} mm')
+    print(f'[DEBUG] GAP 2.5mm,{gap_offset_mm}mm (h_mm={h_mm}, size={w_mm}x{h_mm})')
     cmd('DIRECTION 0')
     cmd('CODEPAGE 1251')
     cmd('CLS')
@@ -134,8 +142,13 @@ def build_tspl(data: dict, quantity: int) -> bytes:
         if barcode:
             readable = 1 if H >= 38 else 0
             margin_x = round(1 * DPI / 25.4)   # 1 мм ≈ 8 точек
-            SHIFT_Y  = round(8 * DPI / 25.4)   # 4мм (было) + ещё 4мм, без ограничений
-            top_y    = round(1 * DPI / 25.4) - SHIFT_Y
+            # Зазор между ценой и штрихкодом — раньше цена центрировалась вплоть до линии
+            # сгиба (price_left_w = x), штрихкод оказывался вплотную к цене (см. T65, фото
+            # 2026-07-13: "6 000" впритык к штрихкоду). Не трогаем сам штрихкод (его ширина/
+            # позиция важны для сканирования) — сужаем только зону центрирования цены.
+            bc_gap = round(5 * DPI / 25.4)      # 5 мм зазор перед штрихкодом
+            SHIFT_Y  = round(8 * DPI / 25.4)   # 4мм (было) + ещё 4мм
+            top_y    = max(0, round(1 * DPI / 25.4) - SHIFT_Y)   # клемп — отрицательный Y ломает печать (см. T65)
             # Высота полосок считается от СТАРОГО отступа (3мм) — не от нового top_y.
             # Раньше bar_h = H - top_y - 16 означало, что при уменьшении top_y полоски
             # становились ВЫШЕ (съедая место, отведённое под цифры снизу). Нужно было
@@ -148,7 +161,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
             x        = W - bar_w - margin_x    # прижать к правому краю (= W // 2, у линии сгиба)
             bar_h    = max(20, H - ref_top_y - 16)
 
-            price_left_w = x
+            price_left_w = max(20, x - bc_gap)
             if len(barcode) == 13 and barcode.isdigit():
                 # EAN-13: BITMAP с тихими зонами
                 result.extend(_ean13_bitmap(barcode, x + SHIFT_X, top_y, bar_w, bar_h))
@@ -164,7 +177,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 bc_w = n_modules * narrow
                 quiet = 10 * narrow
                 x_bc = W - bc_w - quiet - margin_x
-                price_left_w = x_bc
+                price_left_w = max(20, x_bc - bc_gap)
                 bar_h_bc = max(20, H - ref_top_y - narrow * 16)
                 cmd(f'BARCODE {x_bc + SHIFT_X},{top_y},"128",{bar_h_bc},0,0,{narrow},{narrow},"{barcode}"')
                 if readable:
@@ -179,7 +192,25 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                         header = f'BITMAP {x_bc + SHIFT_X},{text_y},{w_bytes},{cover_h},0,'.encode('ascii')
                         result.extend(header + bytes(bmp) + b'\r\n')
                     text_x = x_bc + max(0, (bc_w - len(barcode) * 8) // 2)
-                    cmd(f'TEXT {text_x + SHIFT_X},{text_y + 2},"1",0,1,1,"{barcode}"')
+                    text_w = len(barcode) * 8
+                    text_h = 16  # приблизительная высота шрифта "1"
+                    # Клемп по X — длинные коды не должны печататься за правым краем этикетки.
+                    # БАГ (найден 2026-07-13, T65): text_x+SHIFT_X (уже сдвинутая координата,
+                    # например 309) сравнивался через min() с W-text_w-margin_x — границей в
+                    # НЕсдвинутой системе координат (например 199). min() почти всегда выбирал
+                    # несдвинутую границу — текст печатался на SHIFT_X точек (~110, ~14мм) левее
+                    # реального штрихкода, отсюда "цифр под штрихкодом нет" при рабочей Y-логике.
+                    # Клемп нужно делать в НЕсдвинутой системе (как x_bc), SHIFT_X добавлять последним.
+                    final_text_x = max(0, min(text_x, W - text_w - margin_x) + SHIFT_X)
+                    # Ставим текст СТРОГО ПОСЛЕ белого закрывающего блока (text_y+cover_h), не
+                    # "по центру" — реальные данные показали final_text_y=51 попадал ВНУТРЬ
+                    # диапазона cover_h=[39,55], похоже, порядок отрисовки на этом принтере не
+                    # совпадает с порядком TSPL-команд, и белая заливка перекрывала текст (см. T65)
+                    final_text_y = min(text_y + cover_h + 2, H - text_h)
+                    print(f'[DEBUG] barcode="{barcode}" len={len(barcode)} H={H} W={W} narrow={narrow} '
+                          f'bar_h_bc={bar_h_bc} top_y={top_y} text_y={text_y} cover_h={cover_h} '
+                          f'final_text_x={final_text_x} final_text_y={final_text_y} text_w={text_w} SHIFT_X={SHIFT_X}')
+                    cmd(f'TEXT {final_text_x},{final_text_y},"1",0,1,1,"{barcode}"')
 
             # Цена на левой половине (для EAN13 и CODE128)
             price_label = str(data.get('price_label', '')).strip()
@@ -198,7 +229,7 @@ def build_tspl(data: dict, quantity: int) -> bytes:
                 left_w = price_left_w
                 ch_w, ch_h = 18, 16
                 p_x = max(2, (left_w - len(formatted) * ch_w) // 2)
-                p_y = (H - ch_h) // 2 - SHIFT_Y
+                p_y = max(0, (H - ch_h) // 2 - SHIFT_Y)   # клемп — отрицательный Y ломает печать (см. T65)
                 cmd(f'TEXT {max(0, p_x + SHIFT_X)},{p_y},"3",0,1,1,"{formatted}"')
         else:
             # Нет штрихкода — цена по центру на всю ширину этикетки
