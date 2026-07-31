@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, QrCode, Barcode, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { createProduct, getProductById, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
+import { createProduct, findDuplicateProduct, getProductById, getCategories, getBrands, generateBarcode, getProductGroups } from '../../services/inventory';
 import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes, Product } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
@@ -29,6 +29,7 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{ product: Product; reason: 'name' | 'barcode' } | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -116,7 +117,10 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
   const isLenses = selectedCategory?.slug?.includes('lens') || selectedCategory?.slug?.includes('contact');
   const isFrames = selectedCategory?.slug?.includes('frame') || selectedCategory?.slug?.includes('glass') || selectedCategory?.slug?.includes('sun');
 
-  const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
+  const set = (key: string, value: string) => {
+    setForm(f => ({ ...f, [key]: value }));
+    if (key === 'name' || key === 'barcode') setDuplicate(null);
+  };
   const setAttr = (key: string, value: string) => setAttributes(a => ({ ...a, [key]: value }));
 
   const handleCreateCategory = async (name: string) => {
@@ -140,7 +144,21 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
     if (!form.name.trim() || !form.price) return;
 
     setSubmitError(null);
+    setDuplicate(null);
     setLoading(true);
+
+    try {
+      const dup = await findDuplicateProduct(form.name, form.barcode, branchId);
+      if (dup) {
+        setDuplicate(dup);
+        setLoading(false);
+        return;
+      }
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : String(e));
+      setLoading(false);
+      return;
+    }
 
     const payload = {
       name: form.name.trim(),
@@ -543,6 +561,28 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
         )}
 
         {/* Footer */}
+        {duplicate && (
+          <div className="px-5 pb-2">
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+              <AlertCircle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 text-xs text-amber-800">
+                <p className="font-medium mb-1">
+                  {duplicate.reason === 'name'
+                    ? 'Товар с таким названием уже существует'
+                    : 'Товар с таким штрихкодом уже существует'}
+                  {': «'}{duplicate.product.name}{'»'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onSuccess(duplicate.product); }}
+                  className="underline font-medium hover:text-amber-900"
+                >
+                  Открыть существующий товар
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {submitError && (
           <div className="px-5 pb-2">
             <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
