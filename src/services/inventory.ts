@@ -87,6 +87,42 @@ export async function getProductByBarcode(barcode: string, branchId?: string): P
   return data as Product | null;
 }
 
+// Проверка на дубликат перед созданием товара: по названию (в рамках филиала) и по штрихкоду (глобально)
+export async function findDuplicateProduct(
+  name: string,
+  barcode: string | undefined,
+  branchId: string
+): Promise<{ product: Product; reason: 'name' | 'barcode' } | null> {
+  const selectFields = '*, category:product_categories(id, name, slug), brand:brands(id, name), stock(quantity, branch_id)';
+
+  const trimmedName = name.trim();
+  if (trimmedName) {
+    const { data, error } = await supabase
+      .from('products')
+      .select(selectFields)
+      .eq('branch_id', branchId)
+      .eq('is_active', true)
+      .ilike('name', trimmedName)
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length > 0) return { product: data[0] as Product, reason: 'name' };
+  }
+
+  const trimmedBarcode = barcode?.trim();
+  if (trimmedBarcode) {
+    const { data, error } = await supabase
+      .from('products')
+      .select(selectFields)
+      .eq('is_active', true)
+      .eq('barcode', trimmedBarcode)
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length > 0) return { product: data[0] as Product, reason: 'barcode' };
+  }
+
+  return null;
+}
+
 export async function createProduct(product: Omit<Product, 'id' | 'created_at'>) {
   const { data, error } = await supabase
     .from('products')
