@@ -1145,11 +1145,16 @@ export async function approveStockRequest(requestId: string): Promise<void> {
   if (error || !req) throw new Error('Заявка не найдена');
   if (req.status !== 'new') throw new Error('Заявка уже обработана');
 
+  // .select().single() — не только .update(): RLS может молча заблокировать
+  // UPDATE (PostgREST вернёт 204/успех при 0 изменённых строк), .single() на
+  // пустом результате превращает это в настоящую ошибку вместо тихого no-op.
   const { error: updErr } = await supabase
     .from('stock_requests')
     .update({ status: 'approved', updated_at: new Date().toISOString() })
-    .eq('id', requestId);
-  if (updErr) throw updErr;
+    .eq('id', requestId)
+    .select('id')
+    .single();
+  if (updErr) throw new Error('Не удалось одобрить заявку (нет прав на изменение). Обратитесь к администратору.');
 
   await notifyBranch(req.branch_id, 'Заявка одобрена', 'Склад готовит товар к отправке');
 }
@@ -1163,8 +1168,10 @@ export async function updateStockRequestItemQuantities(
     const { error } = await supabase
       .from('stock_request_items')
       .update({ quantity: item.quantity })
-      .eq('id', item.id);
-    if (error) throw error;
+      .eq('id', item.id)
+      .select('id')
+      .single();
+    if (error) throw new Error('Не удалось изменить количество в заявке (нет прав на изменение). Обратитесь к администратору.');
   }
 }
 
@@ -1201,11 +1208,16 @@ export async function shipStockRequest(requestId: string, employeeId: string): P
     await createTransfer(WAREHOUSE_ID, req.branch_id, item.product_id, item.quantity, employeeId, req.order_id ?? undefined);
   }
 
+  // Остатки уже списаны через createTransfer выше — если этот UPDATE молча
+  // заблокирует RLS, заявка зависнет в "Одобрена" при уже отправленном товаре.
+  // .select().single() гарантирует явную ошибку вместо тихого no-op.
   const { error: updErr } = await supabase
     .from('stock_requests')
     .update({ status: 'shipped', updated_at: new Date().toISOString() })
-    .eq('id', requestId);
-  if (updErr) throw updErr;
+    .eq('id', requestId)
+    .select('id')
+    .single();
+  if (updErr) throw new Error('Товар перемещён, но не удалось обновить статус заявки на "Отправлена" (нет прав на изменение). Обратитесь к администратору — остатки уже списаны, повторно нажимать "Отправить" не нужно.');
 
   await notifyBranch(req.branch_id, 'Товар отправлен', 'Проверьте входящие перемещения на филиале');
 }
@@ -1220,8 +1232,10 @@ export async function rejectStockRequest(requestId: string, reason?: string): Pr
   const { error } = await supabase
     .from('stock_requests')
     .update({ status: 'rejected', rejection_reason: reason ?? null, updated_at: new Date().toISOString() })
-    .eq('id', requestId);
-  if (error) throw error;
+    .eq('id', requestId)
+    .select('id')
+    .single();
+  if (error) throw new Error('Не удалось отклонить заявку (нет прав на изменение). Обратитесь к администратору.');
 
   if (req) {
     await notifyBranch(req.branch_id, 'Заявка отклонена', reason ? `Причина: ${reason}` : 'Склад отклонил заявку');
