@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Trash2, Search, Plus, QrCode } from 'lucide-react';
 import { createPurchaseOrder, updatePurchaseOrder, getProducts, getProductByBarcode } from '../../services/inventory';
 import type { Product, Supplier, Branch } from '../../types';
 import { supabase } from '../../services/supabase';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 
 const DEFAULT_UNITS = ['шт', 'пара', 'коробка', 'упаковка', 'компл'];
@@ -118,31 +119,36 @@ export default function AddPurchaseModal({ branchId, employeeId, role = 'manager
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const q = search.toLowerCase().trim();
-  const matchesSearch = (p: Product) =>
-    !q ||
-    p.name.toLowerCase().includes(q) ||
-    (p.barcode ?? '').includes(search) ||
-    (p.sku ?? '').toLowerCase().includes(q) ||
-    (p.product_group ?? '').toLowerCase().includes(q);
+  const debouncedSearch = useDebouncedValue(search, 120);
 
   const purchaseCategories = Array.from(
     new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-  const filteredAll = products.filter(p =>
-    matchesSearch(p) && (!selectedCategory || p.category_id === selectedCategory)
-  );
-  const dropdownGrouped: Record<string, Product[]> = {};
-  const dropdownUngrouped: Product[] = [];
-  for (const p of filteredAll) {
-    if (p.product_group) {
-      if (!dropdownGrouped[p.product_group]) dropdownGrouped[p.product_group] = [];
-      dropdownGrouped[p.product_group].push(p);
-    } else {
-      dropdownUngrouped.push(p);
+  const { dropdownGrouped, dropdownUngrouped } = useMemo(() => {
+    const q = debouncedSearch.toLowerCase().trim();
+    const matchesSearch = (p: Product) =>
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.barcode ?? '').includes(debouncedSearch) ||
+      (p.sku ?? '').toLowerCase().includes(q) ||
+      (p.product_group ?? '').toLowerCase().includes(q);
+
+    const filteredAll = products.filter(p =>
+      matchesSearch(p) && (!selectedCategory || p.category_id === selectedCategory)
+    );
+    const grouped: Record<string, Product[]> = {};
+    const ungrouped: Product[] = [];
+    for (const p of filteredAll) {
+      if (p.product_group) {
+        if (!grouped[p.product_group]) grouped[p.product_group] = [];
+        grouped[p.product_group].push(p);
+      } else {
+        ungrouped.push(p);
+      }
     }
-  }
+    return { dropdownGrouped: grouped, dropdownUngrouped: ungrouped };
+  }, [products, selectedCategory, debouncedSearch]);
   const dropdownGroupNames = Object.keys(dropdownGrouped).sort((a, b) => a.localeCompare(b, 'ru'));
   const hasDropdownResults = dropdownGroupNames.length > 0 || dropdownUngrouped.length > 0;
 

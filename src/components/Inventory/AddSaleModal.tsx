@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
 import { createSale, getProductsFromStock, getProductByBarcode, createStockRequest } from '../../services/inventory';
 import { isCashSessionOpenToday } from '../../services/cashSessions';
@@ -6,6 +6,7 @@ import { createServiceOrder, fetchServices, createService } from '../../services
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
 import { formatPhone } from '@/utils/formatters';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
 import type { Product, Client, Service } from '../../types';
@@ -191,13 +192,15 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     new Map(products.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-  const filteredProducts = products.filter(p =>
+  const debouncedSearch = useDebouncedValue(search, 120);
+
+  const filteredProducts = useMemo(() => products.filter(p =>
     (!selectedCategory || p.category_id === selectedCategory) &&
-    (!search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode?.includes(search) ||
-      p.sku?.toLowerCase().includes(search.toLowerCase()))
-  );
+    (!debouncedSearch ||
+      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.barcode?.includes(debouncedSearch) ||
+      p.sku?.toLowerCase().includes(debouncedSearch.toLowerCase()))
+  ), [products, selectedCategory, debouncedSearch]);
 
   const total = items.reduce((sum, i) => sum + i.quantity * i.price, 0);
 
