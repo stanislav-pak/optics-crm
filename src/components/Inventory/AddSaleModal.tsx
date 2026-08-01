@@ -483,6 +483,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           product_id: i.product_id,
           quantity: i.quantity,
           price: i.price,
+          list_price: i.list_price,
         }))
       );
 

@@ -396,6 +396,7 @@ export interface SaleItem {
   product_id: string;
   quantity: number;
   price: number;
+  list_price?: number | null;
   created_at: string;
   // Relations
   product?: Product;

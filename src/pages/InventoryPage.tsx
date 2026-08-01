@@ -3210,19 +3210,48 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               <div className="border-t border-gray-100 pt-3">
                 <p className="text-xs font-semibold text-gray-500 mb-2">Позиции:</p>
                 <div className="space-y-2">
-                  {selectedSale.items?.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50">
-                      <div>
-                        <p className="text-sm text-gray-900">{(item.product as any)?.name}</p>
-                        <p className="text-xs text-gray-400">{item.quantity} шт × ₸{item.price.toLocaleString()}</p>
+                  {selectedSale.items?.map((item, idx) => {
+                    const hasDiscount = item.list_price != null && item.list_price > item.price;
+                    return (
+                      <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50">
+                        <div>
+                          <p className="text-sm text-gray-900">{(item.product as any)?.name}</p>
+                          <p className="text-xs text-gray-400">{item.quantity} шт × ₸{item.price.toLocaleString()}</p>
+                          {hasDiscount && (
+                            <p className="text-xs text-amber-600">
+                              было ₸{item.list_price!.toLocaleString()}, скидка ₸{((item.list_price! - item.price) * item.quantity).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">
+                          ₸{(item.quantity * item.price).toLocaleString()}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-700">
-                        ₸{(item.quantity * item.price).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Скидка (если была) */}
+              {(() => {
+                const totalDiscount = (selectedSale.items ?? []).reduce((sum, item) =>
+                  sum + (item.list_price != null && item.list_price > item.price ? (item.list_price - item.price) * item.quantity : 0), 0);
+                if (totalDiscount <= 0) return null;
+                const totalListPrice = (selectedSale.items ?? []).reduce((sum, item) =>
+                  sum + (item.list_price ?? item.price) * item.quantity, 0);
+                return (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>Было:</span>
+                      <span>₸{totalListPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-amber-600">
+                      <span>Скидка:</span>
+                      <span>−₸{totalDiscount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Итог */}
               <div className="flex justify-between text-base font-semibold text-gray-900 pt-2">
