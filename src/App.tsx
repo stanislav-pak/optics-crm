@@ -29,6 +29,7 @@ import { AutoArchiveSettings } from './components/Dashboard/AutoArchiveSettings'
 import CompanyChatList from './components/Chat/CompanyChatList';
 import HelpModal from './components/HelpModal';
 import ScrollToTopButton from './components/Shared/ScrollToTopButton';
+import UpdateBanner from './components/Shared/UpdateBanner';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
 import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from './constants';
@@ -1349,6 +1350,7 @@ function AppContent() {
         {Sidebar}
         {MainArea}
       </div>
+      <UpdateBanner />
       <ScrollToTopButton />
       {showImport && <ImportExcel onClose={() => setShowImport(false)} branches={sidebarBranches} />}
       {showCompanyChat && (
