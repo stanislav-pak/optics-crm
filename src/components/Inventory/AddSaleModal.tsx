@@ -1262,7 +1262,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                     {([
                       { v: 'cash',           label: '💵 Наличные' },
                       { v: 'kaspi_qr',       label: '📱 Kaspi QR' },
-                      { v: 'halyk',          label: '🏦 Halyk' },
+                      { v: 'halyk',          label: '🏦 POST' },
                       { v: 'kaspi_transfer', label: '💳 Kaspi пер.' },
                       { v: 'mixed',          label: '🔀 Смешанная' },
                     ] as const).map(({ v, label }) => (
@@ -1290,7 +1290,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
                 {(paymentMethod === 'halyk' || paymentMethod === 'kaspi_transfer') && (
                   <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-                    {paymentMethod === 'halyk' ? '🏦 Перевод Halyk Bank — подтвердите получение вручную' : '💳 Kaspi перевод — подтвердите получение вручную'}
+                    {paymentMethod === 'halyk' ? '🏦 Оплата картой (POST) — подтвердите получение вручную' : '💳 Kaspi перевод — подтвердите получение вручную'}
                   </div>
                 )}
 
@@ -1316,7 +1316,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Halyk ₸</label>
+                        <label className="block text-xs text-gray-500 mb-1">POST ₸</label>
                         <input type="text" inputMode="numeric" value={paidHalyk}
                           onChange={e => setPaidHalyk(e.target.value.replace(/[^0-9.]/g, ''))}
                           onFocus={e => { const i = e.target; setTimeout(() => i.setSelectionRange(0, i.value.length), 0); }}

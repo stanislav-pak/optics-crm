@@ -9,7 +9,7 @@ type Tab = 'sales' | 'orders' | 'workshop';
 interface Branch { id: string; name: string; }
 
 const PAYMENT_LABEL: Record<string, string> = {
-  cash: '💵 Нал', kaspi_qr: '📱 Kaspi QR', halyk: '🏦 Halyk',
+  cash: '💵 Нал', kaspi_qr: '📱 Kaspi QR', halyk: '🏦 POST',
   kaspi_transfer: '💳 Kaspi пер.', mixed: '🔀 Смешан.',
 };
 

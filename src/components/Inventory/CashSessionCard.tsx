@@ -372,7 +372,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
             <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(systemKaspiTransfer)}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">POST</p>
             <p className="text-sm font-bold text-gray-900 mt-0.5">{fmt(systemHalyk)}</p>
           </div>
         </div>

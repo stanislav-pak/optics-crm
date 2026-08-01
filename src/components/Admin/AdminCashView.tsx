@@ -194,7 +194,7 @@ function ListScreen({ onSelect, onBack }: ListScreenProps) {
               <p className="text-sm font-bold text-gray-900">{fmt(totalKaspiTransfer)}</p>
             </div>
             <div className="bg-white/60 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">POST</p>
               <p className="text-sm font-bold text-gray-900">{fmt(totalHalyk)}</p>
             </div>
           </div>
@@ -241,7 +241,7 @@ function ListScreen({ onSelect, onBack }: ListScreenProps) {
                       <p className="text-sm font-bold text-gray-900">{fmt(data.salesKaspiTransfer)}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Halyk</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">POST</p>
                       <p className="text-sm font-bold text-gray-900">{fmt(data.salesHalyk)}</p>
                     </div>
                   </div>
@@ -365,7 +365,7 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
               <Row label="Наличные" value={data.salesCash} />
               <Row label="Kaspi QR" value={data.salesKaspi} />
               {data.salesKaspiTransfer > 0 && <Row label="Kaspi перевод" value={data.salesKaspiTransfer} />}
-              {data.salesHalyk > 0 && <Row label="Halyk" value={data.salesHalyk} />}
+              {data.salesHalyk > 0 && <Row label="POST" value={data.salesHalyk} />}
               {data.salesCount > 0 && (
                 <>
                   <div className="flex justify-between text-sm">

@@ -1969,9 +1969,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     'Итого': s.total,
                     'Наличными': s.paid_cash || 0,
                     'Kaspi QR': s.paid_kaspi || 0,
-                    'Halyk': s.paid_halyk || 0,
+                    'POST': s.paid_halyk || 0,
                     'Kaspi перевод': s.paid_kaspi_transfer || 0,
-                    'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : s.payment_method === 'halyk' ? 'Halyk' : s.payment_method === 'kaspi_transfer' ? 'Kaspi перевод' : 'Смешанная',
+                    'Способ оплаты': s.payment_method === 'cash' ? 'Наличные' : s.payment_method === 'kaspi_qr' ? 'Kaspi QR' : s.payment_method === 'halyk' ? 'POST' : s.payment_method === 'kaspi_transfer' ? 'Kaspi перевод' : 'Смешанная',
                     'Статус': STATUS_RU[s.status] ?? s.status,
                   }));
                   xlsxExport(rows, `продажи_${xlsxDate()}.xlsx`);
@@ -2046,7 +2046,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                         <span className="text-xs text-gray-500">
                           {s.payment_method === 'cash' ? '💵 Наличные' :
                            s.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
-                           s.payment_method === 'halyk' ? '🏦 Halyk' :
+                           s.payment_method === 'halyk' ? '🏦 POST' :
                            s.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                         </span>
                       </div>
@@ -2497,7 +2497,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                               <span className="text-xs text-gray-500">
                                 {relatedSale.payment_method === 'cash' ? '💵 Наличные' :
                                  relatedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
-                                 relatedSale.payment_method === 'halyk' ? '🏦 Halyk' :
+                                 relatedSale.payment_method === 'halyk' ? '🏦 POST' :
                                  relatedSale.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                               </span>
                             </div>
@@ -3317,7 +3317,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   <span>
                     {selectedSale.payment_method === 'cash' ? '💵 Наличные' :
                      selectedSale.payment_method === 'kaspi_qr' ? '📱 Kaspi QR' :
-                     selectedSale.payment_method === 'halyk' ? '🏦 Halyk' :
+                     selectedSale.payment_method === 'halyk' ? '🏦 POST' :
                      selectedSale.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                   </span>
                 </div>
@@ -3335,7 +3335,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                 )}
                 {selectedSale.paid_halyk > 0 && (
                   <div className="flex justify-between text-sm text-gray-500">
-                    <span>Halyk:</span>
+                    <span>POST:</span>
                     <span>₸{selectedSale.paid_halyk.toLocaleString()}</span>
                   </div>
                 )}
