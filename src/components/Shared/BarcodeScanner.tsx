@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Camera, Keyboard } from 'lucide-react';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser';
 import { NotFoundException, DecodeHintType, BarcodeFormat } from '@zxing/library';
 
 interface Props {
@@ -12,6 +12,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
   const detectedRef = useRef(false);
   const [status, setStatus] = useState('Инициализация...');
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,14 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
         const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 100 });
         readerRef.current = reader;
 
-        await reader.decodeFromVideoDevice(undefined, video, (result, err) => {
+        // decodeFromVideoDevice(undefined, ...) вызывает getUserMedia ВТОРОЙ раз внутри
+        // самой zxing (со своими дефолтными constraints, без разрешения/фокуса выше) и
+        // подменяет video.srcObject на новый поток — старый (настроенный) при этом висит
+        // не остановленным. На iOS Safari два одновременных потока с камеры дают
+        // подвисание/чёрный кадр у второго — распознавание не срабатывает вообще.
+        // decodeFromStream переиспользует уже полученный настроенный поток напрямую,
+        // без повторного getUserMedia.
+        const controls = await reader.decodeFromStream(stream, video, (result, err) => {
           if (cancelled) return;
           if (result && !detectedRef.current) {
             detectedRef.current = true;
@@ -86,6 +94,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
             // ignore scan errors
           }
         });
+        if (cancelled) { controls.stop(); return; }
+        controlsRef.current = controls;
       } catch (e: any) {
         if (!cancelled) {
           const isPermission = e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError';
@@ -103,6 +113,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
     return () => {
       cancelled = true;
       if (focusInterval) clearInterval(focusInterval);
+      try { controlsRef.current?.stop(); } catch {}
+      controlsRef.current = null;
       try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -130,6 +142,8 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   }, []);
 
   const handleClose = () => {
+    try { controlsRef.current?.stop(); } catch {}
+    controlsRef.current = null;
     try { BrowserMultiFormatReader.releaseAllStreams(); } catch {}
     streamRef.current?.getTracks().forEach(t => t.stop());
     onClose();
