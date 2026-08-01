@@ -20,6 +20,8 @@ interface SaleItem {
   price: number;
   list_price: number;
   discount_pct: number;
+  discount_amount: number;
+  discount_mode: 'pct' | 'amount';
   stock_qty: number;
 }
 
@@ -255,6 +257,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         price: product.price,
         list_price: product.price,
         discount_pct: 0,
+        discount_amount: 0,
+        discount_mode: 'pct',
         stock_qty: stockQty,
       }];
     });
@@ -289,16 +293,34 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       const discountPct = item.list_price > 0
         ? Math.round(((item.list_price - value) / item.list_price) * 1000) / 10
         : 0;
-      return { ...item, price: value, discount_pct: Math.max(0, discountPct) };
+      const discountAmount = item.list_price - value;
+      return { ...item, price: value, discount_pct: Math.max(0, discountPct), discount_amount: Math.max(0, discountAmount) };
     }));
   };
 
-  const updateItemDiscount = (idx: number, pct: number) => {
+  const updateItemDiscountPct = (idx: number, pct: number) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
       const newPrice = Math.round(item.list_price * (1 - pct / 100));
-      return { ...item, discount_pct: pct, price: Math.max(0, newPrice) };
+      const amount = Math.max(0, item.list_price - newPrice);
+      return { ...item, discount_mode: 'pct', discount_pct: pct, discount_amount: amount, price: Math.max(0, newPrice) };
     }));
+  };
+
+  const updateItemDiscountAmount = (idx: number, amount: number) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const clampedAmount = Math.min(amount, item.list_price);
+      const newPrice = item.list_price - clampedAmount;
+      const pct = item.list_price > 0 ? Math.round((clampedAmount / item.list_price) * 1000) / 10 : 0;
+      return { ...item, discount_mode: 'amount', discount_amount: clampedAmount, discount_pct: pct, price: newPrice };
+    }));
+  };
+
+  const setItemDiscountMode = (idx: number, mode: 'pct' | 'amount') => {
+    const productId = items[idx]?.product_id;
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, discount_mode: mode } : item));
+    if (productId) setRawDiscount(prev => { const next = { ...prev }; delete next[productId]; return next; });
   };
 
   const removeItem = (idx: number) => {
@@ -780,30 +802,68 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <span className="text-xs text-gray-400 whitespace-nowrap">Скидка:</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={rawDiscount[item.product_id] ?? (item.discount_pct === 0 ? '' : String(item.discount_pct))}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          setRawDiscount(prev => ({ ...prev, [item.product_id]: raw }));
-                          setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
-                          const pct = parseFloat(raw);
-                          if (!isNaN(pct) && pct >= 0 && pct <= 100) updateItemDiscount(idx, pct);
-                        }}
-                        onFocus={e => {
-                          setRawDiscount(prev => ({ ...prev, [item.product_id]: item.discount_pct === 0 ? '' : String(item.discount_pct) }));
-                          const input = e.target;
-                          setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
-                        }}
-                        onBlur={() => {
-                          setRawDiscount(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
-                        }}
-                        placeholder="0"
-                        className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                      <span className="text-xs text-gray-400">%</span>
-                      {item.discount_pct > 0 && (
+                      <div className="flex border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => setItemDiscountMode(idx, 'pct')}
+                          className={`px-2 py-1.5 text-xs font-medium ${item.discount_mode === 'pct' ? 'bg-green-600 text-white' : 'bg-white text-gray-400'}`}
+                        >%</button>
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => setItemDiscountMode(idx, 'amount')}
+                          className={`px-2 py-1.5 text-xs font-medium border-l border-gray-200 ${item.discount_mode === 'amount' ? 'bg-green-600 text-white' : 'bg-white text-gray-400'}`}
+                        >₸</button>
+                      </div>
+                      {item.discount_mode === 'pct' ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawDiscount[item.product_id] ?? (item.discount_pct === 0 ? '' : String(item.discount_pct))}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            setRawDiscount(prev => ({ ...prev, [item.product_id]: raw }));
+                            setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                            const pct = parseFloat(raw);
+                            if (!isNaN(pct) && pct >= 0 && pct <= 100) updateItemDiscountPct(idx, pct);
+                          }}
+                          onFocus={e => {
+                            setRawDiscount(prev => ({ ...prev, [item.product_id]: item.discount_pct === 0 ? '' : String(item.discount_pct) }));
+                            const input = e.target;
+                            setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                          }}
+                          onBlur={() => {
+                            setRawDiscount(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                          }}
+                          placeholder="0"
+                          className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={rawDiscount[item.product_id] ?? (item.discount_amount === 0 ? '' : String(item.discount_amount))}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            setRawDiscount(prev => ({ ...prev, [item.product_id]: raw }));
+                            setRawPrice(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                            const amount = parseFloat(raw);
+                            if (!isNaN(amount) && amount >= 0 && amount <= item.list_price) updateItemDiscountAmount(idx, amount);
+                          }}
+                          onFocus={e => {
+                            setRawDiscount(prev => ({ ...prev, [item.product_id]: item.discount_amount === 0 ? '' : String(item.discount_amount) }));
+                            const input = e.target;
+                            setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                          }}
+                          onBlur={() => {
+                            setRawDiscount(prev => { const next = { ...prev }; delete next[item.product_id]; return next; });
+                          }}
+                          placeholder="0"
+                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      )}
+                      {item.price < item.list_price && (
                         <span className="text-xs text-gray-400 truncate">прайс ₸{item.list_price.toLocaleString()}</span>
                       )}
                     </div>
