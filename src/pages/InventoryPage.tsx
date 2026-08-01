@@ -37,7 +37,7 @@ import StockRequestModal from '../components/Inventory/StockRequestModal';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 
-type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels' | 'requests';
+type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels' | 'requests' | 'warehouse';
 
 interface InventoryPageProps {
   branchId: string;
@@ -116,6 +116,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     remaining_paid_at?: string | null;
   }>>({});
   const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [warehouseStock, setWarehouseStock] = useState<Product[]>([]);
+  const [warehouseStockSearch, setWarehouseStockSearch] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -468,6 +470,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     if (tab === 'requests') {
       loadStockRequests();
     }
+    if (tab === 'warehouse') {
+      getProducts().then(setWarehouseStock).catch(e => console.error('warehouse stock:', e));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -743,6 +748,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     { key: 'revisions', label: 'Ревизии' },
     ...(canSeeLabelsTab ? [{ key: 'labels' as Tab, label: 'Этикетки' }] : []),
     ...(canSeeRequestsTab ? [{ key: 'requests' as Tab, label: canManageRequests ? 'Заявки' : 'История заявок' }] : []),
+    ...(canSubmitRequest ? [{ key: 'warehouse' as Tab, label: 'Остатки склада' }] : []),
   ];
 
   // Загрузить заявки сразу при открытии страницы (не дожидаясь клика на вкладку) —
@@ -829,6 +835,18 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       p.sku?.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode?.includes(search))
   );
+
+  const getWarehouseQty = (p: Product) =>
+    (p.stock as any)?.find((s: any) => s.branch_id === WAREHOUSE_ID)?.quantity ?? 0;
+
+  const filteredWarehouseStock = warehouseStock
+    .filter(p => getWarehouseQty(p) > 0)
+    .filter(p => {
+      const q = warehouseStockSearch.trim().toLowerCase();
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q) || (p.barcode ?? '').includes(warehouseStockSearch.trim());
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
   if (loading) {
     return (
@@ -2869,6 +2887,39 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ОСТАТКИ СКЛАДА */}
+        {tab === 'warehouse' && (
+          <div className="space-y-3">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                value={warehouseStockSearch}
+                onChange={e => setWarehouseStockSearch(e.target.value)}
+                placeholder="Поиск по названию или штрихкоду..."
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {filteredWarehouseStock.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-sm">Ничего не найдено</div>
+            ) : (
+              <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                {filteredWarehouseStock.map(p => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400 font-mono">{p.barcode || '—'}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900 flex-shrink-0 tabular-nums">
+                      {getWarehouseQty(p)} {p.unit}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
