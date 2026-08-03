@@ -217,6 +217,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const totalNow = total + workshopAmountNow;
 
+  // Предоплата не может превышать стоимость услуги+запчастей — переклэмп при изменении цен
+  useEffect(() => {
+    const max = workshopServicePrice + workshopPartsPrice;
+    setWorkshopPrepayment(prev => Math.min(prev, max));
+  }, [workshopServicePrice, workshopPartsPrice]);
+
   useEffect(() => {
     if (paymentMethod === 'cash') {
       setChange(Math.max(0, parseFloat(paidCash || '0') - totalNow));
@@ -1169,7 +1175,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         onChange={e => {
                           const val = Number(e.target.value.replace(/[^0-9]/g, ''));
                           const max = workshopServicePrice + workshopPartsPrice;
-                          setWorkshopPrepayment(max > 0 ? Math.min(val, max) : val);
+                          setWorkshopPrepayment(Math.min(val, max));
                         }}
                         onFocus={(e) => {
                           const input = e.target;
@@ -1184,9 +1190,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         placeholder="0"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
-                      {(workshopServicePrice + workshopPartsPrice) > 0 && (
+                      {(workshopServicePrice + workshopPartsPrice) > 0 ? (
                         <p className="text-xs text-gray-400 mt-1">
                           Остаток: ₸{Math.max(0, workshopServicePrice + workshopPartsPrice - workshopPrepayment).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-orange-500 mt-1">
+                          Сначала укажите стоимость услуги и/или запчастей
                         </p>
                       )}
                     </div>
