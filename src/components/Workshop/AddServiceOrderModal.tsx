@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { createServiceOrder, createService } from '../../services/workshop';
-import { formatPhone } from '@/utils/formatters';
+import { formatPhone, clampPrepayment } from '@/utils/formatters';
 import type { Service } from '../../types';
 import { WORKSHOP_BRANCH_ID } from '../../constants';
 
@@ -37,6 +37,9 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   const [creatingService, setCreatingService] = useState(false);
 
   const total = (parseFloat(servicePrice) || 0) + (parseFloat(partsPrice) || 0);
+  const prepaymentNum = parseFloat(prepayment) || 0;
+  const prepaymentExceedsTotal = paymentType === 'prepaid' &&
+    (prepaymentNum > total || (total <= 0 && prepaymentNum > 0));
 
   // Синхронизируем prepayment с типом оплаты
   useEffect(() => {
@@ -113,9 +116,15 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   async function handleSubmit() {
     const finalServiceName = serviceName.trim();
     if (!clientName.trim() || !finalServiceName) return;
+    if (prepaymentExceedsTotal) {
+      alert('Предоплата не может превышать стоимость услуги и запчастей');
+      return;
+    }
     setLoading(true);
     try {
-      const prepaymentVal = parseFloat(prepayment) || 0;
+      const prepaymentVal = paymentType === 'prepaid'
+        ? clampPrepayment(parseFloat(prepayment) || 0, total)
+        : parseFloat(prepayment) || 0;
       await createServiceOrder({
         branch_id: WORKSHOP_BRANCH_ID,
         created_branch_id: branchId,
@@ -142,8 +151,8 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
   }
 
   const selectedService = localServices.find(s => s.id === serviceId);
-  const canSubmit = !loading && clientName.trim().length > 0 && (serviceName.trim().length > 0 || serviceId.length > 0);
-  const remaining = Math.max(0, total - (parseFloat(prepayment) || 0));
+  const canSubmit = !loading && clientName.trim().length > 0 && (serviceName.trim().length > 0 || serviceId.length > 0) && !prepaymentExceedsTotal;
+  const remaining = Math.max(0, total - prepaymentNum);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" data-modal="true">
@@ -346,11 +355,22 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
               <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
               <input
                 type="number"
+                min="0"
                 value={prepayment}
                 onChange={e => setPrepayment(e.target.value)}
+                onBlur={() => {
+                  if (total <= 0) return;
+                  const clamped = clampPrepayment(parseFloat(prepayment) || 0, total);
+                  setPrepayment(clamped === 0 ? '' : String(clamped));
+                }}
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
+              {prepaymentExceedsTotal && (
+                <p className="text-xs text-red-500 mt-1">
+                  Предоплата не может превышать стоимость услуги и запчастей
+                </p>
+              )}
             </div>
           )}
 

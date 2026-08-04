@@ -5,7 +5,7 @@ import { isCashSessionOpenToday } from '../../services/cashSessions';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
-import { formatPhone } from '@/utils/formatters';
+import { formatPhone, clampPrepayment } from '@/utils/formatters';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
@@ -217,11 +217,18 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const totalNow = total + workshopAmountNow;
 
-  // Предоплата не может превышать стоимость услуги+запчастей — переклэмп при изменении цен
-  useEffect(() => {
-    const max = workshopServicePrice + workshopPartsPrice;
-    setWorkshopPrepayment(prev => Math.min(prev, max));
-  }, [workshopServicePrice, workshopPartsPrice]);
+  // Предоплата не может превышать стоимость услуги+запчастей.
+  // Клемп применяется на blur/submit (см. поле ниже), а не реактивно на каждое
+  // изменение цены — иначе перепечатка стоимости услуги после ввода предоплаты
+  // необратимо занижает уже введённую предоплату.
+  const workshopTotal = workshopServicePrice + workshopPartsPrice;
+  const prepaymentExceedsTotal = addWorkshop && workshopPaymentType === 'prepaid' &&
+    (workshopPrepayment > workshopTotal || (workshopTotal <= 0 && workshopPrepayment > 0));
+
+  // Та же логика для предоплаты предзаказа
+  const preorderPrepaymentNum = parseFloat(prepaymentAmount || '0') || 0;
+  const preorderPrepaymentExceedsTotal = preorderPaymentType === 'prepaid' &&
+    (preorderPrepaymentNum > total || (total <= 0 && preorderPrepaymentNum > 0));
 
   useEffect(() => {
     if (paymentMethod === 'cash') {
@@ -353,6 +360,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         isSubmittingRef.current = false;
         return;
       }
+      if (preorderPrepaymentExceedsTotal) {
+        alert('Предоплата не может превышать стоимость товаров');
+        isSubmittingRef.current = false;
+        return;
+      }
       setLoading(true);
       try {
         const orderClientName = selectedClient?.name ?? newClientName ?? undefined;
@@ -364,7 +376,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           client_name: orderClientName,
           client_phone: orderClientPhone,
           payment_type: preorderPaymentType,
-          prepayment_amount: preorderPaymentType === 'prepaid' ? parseFloat(prepaymentAmount || '0') : 0,
+          prepayment_amount: preorderPaymentType === 'prepaid' ? clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total) : 0,
           prepayment_method: preorderPaymentType === 'prepaid' ? prepaymentMethod : null,
           total_amount: total,
           expected_date: expectedDate || null,
@@ -410,6 +422,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     }
 
     if (items.length === 0 && !addWorkshop) { isSubmittingRef.current = false; return; }
+
+    if (prepaymentExceedsTotal) {
+      alert('Предоплата не может превышать стоимость услуги и запчастей');
+      isSubmittingRef.current = false;
+      return;
+    }
 
     const sessionOpen = await isCashSessionOpenToday(branchId);
     if (!sessionOpen) {
@@ -501,7 +519,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         const wsPrepayment = workshopPaymentType === 'full'
           ? wsTotal
           : workshopPaymentType === 'prepaid'
-            ? workshopPrepayment
+            ? clampPrepayment(workshopPrepayment, wsTotal)
             : 0;
         await createServiceOrder({
           branch_id: WORKSHOP_BRANCH_ID,
@@ -1174,12 +1192,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         value={workshopPrepayment === 0 ? '' : String(workshopPrepayment)}
                         onChange={e => {
                           const val = Number(e.target.value.replace(/[^0-9]/g, ''));
-                          const max = workshopServicePrice + workshopPartsPrice;
-                          setWorkshopPrepayment(Math.min(val, max));
+                          setWorkshopPrepayment(val);
                         }}
                         onFocus={(e) => {
                           const input = e.target;
                           setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                        }}
+                        onBlur={() => {
+                          // Если стоимость ещё не введена — не стираем набранную предоплату,
+                          // клемпить нечем; блокировка submit и красная подсказка достаточны.
+                          if (workshopTotal <= 0) return;
+                          setWorkshopPrepayment(prev => clampPrepayment(prev, workshopTotal));
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
@@ -1190,9 +1213,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         placeholder="0"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
-                      {(workshopServicePrice + workshopPartsPrice) > 0 ? (
+                      {prepaymentExceedsTotal ? (
+                        <p className="text-xs text-red-500 mt-1">
+                          Предоплата не может превышать стоимость услуги и запчастей
+                        </p>
+                      ) : workshopTotal > 0 ? (
                         <p className="text-xs text-gray-400 mt-1">
-                          Остаток: ₸{Math.max(0, workshopServicePrice + workshopPartsPrice - workshopPrepayment).toLocaleString()}
+                          Остаток: ₸{(workshopTotal - workshopPrepayment).toLocaleString()}
                         </p>
                       ) : (
                         <p className="text-xs text-orange-500 mt-1">
@@ -1385,9 +1412,19 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                         inputMode="numeric"
                         value={prepaymentAmount}
                         onChange={e => setPrepaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                        onBlur={() => {
+                          if (total <= 0) return;
+                          const clamped = clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total);
+                          setPrepaymentAmount(clamped === 0 ? '' : String(clamped));
+                        }}
                         placeholder="0"
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                       />
+                      {preorderPrepaymentExceedsTotal && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Предоплата не может превышать стоимость товаров
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Способ</label>
@@ -1446,7 +1483,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0)}
+              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0) || (mode === 'sale' && prepaymentExceedsTotal) || (mode === 'preorder' && preorderPrepaymentExceedsTotal)}
               className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
               style={{ background: mode === 'preorder' ? '#f59e0b' : '#16a34a' }}
             >

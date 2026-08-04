@@ -3,6 +3,13 @@ export function formatMoney(value: number): string {
   return value.toLocaleString('ru-KZ') + ' ₸';
 }
 
+// Ограничивает предоплату диапазоном [0, total]. Используется на blur/submit,
+// а не на каждый onChange — иначе перепечатка стоимости услуги после ввода
+// предоплаты необратимо занижает уже введённую сумму.
+export function clampPrepayment(value: number, total: number): number {
+  return Math.max(0, Math.min(value, total));
+}
+
 // Форматирует номер в вид: +7 777 222 33 44
 export function formatPhone(value: string): string {
   // Оставляем только цифры
