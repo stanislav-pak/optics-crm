@@ -2,6 +2,7 @@
 import { signIn } from '../../services/auth';
 import { SignupForm } from './SignupForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { PasswordInput } from './PasswordInput';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -57,7 +58,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </div>
           <div>
             <label className="block text-xs text-[#8696a0] mb-1.5">Пароль</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-[#2a3942] text-[#d1d7db] placeholder-[#8696a0] rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 transition-all" />
+            <PasswordInput value={password} onChange={setPassword} placeholder="••••••••" />
           </div>
           <button onClick={handleSubmit} disabled={loading || !email || !password} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2.5 text-sm transition-colors mt-2">
             {loading ? 'Входим...' : 'Войти'}
