@@ -553,6 +553,39 @@ export async function createSale(
   return newSale as Sale;
 }
 
+// Погашение долга по продаже (частичная оплата товара при продаже без
+// мастерской). debt_amount и paid_cash/paid_kaspi НЕ трогаем — исторические
+// суммы на момент продажи остаются как есть, погашение фиксируется только
+// debt_paid_at/debt_payment_method (тот же паттерн, что original_prepayment +
+// remaining_paid_at/remaining_payment_method у service_orders). Если бы
+// погашение ещё и прибавляло debt_amount к paid_cash/paid_kaspi, кассовый
+// отчёт задвоил бы сумму при погашении в тот же день, что и сама продажа —
+// он и так суммирует paid_cash по дате продажи, и debt_amount отдельно по
+// debt_paid_at.
+export async function settleSaleDebt(saleId: string, method: 'cash' | 'kaspi'): Promise<void> {
+  const { data: sale, error } = await supabase
+    .from('sales')
+    .select('debt_amount, debt_paid_at')
+    .eq('id', saleId)
+    .single();
+  if (error || !sale) throw new Error('Продажа не найдена');
+  if (!sale.debt_amount || sale.debt_amount <= 0) throw new Error('По этой продаже нет долга');
+  if (sale.debt_paid_at) throw new Error('Долг уже погашен');
+
+  // .is('debt_paid_at', null) в UPDATE — атомарная защита от гонки при
+  // двойном клике/двух вкладках: если долг успели погасить между SELECT и
+  // UPDATE, апдейт затронет 0 строк и .single() превратит это в ошибку
+  // вместо повторного (второго) погашения.
+  const { error: updErr } = await supabase
+    .from('sales')
+    .update({ debt_paid_at: new Date().toISOString(), debt_payment_method: method })
+    .eq('id', saleId)
+    .is('debt_paid_at', null)
+    .select('id')
+    .single();
+  if (updErr) throw new Error('Не удалось погасить долг — возможно, уже погашен, либо нет прав на изменение.');
+}
+
 export async function createReturn(
   saleId: string,
   returnItems: { product_id: string; quantity: number }[],

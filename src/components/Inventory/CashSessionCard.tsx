@@ -137,6 +137,23 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .filter(o => o.remaining_payment_method === 'kaspi')
       .reduce((sum, o) => sum + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
+    // Погашения долга по товару за сегодня (частичная оплата, без мастерской)
+    const { data: saleDebtSettlements } = await supabase
+      .from('sales')
+      .select('debt_amount, debt_payment_method')
+      .eq('branch_id', branchId)
+      .gte('debt_paid_at', todayStr + 'T00:00:00')
+      .lte('debt_paid_at', todayStr + 'T23:59:59')
+      .not('debt_paid_at', 'is', null);
+
+    const saleDebtSettledCash = (saleDebtSettlements ?? [])
+      .filter(s => s.debt_payment_method === 'cash')
+      .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+
+    const saleDebtSettledKaspi = (saleDebtSettlements ?? [])
+      .filter(s => s.debt_payment_method === 'kaspi')
+      .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+
     // Возвраты предоплат мастерской сегодня
     const { data: refunds } = await supabase
       .from('service_orders')
@@ -202,8 +219,8 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       }, 0);
     }
 
-    const systemCash = salesCash + prepaidCash + cashWorkshop - refundCash - saleReturnsCash - remainingRefundCash;
-    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop - refundKaspi - remainingRefundKaspi;
+    const systemCash = salesCash + prepaidCash + cashWorkshop + saleDebtSettledCash - refundCash - saleReturnsCash - remainingRefundCash;
+    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop + saleDebtSettledKaspi - refundKaspi - remainingRefundKaspi;
     // Halyk/Kaspi-перевод не хранятся отдельными колонками в cash_sessions — пересчитываются
     // каждый раз наравне с остальным, но не входят в system_cash (не требуют физической сдачи)
     setSystemHalyk(salesHalyk);

@@ -29,6 +29,7 @@ vi.mock('@/services/orders', () => ({
 
 import { createSale, getProductsFromStock } from '@/services/inventory'
 import { createServiceOrder } from '@/services/workshop'
+import { supabase } from '@/services/supabase'
 
 const mockProduct: Product = {
   id: 'p1',
@@ -224,5 +225,109 @@ describe('AddSaleModal — клемп предоплаты предзаказа 
 
     expect(prepaymentInput.value).toBe('1000')
     expect(screen.getByText(/Создать предзаказ/)).not.toBeDisabled()
+  })
+})
+
+describe('AddSaleModal — предоплата на обычный товар без мастерской (долг)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  // Продажа с товарами проходит через проверку остатков (supabase.from('stock')...)
+  // перед createSale — переопределяем только эту таблицу, остальное как в setup.ts
+  function mockStockAvailable() {
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const chain: any = {
+        select: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        delete: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        then: (resolve: any) =>
+          resolve(
+            table === 'stock'
+              ? { data: [{ product_id: 'p1', quantity: 5 }], error: null }
+              : { data: [], error: null }
+          ),
+      }
+      return chain
+    })
+  }
+
+  async function openSaleWithItem() {
+    mockStockAvailable()
+    vi.mocked(getProductsFromStock).mockResolvedValueOnce([mockProduct])
+    render(
+      <AddSaleModal
+        branchId="branch-1"
+        employeeId="emp-1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />
+    )
+    await waitFor(() => expect(screen.getByText('Новая продажа')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByPlaceholderText('Поиск по названию или штрихкоду...'), { target: { value: 'Ray-Ban' } })
+    await waitFor(() => expect(screen.getByText('Оправа Ray-Ban')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Оправа Ray-Ban'))
+
+    await waitFor(() => expect(screen.getByText('Оплата товаров')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Предоплата'))
+  }
+
+  it('onChange без клемпа, onBlur клемпит до суммы товаров, красная подсказка блокирует submit', async () => {
+    await openSaleWithItem()
+
+    const prepaymentInput = inputNearLabel('Сумма предоплаты ₸')
+    fireEvent.change(prepaymentInput, { target: { value: '5000' } })
+    // без blur — клемп ещё не применился, но кнопка уже заблокирована
+    expect(screen.getByText('Предоплата не может превышать сумму товаров')).toBeInTheDocument()
+    expect(screen.getByText(/Оформить продажу/)).toBeDisabled()
+
+    fireEvent.click(screen.getByText(/Оформить продажу/))
+    expect(createSale).not.toHaveBeenCalled()
+
+    // Клемп применяется на blur самого поля предоплаты (mockProduct.price = 1000)
+    fireEvent.blur(prepaymentInput)
+    expect(prepaymentInput.value).toBe('1000')
+    expect(screen.getByText(/Оформить продажу/)).not.toBeDisabled()
+  })
+
+  it('реальный submit: paid_cash = сумме предоплаты (не итогу), остаток уходит в debt_amount', async () => {
+    await openSaleWithItem()
+
+    const prepaymentInput = inputNearLabel('Сумма предоплаты ₸')
+    fireEvent.change(prepaymentInput, { target: { value: '400' } })
+    fireEvent.blur(prepaymentInput)
+    expect(prepaymentInput.value).toBe('400')
+    expect(screen.getByText('Долг клиента: ₸600')).toBeInTheDocument()
+
+    const submitBtn = screen.getByText(/Оформить продажу/)
+    expect(submitBtn).not.toBeDisabled()
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => expect(createSale).toHaveBeenCalledTimes(1))
+    const [salePayload] = vi.mocked(createSale).mock.calls[0]
+    expect(salePayload.total).toBe(1000)
+    expect(salePayload.paid_cash).toBe(400)
+    expect(salePayload.debt_amount).toBe(600)
+  })
+
+  it('без предоплаты (оплата полностью) долг не создаётся', async () => {
+    await openSaleWithItem()
+    // Переключаемся обратно на "Полностью"
+    fireEvent.click(screen.getByText('Полностью'))
+
+    const submitBtn = screen.getByText(/Оформить продажу/)
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => expect(createSale).toHaveBeenCalledTimes(1))
+    const [salePayload] = vi.mocked(createSale).mock.calls[0]
+    expect(salePayload.paid_cash).toBe(1000)
+    expect(salePayload.debt_amount).toBe(0)
   })
 })

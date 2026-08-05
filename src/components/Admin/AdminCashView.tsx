@@ -307,6 +307,7 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
       data.workshopRemainingCash + data.workshopRemainingKaspi +
       data.refundCash + data.refundKaspi) > 0;
 
+  const hasSaleDebtSettled = data && (data.saleDebtSettledCash + data.saleDebtSettledKaspi) > 0;
   const hasReturns = data && data.returnsCash > 0;
   const hasExpenses = data && (data.expensesCash + data.expensesKaspi) > 0;
 
@@ -379,6 +380,18 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
                 </>
               )}
             </Section>
+
+            {/* Долги по товару (частичная оплата, без мастерской) */}
+            {hasSaleDebtSettled && (
+              <Section title="Погашение долгов по товару">
+                {data.saleDebtSettledCash > 0 && (
+                  <Row label="Наличные" value={data.saleDebtSettledCash} />
+                )}
+                {data.saleDebtSettledKaspi > 0 && (
+                  <Row label="Kaspi" value={data.saleDebtSettledKaspi} />
+                )}
+              </Section>
+            )}
 
             {/* Склад филиала */}
             {stockValue !== null && (

@@ -12,6 +12,8 @@ export interface AdminCashData {
   workshopPrepaidKaspi: number;
   workshopRemainingCash: number;
   workshopRemainingKaspi: number;
+  saleDebtSettledCash: number;
+  saleDebtSettledKaspi: number;
   refundCash: number;
   refundKaspi: number;
   returnsCash: number;
@@ -28,7 +30,7 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
   const dateFrom = dateStart.split('T')[0];
   const dateTo = dateEnd.split('T')[0];
 
-  const [salesRes, prepaidRes, remainingRes, refundsRes, returnMovementsRes, expensesRes, sessionRes] =
+  const [salesRes, prepaidRes, remainingRes, debtSettledRes, refundsRes, returnMovementsRes, expensesRes, sessionRes] =
     await Promise.all([
       // 1. Sales
       supabase
@@ -57,6 +59,15 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
         .gte('remaining_paid_at', dateStart)
         .lte('remaining_paid_at', dateEnd)
         .not('remaining_paid_at', 'is', null),
+
+      // 3.5. Sale debt settlements (частичная оплата товара, без мастерской)
+      supabase
+        .from('sales')
+        .select('debt_amount, debt_payment_method')
+        .eq('branch_id', branchId)
+        .gte('debt_paid_at', dateStart)
+        .lte('debt_paid_at', dateEnd)
+        .not('debt_paid_at', 'is', null),
 
       // 4. Workshop prepayment refunds
       supabase
@@ -123,6 +134,14 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     .filter(o => o.remaining_payment_method === 'kaspi')
     .reduce((s, o) => s + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
 
+  // 3.5. Sale debt settlements
+  const saleDebtSettledCash = (debtSettledRes.data ?? [])
+    .filter(s => s.debt_payment_method === 'cash')
+    .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+  const saleDebtSettledKaspi = (debtSettledRes.data ?? [])
+    .filter(s => s.debt_payment_method === 'kaspi')
+    .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+
   // 4. Prepayment refunds
   const refundCash = (refundsRes.data ?? [])
     .filter(o => o.prepayment_refund_method === 'cash')
@@ -174,9 +193,9 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
 
   // Formulas
   const systemCash =
-    salesCash + workshopPrepaidCash + workshopRemainingCash - refundCash - returnsCash;
+    salesCash + workshopPrepaidCash + workshopRemainingCash + saleDebtSettledCash - refundCash - returnsCash;
   const systemKaspi =
-    salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi - refundKaspi;
+    salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi + saleDebtSettledKaspi - refundKaspi;
   const systemTotal = systemCash + systemKaspi + salesHalyk + salesKaspiTransfer;
 
   return {
@@ -190,6 +209,8 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     workshopPrepaidKaspi,
     workshopRemainingCash,
     workshopRemainingKaspi,
+    saleDebtSettledCash,
+    saleDebtSettledKaspi,
     refundCash,
     refundKaspi,
     returnsCash,

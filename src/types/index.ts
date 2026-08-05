@@ -383,6 +383,12 @@ export interface Sale {
   kaspi_payment_id?: string;
   notes?: string;
   created_at: string;
+  // Долг по частичной оплате товара (без мастерской) — см. миграцию
+  // 20260805_sales_debt_amount.sql. debt_amount не меняется после создания,
+  // погашение фиксируется через debt_paid_at/debt_payment_method.
+  debt_amount: number;
+  debt_paid_at?: string | null;
+  debt_payment_method?: 'cash' | 'kaspi' | null;
   // Relations
   branch?: Branch;
   client?: Client;

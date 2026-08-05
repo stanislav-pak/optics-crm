@@ -72,6 +72,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
   const [workshopPrepayment, setWorkshopPrepayment] = useState(0);
 
+  // Предоплата за товар (обычная продажа, без мастерской) — клиент забирает
+  // товар сейчас, остаток становится долгом (sales.debt_amount)
+  const [salePaymentType, setSalePaymentType] = useState<'full' | 'prepaid'>('full');
+  const [salePrepayment, setSalePrepayment] = useState(0);
+
   const [newWsServiceName, setNewWsServiceName] = useState('');
   const [newWsServicePrice, setNewWsServicePrice] = useState(0);
   const [creatingWsService, setCreatingWsService] = useState(false);
@@ -215,7 +220,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         : 0
     : 0;
 
-  const totalNow = total + workshopAmountNow;
+  // Сумма товаров, которую клиент платит прямо сейчас (обычная продажа без
+  // мастерской, режим «предоплата») — остаток уходит в долг (saleDebtAmount)
+  const saleAmountNow = !addWorkshop && salePaymentType === 'prepaid' ? salePrepayment : total;
+
+  const totalNow = saleAmountNow + workshopAmountNow;
 
   // Предоплата не может превышать стоимость услуги+запчастей.
   // Клемп применяется на blur/submit (см. поле ниже), а не реактивно на каждое
@@ -229,6 +238,15 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const preorderPrepaymentNum = parseFloat(prepaymentAmount || '0') || 0;
   const preorderPrepaymentExceedsTotal = preorderPaymentType === 'prepaid' &&
     (preorderPrepaymentNum > total || (total <= 0 && preorderPrepaymentNum > 0));
+
+  // Та же логика для предоплаты обычного товара (без мастерской)
+  const saleDebtExceedsTotal = !addWorkshop && salePaymentType === 'prepaid' &&
+    (salePrepayment > total || (total <= 0 && salePrepayment > 0));
+
+  // Остаток, который уходит в долг клиента (sales.debt_amount)
+  const saleDebtAmount = !addWorkshop && salePaymentType === 'prepaid'
+    ? Math.max(0, total - Math.min(salePrepayment, total))
+    : 0;
 
   useEffect(() => {
     if (paymentMethod === 'cash') {
@@ -429,6 +447,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       return;
     }
 
+    if (saleDebtExceedsTotal) {
+      alert('Предоплата не может превышать сумму товаров');
+      isSubmittingRef.current = false;
+      return;
+    }
+
     const sessionOpen = await isCashSessionOpenToday(branchId);
     if (!sessionOpen) {
       alert('Касса закрыта. Откройте кассу в разделе «Магазин» перед оформлением продажи.');
@@ -502,6 +526,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           paid_halyk: halykAmount,
           paid_kaspi_transfer: kaspiTransferAmount,
           notes: notes || undefined,
+          debt_amount: saleDebtAmount,
         },
         items.map(i => ({
           product_id: i.product_id,
@@ -1276,6 +1301,13 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                     <span>₸{totalNow.toLocaleString()}</span>
                   </div>
 
+                  {!addWorkshop && salePaymentType === 'prepaid' && saleDebtAmount > 0 && (
+                    <div className="flex justify-between text-sm text-orange-500">
+                      <span>Долг клиента (после продажи):</span>
+                      <span>₸{saleDebtAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+
                   {addWorkshop && workshopPaymentType === 'prepaid' &&
                    (workshopServicePrice + workshopPartsPrice - workshopPrepayment) > 0 && (
                     <div className="flex justify-between text-sm text-orange-500">
@@ -1291,6 +1323,78 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                     </div>
                   )}
                 </div>
+
+                {/* Оплата товаров: полностью / предоплата (только для обычной продажи, без мастерской) */}
+                {!addWorkshop && items.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-2">Оплата товаров</label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { value: 'full', label: 'Полностью' },
+                        { value: 'prepaid', label: 'Предоплата' },
+                      ] as { value: 'full' | 'prepaid'; label: string }[]).map(opt => (
+                        <label key={opt.value}
+                          className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-[11px] font-medium border cursor-pointer transition-colors ${
+                            salePaymentType === opt.value
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}>
+                          <input type="radio" name="salePaymentType" value={opt.value}
+                            checked={salePaymentType === opt.value}
+                            onChange={() => setSalePaymentType(opt.value)}
+                            className="sr-only" />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    {salePaymentType === 'prepaid' && (
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={salePrepayment === 0 ? '' : String(salePrepayment)}
+                          onChange={e => {
+                            const val = Number(e.target.value.replace(/[^0-9]/g, ''));
+                            setSalePrepayment(val);
+                          }}
+                          onFocus={(e) => {
+                            const input = e.target;
+                            setTimeout(() => input.setSelectionRange(0, input.value.length), 0);
+                          }}
+                          onBlur={() => {
+                            // Клемпить нечем, если товары ещё не добавлены — блокировка
+                            // submit и красная подсказка достаточны (см. поле мастерской выше).
+                            if (total <= 0) return;
+                            setSalePrepayment(prev => clampPrepayment(prev, total));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && e.currentTarget.value.length === 1) {
+                              e.preventDefault();
+                              setSalePrepayment(0);
+                            }
+                          }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        {saleDebtExceedsTotal ? (
+                          <p className="text-xs text-red-500 mt-1">
+                            Предоплата не может превышать сумму товаров
+                          </p>
+                        ) : total > 0 ? (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Долг клиента: ₸{saleDebtAmount.toLocaleString()}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-orange-500 mt-1">
+                            Сначала добавьте товары
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Способ оплаты */}
                 <div>
@@ -1483,7 +1587,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0) || (mode === 'sale' && prepaymentExceedsTotal) || (mode === 'preorder' && preorderPrepaymentExceedsTotal)}
+              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0) || (mode === 'sale' && prepaymentExceedsTotal) || (mode === 'sale' && saleDebtExceedsTotal) || (mode === 'preorder' && preorderPrepaymentExceedsTotal)}
               className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
               style={{ background: mode === 'preorder' ? '#f59e0b' : '#16a34a' }}
             >

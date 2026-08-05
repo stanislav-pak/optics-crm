@@ -7,7 +7,7 @@ import {
   deleteRevision, getIncomingTransfers, updateProduct,
   logLabelPrint, getLabelPrintHistory, getProductById,
   getStockRequests, approveStockRequest, shipStockRequest, rejectStockRequest,
-  updateStockRequestItemQuantities,
+  updateStockRequestItemQuantities, settleSaleDebt,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
 import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from '../constants';
@@ -142,6 +142,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [saleFilterDateFrom, setSaleFilterDateFrom] = useState('');
   const [saleFilterDateTo, setSaleFilterDateTo] = useState('');
   const [saleProductSearch, setSaleProductSearch] = useState('');
+  const [saleFilterDebtOnly, setSaleFilterDebtOnly] = useState(false);
   const [saleEmployees, setSaleEmployees] = useState<{ id: string; name: string; branch_id: string }[]>([]);
   // Фильтры списаний
   const [woDateFilter, setWoDateFilter] = useState<string>('all');
@@ -189,6 +190,10 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
   const [payMethod, setPayMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [showDebtPayDialog, setShowDebtPayDialog] = useState(false);
+  const [debtPayMethod, setDebtPayMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [settlingDebt, setSettlingDebt] = useState(false);
+  const settlingDebtRef = useRef(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showSaleReturn, setShowSaleReturn] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([]);
@@ -325,6 +330,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Загружаем связанный заказ мастерской при открытии детали продажи
   useEffect(() => {
+    setShowDebtPayDialog(false);
+    setSettlingDebt(false);
+    settlingDebtRef.current = false;
     if (!selectedSale) { setSaleWorkshopOrder(null); return; }
     fetchServiceOrderBySaleId(selectedSale.id)
       .then(setSaleWorkshopOrder)
@@ -714,6 +722,31 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
     setShowPayDialog(false);
     window.dispatchEvent(new CustomEvent('workshop-payment-accepted'));
     await loadSales();
+  }
+
+  async function handleSettleDebt() {
+    if (!selectedSale || (selectedSale.debt_amount ?? 0) <= 0 || selectedSale.debt_paid_at) return;
+    if (settlingDebtRef.current) return;
+    settlingDebtRef.current = true;
+    setSettlingDebt(true);
+    try {
+      await settleSaleDebt(selectedSale.id, debtPayMethod);
+      // paid_cash/paid_kaspi намеренно не трогаем — касса считает погашение
+      // отдельно по debt_amount+debt_paid_at (см. settleSaleDebt).
+      setSelectedSale(prev => prev ? {
+        ...prev,
+        debt_paid_at: new Date().toISOString(),
+        debt_payment_method: debtPayMethod,
+      } : prev);
+      setShowDebtPayDialog(false);
+      setSalesRefreshKey(k => k + 1);
+      await loadSales();
+    } catch (e: any) {
+      alert('Ошибка: ' + e.message);
+    } finally {
+      settlingDebtRef.current = false;
+      setSettlingDebt(false);
+    }
   }
 
   const isWarehouseBranch = branchId === WAREHOUSE_ID;
@@ -1805,10 +1838,11 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
               );
               if (!found) return false;
             }
+            if (saleFilterDebtOnly && !((s.debt_amount ?? 0) > 0 && !s.debt_paid_at)) return false;
             return true;
           });
 
-          const hasFilters = !!(saleFilterBranch || saleFilterEmployee || saleFilterDate !== 'all' || saleProductSearch);
+          const hasFilters = !!(saleFilterBranch || saleFilterEmployee || saleFilterDate !== 'all' || saleProductSearch || saleFilterDebtOnly);
           const resetFilters = () => {
             setSaleFilterBranch('');
             setSaleFilterEmployee('');
@@ -1816,6 +1850,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             setSaleFilterDateFrom('');
             setSaleFilterDateTo('');
             setSaleProductSearch('');
+            setSaleFilterDebtOnly(false);
           };
 
           const dateOptions = [
@@ -1915,6 +1950,19 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                       {o.label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setSaleFilterDebtOnly(v => !v)}
+                    style={{
+                      flexShrink: 0, whiteSpace: 'nowrap',
+                      padding: '3px 8px', borderRadius: '999px',
+                      fontSize: '11px', fontWeight: 500, cursor: 'pointer',
+                      border: saleFilterDebtOnly ? 'none' : '1px solid #e5e7eb',
+                      backgroundColor: saleFilterDebtOnly ? '#ef4444' : '#fff',
+                      color: saleFilterDebtOnly ? '#fff' : '#4b5563',
+                    }}
+                  >
+                    📌 Только с долгом
+                  </button>
                 </div>
 
                 {/* Произвольный период */}
@@ -2050,6 +2098,23 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                            s.payment_method === 'kaspi_transfer' ? '💳 Kaspi перевод' : '🔀 Смешанная'}
                         </span>
                       </div>
+
+                      {/* Долг по товару (частичная оплата, без мастерской) */}
+                      {(s.debt_amount ?? 0) > 0 && (
+                        <div className="pt-2 border-t border-gray-50">
+                          {s.debt_paid_at ? (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-green-600">✓ Долг погашен</span>
+                              <span className="text-green-600">₸{s.debt_amount.toLocaleString()}</span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-red-500 font-medium">📌 Долг клиента</span>
+                              <span className="text-red-500 font-medium">₸{s.debt_amount.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Мастерская */}
                       {saleWorkshopOrders[s.id] && (() => {
@@ -3352,6 +3417,72 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                   </div>
                 )}
               </div>
+
+              {/* Долг по товару (частичная оплата, без мастерской) */}
+              {(selectedSale.debt_amount ?? 0) > 0 && (
+                <div className="border-t border-gray-100 pt-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500">Долг клиента:</p>
+                  {selectedSale.debt_paid_at ? (
+                    <div className="flex justify-between text-sm font-medium text-green-600">
+                      <span>
+                        ✓ Погашен{selectedSale.debt_payment_method ? ` (${selectedSale.debt_payment_method === 'cash' ? 'Наличные' : 'Kaspi'})` : ''}
+                      </span>
+                      <span>₸{selectedSale.debt_amount.toLocaleString()}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm font-medium text-red-500">
+                        <span>Не погашен:</span>
+                        <span>₸{selectedSale.debt_amount.toLocaleString()}</span>
+                      </div>
+                      {showDebtPayDialog ? (
+                        <div className="p-3 bg-gray-50 rounded-lg border">
+                          <p className="text-sm font-medium mb-2">
+                            Погасить долг ₸{selectedSale.debt_amount.toLocaleString()}?
+                          </p>
+                          <div className="flex gap-2 mb-2">
+                            <button
+                              onClick={() => setDebtPayMethod('cash')}
+                              className={`flex-1 py-1.5 rounded-lg text-sm border ${debtPayMethod === 'cash' ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
+                            >
+                              Наличные
+                            </button>
+                            <button
+                              onClick={() => setDebtPayMethod('kaspi')}
+                              className={`flex-1 py-1.5 rounded-lg text-sm border ${debtPayMethod === 'kaspi' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
+                            >
+                              Kaspi
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowDebtPayDialog(false)}
+                              disabled={settlingDebt}
+                              className="flex-1 py-1.5 rounded-lg text-sm border border-gray-300 disabled:opacity-50"
+                            >
+                              Отмена
+                            </button>
+                            <button
+                              onClick={handleSettleDebt}
+                              disabled={settlingDebt}
+                              className="flex-1 py-1.5 rounded-lg text-sm bg-green-600 text-white disabled:opacity-50"
+                            >
+                              {settlingDebt ? 'Погашаем...' : 'Подтвердить'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowDebtPayDialog(true)}
+                          className="w-full py-2 bg-orange-500 text-white rounded-lg text-sm font-medium"
+                        >
+                          Погасить долг ₸{selectedSale.debt_amount.toLocaleString()}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {selectedSale.notes && (
                 <p className="text-sm text-gray-500 italic border-t border-gray-100 pt-3">{selectedSale.notes}</p>
