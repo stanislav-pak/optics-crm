@@ -4,6 +4,7 @@ import { updateProduct, getCategories, getBrands } from '../../services/inventor
 import { supabase } from '../../services/supabase';
 import type { Product, ProductCategory, Brand } from '../../types';
 import InlineCreate from './InlineCreate';
+import SignedNumberField from './SignedNumberField';
 
 const str = (v: string | number | undefined) => v === undefined || v === null ? '' : String(v);
 
@@ -420,24 +421,18 @@ export default function EditProductModal({ product, role, onClose, onSave }: Pro
             <div className="border border-blue-100 bg-blue-50 rounded-xl p-4 space-y-3">
               <p className="text-xs font-semibold text-blue-700">Параметры линз</p>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Оптическая сила (D)</label>
-                  <input type="number" step="0.25"
-                    value={form.sphere}
-                    onChange={e => set('sphere', e.target.value)}
-                    placeholder="-3.00"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Цилиндр</label>
-                  <input type="number" step="0.25"
-                    value={form.cylinder}
-                    onChange={e => set('cylinder', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                <SignedNumberField
+                  label="Оптическая сила (D)"
+                  value={form.sphere}
+                  onChange={v => set('sphere', v)}
+                  placeholder="3.00"
+                />
+                <SignedNumberField
+                  label="Цилиндр"
+                  value={form.cylinder}
+                  onChange={v => set('cylinder', v)}
+                  placeholder="0.00"
+                />
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Градусы (AX)</label>
                   <input type="number" step="1" min="0" max="180"

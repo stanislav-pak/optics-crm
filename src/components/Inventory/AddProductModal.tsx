@@ -5,6 +5,7 @@ import { supabase } from '../../services/supabase';
 import type { ProductCategory, Brand, ProductAttributes, Product } from '../../types';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import InlineCreate from './InlineCreate';
+import SignedNumberField from './SignedNumberField';
 
 interface Props {
   branchId: string;
@@ -457,22 +458,18 @@ export default function AddProductModal({ branchId, employeeId, role, onClose, o
             <div className="border border-blue-100 bg-blue-50 rounded-xl p-4 space-y-3">
               <p className="text-xs font-semibold text-blue-700">Параметры линз</p>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Оптическая сила (D)</label>
-                  <input type="number" step="0.25"
-                    onChange={e => setAttr('sphere', e.target.value)}
-                    placeholder="-3.00"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Цилиндр</label>
-                  <input type="number" step="0.25"
-                    onChange={e => setAttr('cylinder', e.target.value)}
-                    placeholder="0.00"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                <SignedNumberField
+                  label="Оптическая сила (D)"
+                  value={String(attributes.sphere ?? '')}
+                  onChange={v => setAttr('sphere', v)}
+                  placeholder="3.00"
+                />
+                <SignedNumberField
+                  label="Цилиндр"
+                  value={String(attributes.cylinder ?? '')}
+                  onChange={v => setAttr('cylinder', v)}
+                  placeholder="0.00"
+                />
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Градусы (AX)</label>
                   <input type="number" step="1" min="0" max="180"
