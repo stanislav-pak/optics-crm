@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import type { Sale } from '../../types';
 import type { Order } from '../../services/orders';
@@ -7,6 +7,20 @@ import type { ServiceOrder } from '../../types';
 type Tab = 'sales' | 'orders' | 'workshop';
 
 interface Branch { id: string; name: string; }
+
+interface SalesCursor { createdAt: string; id: string; }
+
+interface SalesSummary {
+  count: number;
+  totalSum: number;   // Σ sales.total по не-возвратным
+  collected: number;  // Σ paid_* + Σ debt_amount уже погашенных долгов
+  debt: number;       // Σ debt_amount непогашенных долгов
+}
+
+const EMPTY_SUMMARY: SalesSummary = { count: 0, totalSum: 0, collected: 0, debt: 0 };
+
+export const ADMIN_SALES_PAGE_SIZE = 50;
+const PAGE_SIZE = ADMIN_SALES_PAGE_SIZE;
 
 const PAYMENT_LABEL: Record<string, string> = {
   cash: '💵 Нал', kaspi_qr: '📱 Kaspi QR', halyk: '🏦 POST',
@@ -33,75 +47,167 @@ function fmtDate(s?: string | null) {
   if (!s) return '—';
   return new Date(s).toLocaleDateString('ru-RU');
 }
+// Дата + точное время (чч:мм) — как в InventoryPage, только для продаж:
+// там, где важно "во сколько", не только "когда".
+function fmtDateTime(s?: string | null) {
+  if (!s) return '—';
+  return new Date(s).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+const SALES_LIST_SELECT = `*, branch:branches(name), client:clients(name, phone), employee:employees(name), items:sale_items(*, product:products(name))`;
+const SALES_SUMMARY_SELECT = `total, status, paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer, debt_amount, debt_paid_at`;
 
 export default function AdminSalesHistory() {
   const [tab, setTab] = useState<Tab>('sales');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState<string>('');
   const [sales, setSales] = useState<Sale[]>([]);
+  const [salesCursor, setSalesCursor] = useState<SalesCursor | null>(null);
+  const [salesLoadingMore, setSalesLoadingMore] = useState(false);
+  const [salesSummary, setSalesSummary] = useState<SalesSummary>(EMPTY_SUMMARY);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wsOrders, setWsOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Защита от гонки при быстрой смене фильтров — применяем только результат
+  // последнего запущенного запроса (тот же паттерн, что в ActivityAuditView).
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     supabase.from('branches').select('id, name').order('name')
       .then(({ data }) => setBranches(data ?? []));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Sales
-      {
-        let q = supabase
-          .from('sales')
-          .select(`*, branch:branches(name), client:clients(name, phone), employee:employees(name), items:sale_items(*, product:products(name))`)
-          .order('created_at', { ascending: false })
-          .limit(200);
-        if (branchId) q = q.eq('branch_id', branchId);
-        if (dateFrom) q = q.gte('created_at', dateFrom);
-        if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
-        const { data } = await q;
-        setSales((data ?? []) as Sale[]);
-      }
-      // Pre-orders
-      {
-        let q = supabase
-          .from('orders')
-          .select(`*, branch:branches!orders_branch_id_fkey(name), creator:employees!orders_created_by_fkey(name), items:order_items(*)`)
-          .order('created_at', { ascending: false })
-          .limit(200);
-        if (branchId) q = q.eq('branch_id', branchId);
-        if (dateFrom) q = q.gte('created_at', dateFrom);
-        if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
-        const { data } = await q;
-        setOrders((data ?? []).map((r: any) => ({ ...r, branch: r.branch, creator: r.creator, items: r.order_items ?? r.items })) as Order[]);
-      }
-      // Workshop orders
-      {
-        let q = supabase
-          .from('service_orders')
-          .select(`*, branch:branches!service_orders_created_branch_id_fkey(name), employee:employees(name)`)
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: false })
-          .limit(200);
-        if (branchId) q = q.eq('created_branch_id', branchId);
-        if (dateFrom) q = q.gte('created_at', dateFrom);
-        if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
-        const { data } = await q;
-        setWsOrders((data ?? []) as ServiceOrder[]);
-      }
-    } finally {
-      setLoading(false);
-    }
+  const loadSalesSummary = useCallback(async () => {
+    let q: any = supabase.from('sales').select(SALES_SUMMARY_SELECT);
+    if (branchId) q = q.eq('branch_id', branchId);
+    if (dateFrom) q = q.gte('created_at', dateFrom);
+    if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+    const { data } = await q;
+    const rows = (data ?? []).filter((r: any) => r.status !== 'refunded');
+
+    const totalSum = rows.reduce((s: number, r: any) => s + (r.total || 0), 0);
+    const collectedPaid = rows.reduce((s: number, r: any) =>
+      s + (r.paid_cash || 0) + (r.paid_kaspi || 0) + (r.paid_halyk || 0) + (r.paid_kaspi_transfer || 0), 0);
+    // Долг, который уже погасили, НЕ прибавляется к paid_cash/paid_kaspi самой
+    // продажи (см. settleSaleDebt) — иначе задвоение в кассе. Поэтому здесь
+    // "собрано" = реально оплаченное при продаже + отдельно погашенные долги,
+    // а "долг" — только то, что ещё не погашено. collected + debt === totalSum.
+    const settledDebt = rows.reduce((s: number, r: any) => s + (r.debt_paid_at ? (r.debt_amount || 0) : 0), 0);
+    const unsettledDebt = rows.reduce((s: number, r: any) => s + (!r.debt_paid_at ? (r.debt_amount || 0) : 0), 0);
+
+    const summary: SalesSummary = {
+      count: rows.length,
+      totalSum,
+      collected: collectedPaid + settledDebt,
+      debt: unsettledDebt,
+    };
+    return summary;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId, dateFrom, dateTo]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadSalesPage = useCallback(async (cursor?: SalesCursor | null) => {
+    let q: any = supabase
+      .from('sales')
+      .select(SALES_LIST_SELECT)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE);
+    if (branchId) q = q.eq('branch_id', branchId);
+    if (dateFrom) q = q.gte('created_at', dateFrom);
+    if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+    if (cursor) {
+      q = q.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`
+      );
+    }
+    const { data } = await q;
+    const rows = (data ?? []) as Sale[];
+    const last = rows[rows.length - 1];
+    const nextCursor: SalesCursor | null =
+      rows.length === PAGE_SIZE && last ? { createdAt: last.created_at, id: last.id } : null;
+    return { rows, nextCursor };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchId, dateFrom, dateTo]);
+
+  const loadOrdersAndWorkshop = useCallback(async () => {
+    let orders: Order[];
+    // Pre-orders
+    {
+      let q: any = supabase
+        .from('orders')
+        .select(`*, branch:branches!orders_branch_id_fkey(name), creator:employees!orders_created_by_fkey(name), items:order_items(*)`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (branchId) q = q.eq('branch_id', branchId);
+      if (dateFrom) q = q.gte('created_at', dateFrom);
+      if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+      const { data } = await q;
+      orders = (data ?? []).map((r: any) => ({ ...r, branch: r.branch, creator: r.creator, items: r.order_items ?? r.items })) as Order[];
+    }
+    // Workshop orders
+    let wsOrders: ServiceOrder[];
+    {
+      let q: any = supabase
+        .from('service_orders')
+        .select(`*, branch:branches!service_orders_created_branch_id_fkey(name), employee:employees(name)`)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (branchId) q = q.eq('created_branch_id', branchId);
+      if (dateFrom) q = q.gte('created_at', dateFrom);
+      if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+      const { data } = await q;
+      wsOrders = (data ?? []) as ServiceOrder[];
+    }
+    return { orders, wsOrders };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchId, dateFrom, dateTo]);
+
+  // Все сеттеры централизованы здесь под одной seq-проверкой — иначе (как было
+  // до ревью) сводка/предзаказы/мастерская могли применить устаревший ответ
+  // при быстрой смене фильтров, даже если список продаж уже обновился верно.
+  const loadAll = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
+    setLoading(true);
+    try {
+      const [salesPage, summary, ordersAndWorkshop] = await Promise.all([
+        loadSalesPage(null),
+        loadSalesSummary(),
+        loadOrdersAndWorkshop(),
+      ]);
+      if (seq !== requestSeqRef.current) return;
+      setSales(salesPage.rows);
+      setSalesCursor(salesPage.nextCursor);
+      setSalesSummary(summary);
+      setOrders(ordersAndWorkshop.orders);
+      setWsOrders(ordersAndWorkshop.wsOrders);
+    } finally {
+      if (seq === requestSeqRef.current) setLoading(false);
+    }
+  }, [loadSalesPage, loadSalesSummary, loadOrdersAndWorkshop]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  async function loadMoreSales() {
+    if (!salesCursor || salesLoadingMore) return;
+    const seq = requestSeqRef.current;
+    setSalesLoadingMore(true);
+    try {
+      const page = await loadSalesPage(salesCursor);
+      if (seq !== requestSeqRef.current) return; // фильтр сменился, пока грузили следующую страницу
+      setSales(prev => [...prev, ...page.rows]);
+      setSalesCursor(page.nextCursor);
+    } finally {
+      setSalesLoadingMore(false);
+    }
+  }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'sales', label: 'Продажи', count: sales.length },
+    { key: 'sales', label: 'Продажи', count: salesSummary.count },
     { key: 'orders', label: 'Предзаказы', count: orders.length },
     { key: 'workshop', label: 'Мастерская', count: wsOrders.length },
   ];
@@ -140,7 +246,7 @@ export default function AdminSalesHistory() {
               </span>
             </button>
           ))}
-          <button onClick={load} disabled={loading}
+          <button onClick={loadAll} disabled={loading}
             className="ml-auto px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-50">
             {loading ? '↻' : '↺'} Обновить
           </button>
@@ -152,49 +258,108 @@ export default function AdminSalesHistory() {
 
         {/* ПРОДАЖИ */}
         {tab === 'sales' && (
-          loading ? <p className="text-sm text-gray-400 text-center py-10">Загрузка...</p> :
-          sales.length === 0 ? <p className="text-sm text-gray-400 text-center py-10">Нет продаж</p> :
-          sales.map(s => {
-            const client = (s.client as any)?.name || (s.client as any)?.phone || 'Без клиента';
-            const emp = (s.employee as any)?.name ?? '—';
-            const branchName = (s as any).branch?.name ?? '';
-            const totalPaid = (s.paid_cash || 0) + (s.paid_kaspi || 0) + (s.paid_halyk || 0) + (s.paid_kaspi_transfer || 0);
-            return (
-              <div key={s.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{client}</p>
-                    <p className="text-xs text-gray-400">{fmtDate(s.created_at)} · {emp}{branchName ? ` · ${branchName}` : ''}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-gray-900">{fmt(s.total)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.status === 'paid' ? 'bg-green-100 text-green-700' : s.status === 'refunded' ? 'bg-red-100 text-red-600' : s.status === 'partially_refunded' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {s.status === 'paid' ? 'Оплачено' : s.status === 'refunded' ? 'Возврат' : s.status === 'partially_refunded' ? 'Частичный возврат' : s.status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Items */}
-                {s.items && s.items.length > 0 && (
-                  <p className="text-xs text-gray-500 truncate">
-                    {s.items.map(i => `${(i.product as any)?.name ?? '—'} ×${i.quantity}`).join(', ')}
-                  </p>
-                )}
-
-                {/* Payment breakdown */}
-                <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-gray-50">
-                  <span className="text-xs text-gray-500">{PAYMENT_LABEL[s.payment_method ?? ''] ?? s.payment_method}</span>
-                  {(s.paid_cash || 0) > 0 && <span className="text-xs text-gray-400">💵 {fmt(s.paid_cash)}</span>}
-                  {(s.paid_kaspi || 0) > 0 && <span className="text-xs text-gray-400">📱 {fmt(s.paid_kaspi)}</span>}
-                  {(s.paid_halyk || 0) > 0 && <span className="text-xs text-gray-400">🏦 {fmt(s.paid_halyk)}</span>}
-                  {(s.paid_kaspi_transfer || 0) > 0 && <span className="text-xs text-gray-400">💳 {fmt(s.paid_kaspi_transfer)}</span>}
-                  {totalPaid > s.total && (
-                    <span className="text-xs text-green-600">Сдача: {fmt(totalPaid - s.total)}</span>
-                  )}
-                </div>
+          <>
+            {/* Сводка за филиал+период */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-1">
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Продаж</p>
+                <p className="text-sm font-bold text-gray-900">{salesSummary.count}</p>
               </div>
-            );
-          })
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Продано (чеки)</p>
+                <p className="text-sm font-bold text-gray-900">{fmt(salesSummary.totalSum)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Собрано</p>
+                <p className="text-sm font-bold text-emerald-700">{fmt(salesSummary.collected)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Долг</p>
+                <p className={`text-sm font-bold ${salesSummary.debt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                  {fmt(salesSummary.debt)}
+                </p>
+              </div>
+            </div>
+
+            {loading ? <p className="text-sm text-gray-400 text-center py-10">Загрузка...</p> :
+            sales.length === 0 ? <p className="text-sm text-gray-400 text-center py-10">Нет продаж</p> :
+            <>
+              {sales.map(s => {
+                const client = (s.client as any)?.name || (s.client as any)?.phone || 'Без клиента';
+                const emp = (s.employee as any)?.name ?? '—';
+                const branchName = (s as any).branch?.name ?? '';
+                const totalPaid = (s.paid_cash || 0) + (s.paid_kaspi || 0) + (s.paid_halyk || 0) + (s.paid_kaspi_transfer || 0);
+                return (
+                  <div key={s.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{client}</p>
+                        <p className="text-xs text-gray-400">{fmtDateTime(s.created_at)} · {emp}{branchName ? ` · ${branchName}` : ''}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-gray-900">{fmt(s.total)}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.status === 'paid' ? 'bg-green-100 text-green-700' : s.status === 'refunded' ? 'bg-red-100 text-red-600' : s.status === 'partially_refunded' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {s.status === 'paid' ? 'Оплачено' : s.status === 'refunded' ? 'Возврат' : s.status === 'partially_refunded' ? 'Частичный возврат' : s.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Товары: название × кол-во, цена за штуку, скидка (если была) */}
+                    {s.items && s.items.length > 0 && (
+                      <div className="space-y-1 border-t border-gray-50 pt-2">
+                        {s.items.map((item, idx) => {
+                          const hasDiscount = item.list_price != null && item.list_price > item.price;
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs text-gray-700 truncate">
+                                  {(item.product as any)?.name ?? '—'} × {item.quantity}
+                                </p>
+                                <p className="text-[11px] text-gray-400">
+                                  ₸{item.price.toLocaleString()}/шт
+                                  {hasDiscount && (
+                                    <span className="text-amber-600">
+                                      {' '}· было ₸{item.list_price!.toLocaleString()}, скидка ₸{((item.list_price! - item.price) * item.quantity).toLocaleString()}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <span className="text-xs font-medium text-gray-600 flex-shrink-0">
+                                ₸{(item.quantity * item.price).toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Payment breakdown */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-gray-50">
+                      <span className="text-xs text-gray-500">{PAYMENT_LABEL[s.payment_method ?? ''] ?? s.payment_method}</span>
+                      {(s.paid_cash || 0) > 0 && <span className="text-xs text-gray-400">💵 {fmt(s.paid_cash)}</span>}
+                      {(s.paid_kaspi || 0) > 0 && <span className="text-xs text-gray-400">📱 {fmt(s.paid_kaspi)}</span>}
+                      {(s.paid_halyk || 0) > 0 && <span className="text-xs text-gray-400">🏦 {fmt(s.paid_halyk)}</span>}
+                      {(s.paid_kaspi_transfer || 0) > 0 && <span className="text-xs text-gray-400">💳 {fmt(s.paid_kaspi_transfer)}</span>}
+                      {totalPaid > s.total && (
+                        <span className="text-xs text-green-600">Сдача: {fmt(totalPaid - s.total)}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {salesCursor && (
+                <button
+                  onClick={loadMoreSales}
+                  disabled={salesLoadingMore}
+                  className="w-full py-2.5 text-sm text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl font-medium disabled:opacity-50"
+                >
+                  {salesLoadingMore ? 'Загружаем...' : 'Показать ещё'}
+                </button>
+              )}
+            </>
+            }
+          </>
         )}
 
         {/* ПРЕДЗАКАЗЫ */}
