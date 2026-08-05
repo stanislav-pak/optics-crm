@@ -26,8 +26,12 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
   const [loading, setLoading] = useState(true);
   const [confirmedQtys, setConfirmedQtys] = useState<Record<string, number>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef<Record<string, boolean>>({});
+
+  // Позиции без расхождения — их можно подтвердить одной кнопкой
+  const matchingTransfers = transfers.filter(t => (confirmedQtys[t.id] ?? t.quantity) === t.quantity);
 
   useEffect(() => { loadTransfers(); }, [branchId]);
 
@@ -98,6 +102,44 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
     }
   }
 
+  async function handleBulkConfirm() {
+    if (bulkConfirming) return;
+    const targets = matchingTransfers.filter(t => !submittingRef.current[t.id]);
+    if (targets.length === 0) return;
+
+    setBulkConfirming(true);
+    setError(null);
+    targets.forEach(t => { submittingRef.current[t.id] = true; });
+
+    // Последовательно, не параллельно: confirmTransfer дважды дёргает
+    // recalculate_stock(branch_id) без явной блокировки — параллельные вызовы
+    // на один и тот же филиал могут гонять пересчёт остатков между собой.
+    const succeededIds = new Set<string>();
+    const failed: string[] = [];
+    for (const t of targets) {
+      try {
+        await confirmTransfer(t.id, confirmedQtys[t.id] ?? t.quantity, employeeId);
+        succeededIds.add(t.id);
+      } catch (e: any) {
+        const message = e?.message ?? String(e);
+        failed.push(`${t.product?.name ?? 'товар'} (${message})`);
+      } finally {
+        submittingRef.current[t.id] = false;
+      }
+    }
+
+    if (succeededIds.size > 0) {
+      setTransfers(prev => prev.filter(t => !succeededIds.has(t.id)));
+      onUpdated();
+    }
+
+    if (failed.length > 0) {
+      setError(`Подтверждено ${succeededIds.size} из ${targets.length}. Не удалось: ${failed.join('; ')}`);
+    }
+
+    setBulkConfirming(false);
+  }
+
   return (
     <div data-modal="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60">
       <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col">
@@ -120,6 +162,27 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {!loading && transfers.length > 0 && (
+            <button
+              onClick={handleBulkConfirm}
+              disabled={bulkConfirming || matchingTransfers.length === 0 || submittingId !== null}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors"
+            >
+              {bulkConfirming ? (
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : (
+                <CheckCircle size={16} />
+              )}
+              {bulkConfirming ? 'Подтверждаем...' : `Подтвердить всё (${matchingTransfers.length})`}
+            </button>
+          )}
+
+          {error && submittingId === null && !bulkConfirming && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-6 h-6 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
@@ -229,25 +292,18 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
                     ) : null}
                   </div>
 
-                  {/* Ошибка */}
-                  {error && submittingId === null && (
-                    <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                      {error}
-                    </p>
-                  )}
-
                   {/* Кнопки подтверждения / отклонения */}
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => handleReject(t.id)}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || bulkConfirming}
                       className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
                     >
                       Отклонить
                     </button>
                     <button
                       onClick={() => handleConfirm(t.id)}
-                      disabled={isSubmitting || confirmedQty === 0}
+                      disabled={isSubmitting || bulkConfirming || confirmedQty === 0}
                       className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
                     >
                       {isSubmitting ? 'Подтверждаем...' : 'Подтвердить приёмку'}
@@ -257,12 +313,6 @@ export default function IncomingTransfersModal({ branchId, employeeId, onClose, 
               </div>
             );
           })}
-
-          {error && submittingId === null && transfers.length > 0 && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
         </div>
 
         {/* Footer */}
