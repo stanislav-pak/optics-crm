@@ -11,7 +11,7 @@
 
 ---
 
-### T70 — Поддержка нескольких мастерских (branches.is_workshop) `IN_PROGRESS` (2026-08-05)
+### T70 — Поддержка нескольких мастерских (branches.is_workshop) `DONE` (2026-08-05)
 **Запрос владельца:** добавить вторую мастерскую («Мастерская на Абая»), текущую переименовать в «Мастерская на Жандосова». Продавец выбирает мастерскую из списка при оформлении заказа. Адрес новой — как у «Абая 34».
 
 **Сделано (фронт):** убран хардкод `WORKSHOP_BRANCH_ID` (~30 мест, 9 файлов) — источник истины теперь `branches.is_workshop`, читается один раз в `App.tsx` (`sidebarBranches` + `is_workshop` в select) в массив `workshopBranches: {id,name}[]`, прокидывается пропсами в `InventoryPage`/`WorkshopPage`/`HelpModal`/`AddSaleModal`.
@@ -24,7 +24,7 @@
 
 **Проверено:** саб-агент-ревью (2 захода, нашёл и подтвердил фикс критичной проблемы выше), `tsc --noEmit` — 50 ошибок (было 55 в базе — 5 старых предсуществующих ошибок в `workshop.test.tsx` попутно исправились), `npm run build` — ок, `vitest run` — 48/48 (добавлено 5 новых тестов на мульти-мастерскую).
 
-**НЕ применено:** миграция `branches.is_workshop` (владелец применяет сам через Supabase MCP) — на момент коммита ещё не применена. Код закоммичен (`a188b85`), НЕ запушен — ждёт применения БД владельцем и явной команды на пуш (пуш до миграции сломает доступ к разделу «Мастерская» для всех сотрудников — запрос `is_workshop` в `branches` упадёт, пока колонки нет).
+**БД и деплой:** миграция `branches.is_workshop` применена владельцем к проду через Supabase MCP — колонка добавлена, текущая мастерская переименована в «Мастерская на Жандосова» (id 1104bc27, is_workshop=true), создан новый филиал «Мастерская на Абая» (is_workshop=true, адрес «Абая 34 уг. Масанчи»), `get_total_unread_for_employee` обобщена под флаг. Код запушен (`a188b85` + `8b2ca29`) → автодеплой в прод и тест.
 
 **Файлы:** `App.tsx`, `constants.ts`, `types/index.ts`, `pages/InventoryPage.tsx`, `pages/WorkshopPage.tsx`, `components/HelpModal.tsx`, `components/Inventory/AddSaleModal.tsx`, `components/Workshop/AddServiceOrderModal.tsx`, `components/Workshop/ServiceOrderCard.tsx`, `components/Workshop/WorkshopManagerView.tsx`, `services/workshop.ts`, `test/addSaleModal.prepayment.test.tsx`, `test/workshop.test.tsx`.
 
@@ -1056,7 +1056,7 @@ $function$;
 - Всего: 70 задач
 - TODO: 3 (T23, T62, T63)
 - IN_PROGRESS: 2 (T65 — печать этикеток, активная отладка; T66 — заявки на склад, ждёт проверки на проде)
-- DONE: 65
+- DONE: 66
 - SKIP: 0
 
 ## Исключено (Kaspi — не запущен)
