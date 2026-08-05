@@ -32,7 +32,7 @@ import ScrollToTopButton from './components/Shared/ScrollToTopButton';
 import UpdateBanner from './components/Shared/UpdateBanner';
 import type { Chat } from './types';
 import { playNotificationSound } from './utils/sound';
-import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from './constants';
+import { WAREHOUSE_ID } from './constants';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -79,14 +79,19 @@ function AppContent() {
   const [showCompanyChat, setShowCompanyChat] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [internalUnread, setInternalUnread] = useState(0);
-  const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string}[]>([]);
+  const [sidebarBranches, setSidebarBranches] = useState<{id:string;name:string;city:string;is_workshop?:boolean}[]>([]);
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    supabase.from('branches').select('id, name, city').then(({ data }) => {
+    supabase.from('branches').select('id, name, city, is_workshop').then(({ data }) => {
       setSidebarBranches(data ?? []);
     });
   }, []);
+
+  // Мастерских может быть несколько (is_workshop=true на branches) — источник
+  // истины вместо хардкода одного branch id.
+  const workshopBranches = sidebarBranches.filter(b => b.is_workshop);
+  const isEmployeeWorkshop = !!employee?.branch_id && workshopBranches.some(b => b.id === employee.branch_id);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
@@ -216,7 +221,7 @@ function AppContent() {
   // Счётчик незакрытых доплат мастерской (только для менеджеров не из мастерской)
   useEffect(() => {
     const branchId = employee?.branch_id;
-    if (!branchId || branchId === WORKSHOP_BRANCH_ID) return;
+    if (!branchId || isEmployeeWorkshop) return;
 
     async function fetchCount() {
       const { data } = await supabase
@@ -239,17 +244,18 @@ function AppContent() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [employee?.branch_id]);
+  }, [employee?.branch_id, isEmployeeWorkshop]);
 
   // Realtime-подписка на новые заказы мастерской (работает независимо от активного экрана)
   useEffect(() => {
-    if (employee?.branch_id !== WORKSHOP_BRANCH_ID) return;
+    if (!isEmployeeWorkshop || !employee?.branch_id) return;
+    const myBranchId = employee.branch_id;
 
     const computeBadge = async () => {
       const { data } = await supabase
         .from('service_orders')
         .select('id')
-        .eq('branch_id', WORKSHOP_BRANCH_ID)
+        .eq('branch_id', myBranchId)
         .eq('status', 'new');
       if (!data) return;
       try {
@@ -267,20 +273,20 @@ function AppContent() {
     window.addEventListener('workshop-order-read', handleOrderRead);
 
     const channel = supabase
-      .channel('app-workshop-orders-badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${WORKSHOP_BRANCH_ID}` }, computeBadge)
+      .channel(`app-workshop-orders-badge-${myBranchId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_orders', filter: `branch_id=eq.${myBranchId}` }, computeBadge)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('workshop-order-read', handleOrderRead);
     };
-  }, [employee?.branch_id]);
+  }, [employee?.branch_id, isEmployeeWorkshop]);
 
   // Фоновая подписка на готовые workshop-заказы для менеджеров магазина
   // (работает независимо от активного экрана, как workshopOrderBadgeCount для мастерской)
   useEffect(() => {
-    if (!employee?.branch_id || employee.branch_id === WORKSHOP_BRANCH_ID) return;
+    if (!employee?.branch_id || isEmployeeWorkshop) return;
     const branchId = employee.branch_id;
 
     const computeInventoryBadge = async () => {
@@ -314,7 +320,7 @@ function AppContent() {
       supabase.removeChannel(channel);
       window.removeEventListener('inventory-workshop-order-read', handleOrderRead);
     };
-  }, [employee?.branch_id]);
+  }, [employee?.branch_id, isEmployeeWorkshop]);
 
   // Фоновая подписка на заявки на склад для бейджа на иконке (админ или сотрудники склада)
   useEffect(() => {
@@ -344,7 +350,7 @@ function AppContent() {
   // собственное только что созданное состояние, тут ему нечего "узнавать".
   useEffect(() => {
     const branchId = employee?.branch_id;
-    const canTrack = !!branchId && employee?.role !== 'admin' && branchId !== WAREHOUSE_ID && branchId !== WORKSHOP_BRANCH_ID;
+    const canTrack = !!branchId && employee?.role !== 'admin' && branchId !== WAREHOUSE_ID && !isEmployeeWorkshop;
     if (!canTrack) { setMyRequestStatusBadge(0); return; }
 
     const computeBadge = async () => {
@@ -377,7 +383,7 @@ function AppContent() {
       supabase.removeChannel(channel);
       window.removeEventListener('stock-request-status-read', handleRead);
     };
-  }, [employee?.role, employee?.branch_id]);
+  }, [employee?.role, employee?.branch_id, isEmployeeWorkshop]);
 
   const loadInternalUnread = async () => {
     if (!employee?.id) return;
@@ -586,7 +592,7 @@ function AppContent() {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </button>
               )}
-              {employee?.branch_id === WORKSHOP_BRANCH_ID && (
+              {isEmployeeWorkshop && (
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Мастерская">
@@ -650,7 +656,7 @@ function AppContent() {
                 title="CRM">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </button>
-              {employee?.branch_id !== WORKSHOP_BRANCH_ID && employee?.branch_id !== WAREHOUSE_ID && (
+              {!isEmployeeWorkshop && employee?.branch_id !== WAREHOUSE_ID && (
               <button onClick={() => { setMobileView('shop'); setActiveChat(null); setWorkshopBadgeResetKey(k => k + 1); }}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('shop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                 title="Магазин">
@@ -682,7 +688,7 @@ function AppContent() {
                   )}
                 </div>
               </button>
-              {employee?.branch_id === WORKSHOP_BRANCH_ID && (
+              {isEmployeeWorkshop && (
                 <button onClick={() => { setMobileView('workshop'); setActiveChat(null); }}
                   className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isManagerBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
                   title="Мастерская">
@@ -859,7 +865,7 @@ function AppContent() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             <span className="text-[10px] font-medium">CRM</span>
           </button>
-          {employee?.branch_id !== WORKSHOP_BRANCH_ID && employee?.branch_id !== WAREHOUSE_ID && (
+          {!isEmployeeWorkshop && employee?.branch_id !== WAREHOUSE_ID && (
           <button onClick={() => { navigateTo('shop'); setWorkshopBadgeResetKey(k => k + 1); }}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'shop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
             <div className="relative">
@@ -891,7 +897,7 @@ function AppContent() {
               <span className="text-[10px] font-medium">Склад</span>
             </div>
           </button>
-          {employee?.branch_id === WORKSHOP_BRANCH_ID && (
+          {isEmployeeWorkshop && (
             <button onClick={() => navigateTo('workshop')}
               className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 transition-colors ${mobileView === 'workshop' ? 'text-emerald-400' : 'text-[#8696a0]'}`}>
               <div className="relative">
@@ -929,6 +935,7 @@ function AppContent() {
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
               onPendingTransfersChange={setPendingTransfersCount}
+              workshopBranches={workshopBranches}
             />
           </div>
         </div>
@@ -940,6 +947,7 @@ function AppContent() {
               branchId={null}
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+              workshopBranches={workshopBranches}
             />
           </div>
         </div>
@@ -1023,6 +1031,7 @@ function AppContent() {
               employeeId={employee.id}
               role={employee.role as 'manager' | 'branch_admin' | 'admin'}
               onPendingTransfersChange={setPendingTransfersCount}
+              workshopBranches={workshopBranches}
             />
           </div>
         </div>
@@ -1097,6 +1106,7 @@ function AppContent() {
                 storefront={true}
                 onWorkshopBadgeChange={setWorkshopBadgeCount}
                 resetBadgeKey={workshopBadgeResetKey}
+                workshopBranches={workshopBranches}
               />
             </div>
           ) : shopSubView === 'orders' ? (
@@ -1111,6 +1121,7 @@ function AppContent() {
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                 defaultTab="returns"
                 storefront={true}
+                workshopBranches={workshopBranches}
               />
             </div>
           ) : shopSubView === 'workshop' ? (
@@ -1135,11 +1146,12 @@ function AppContent() {
       ) : isManager && !isMobile && !activeChat && mobileView === 'workshop' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-            {employee?.branch_id === WORKSHOP_BRANCH_ID ? (
+            {isEmployeeWorkshop ? (
               <WorkshopPage
                 branchId={employee.branch_id}
                 employeeId={employee.id}
                 role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                workshopBranches={workshopBranches}
               />
             ) : (
               <WorkshopManagerView
@@ -1187,6 +1199,7 @@ function AppContent() {
                   employeeId={employee.id}
                   role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                   onPendingTransfersChange={setPendingTransfersCount}
+                  workshopBranches={workshopBranches}
                 />
               </div>
             </div>
@@ -1263,6 +1276,7 @@ function AppContent() {
                     storefront={true}
                     onWorkshopBadgeChange={setWorkshopBadgeCount}
                     resetBadgeKey={workshopBadgeResetKey}
+                    workshopBranches={workshopBranches}
                   />
                 </div>
               ) : shopSubView === 'orders' ? (
@@ -1277,6 +1291,7 @@ function AppContent() {
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
                     defaultTab="returns"
                     storefront={true}
+                    workshopBranches={workshopBranches}
                   />
                 </div>
               ) : shopSubView === 'workshop' ? (
@@ -1302,15 +1317,16 @@ function AppContent() {
           {mobileView === 'workshop' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <MobilePageHeader
-                title={isAdmin || employee?.branch_id === WORKSHOP_BRANCH_ID ? 'Мастерская' : 'Услуги мастерской'}
+                title={isAdmin || isEmployeeWorkshop ? 'Мастерская' : 'Услуги мастерской'}
                 onHelp={() => setShowHelp(true)}
               />
               <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-                {isAdmin || employee?.branch_id === WORKSHOP_BRANCH_ID ? (
+                {isAdmin || isEmployeeWorkshop ? (
                   <WorkshopPage
                     branchId={isAdmin ? null : employee.branch_id}
                     employeeId={employee.id}
                     role={employee.role as 'manager' | 'branch_admin' | 'admin'}
+                    workshopBranches={workshopBranches}
                   />
                 ) : (
                   <WorkshopManagerView
@@ -1338,6 +1354,7 @@ function AppContent() {
             branchId={employee.branch_id ?? ''}
             initialSection={getCurrentHelpSection()}
             onClose={() => setShowHelp(false)}
+            workshopBranches={workshopBranches}
           />
         )}
       </AuthContext.Provider>
@@ -1365,6 +1382,7 @@ function AppContent() {
           branchId={employee.branch_id ?? ''}
           initialSection={getCurrentHelpSection()}
           onClose={() => setShowHelp(false)}
+          workshopBranches={workshopBranches}
         />
       )}
     </AuthContext.Provider>

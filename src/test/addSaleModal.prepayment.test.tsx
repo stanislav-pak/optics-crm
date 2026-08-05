@@ -31,6 +31,10 @@ import { createSale, getProductsFromStock } from '@/services/inventory'
 import { createServiceOrder } from '@/services/workshop'
 import { supabase } from '@/services/supabase'
 
+// Одна мастерская — auto-select срабатывает (workshopBranches.length === 1),
+// поведение не отличается от старого хардкода WORKSHOP_BRANCH_ID
+const mockWorkshopBranches = [{ id: 'workshop-1', name: 'Мастерская' }]
+
 const mockProduct: Product = {
   id: 'p1',
   name: 'Оправа Ray-Ban',
@@ -60,6 +64,7 @@ async function openWorkshopSectionWithService() {
       employeeId="emp-1"
       onClose={vi.fn()}
       onSuccess={vi.fn()}
+      workshopBranches={mockWorkshopBranches}
     />
   )
 
@@ -133,6 +138,9 @@ describe('AddSaleModal — клемп предоплаты мастерской 
     expect(payload.prepayment).toBe(900)
     expect(payload.service_price).toBe(1000)
     expect(payload.parts_price).toBe(500)
+    // Единственная мастерская выбирается автоматически (регресс-проверка) —
+    // заказ всё равно уходит по явному branch_id, не по хардкоду константы
+    expect(payload.branch_id).toBe('workshop-1')
   })
 
   it('заблокированный submit не отправляет продажу, если предоплата превышает стоимость даже без blur', async () => {
@@ -179,6 +187,7 @@ describe('AddSaleModal — клемп предоплаты предзаказа 
         onClose={vi.fn()}
         onSuccess={vi.fn()}
         initialTab="preorder"
+        workshopBranches={[]}
       />
     )
     await waitFor(() => expect(screen.getByText('Новый предзаказ')).toBeInTheDocument())
@@ -267,6 +276,7 @@ describe('AddSaleModal — предоплата на обычный товар �
         employeeId="emp-1"
         onClose={vi.fn()}
         onSuccess={vi.fn()}
+        workshopBranches={[]}
       />
     )
     await waitFor(() => expect(screen.getByText('Новая продажа')).toBeInTheDocument())
@@ -329,5 +339,76 @@ describe('AddSaleModal — предоплата на обычный товар �
     const [salePayload] = vi.mocked(createSale).mock.calls[0]
     expect(salePayload.paid_cash).toBe(1000)
     expect(salePayload.debt_amount).toBe(0)
+  })
+})
+
+describe('AddSaleModal — выбор мастерской, когда их несколько (workshopBranches)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const twoWorkshops = [
+    { id: 'workshop-1', name: 'Мастерская на Жандосова' },
+    { id: 'workshop-2', name: 'Мастерская на Абая' },
+  ]
+
+  function getWorkshopSelect(): HTMLSelectElement {
+    const label = screen.getByText('Мастерская *')
+    const select = label.closest('div')?.querySelector('select')
+    if (!select) throw new Error('Workshop <select> not found')
+    return select as HTMLSelectElement
+  }
+
+  async function openWorkshopSectionMulti() {
+    render(
+      <AddSaleModal
+        branchId="branch-1"
+        employeeId="emp-1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        workshopBranches={twoWorkshops}
+      />
+    )
+    await waitFor(() => expect(screen.getByText('Новая продажа')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Добавить заказ в мастерскую'))
+
+    fireEvent.click(screen.getByText('— выберите услугу —'))
+    fireEvent.mouseDown(screen.getByText('+ Создать услугу'))
+    fireEvent.change(screen.getByPlaceholderText('Название услуги'), { target: { value: 'Ремонт оправы' } })
+    fireEvent.click(screen.getByText('Сохранить'))
+    await waitFor(() => expect(screen.getByText('Ремонт оправы')).toBeInTheDocument())
+  }
+
+  it('показывает список всех мастерских, по умолчанию ничего не выбрано (не одна — нельзя угадать)', async () => {
+    await openWorkshopSectionMulti()
+    const select = getWorkshopSelect()
+    expect(select.value).toBe('')
+    const optionLabels = Array.from(select.options).map(o => o.textContent)
+    expect(optionLabels).toEqual(['— выберите мастерскую —', 'Мастерская на Жандосова', 'Мастерская на Абая'])
+  })
+
+  it('блокирует submit, пока мастерская не выбрана', async () => {
+    await openWorkshopSectionMulti()
+
+    const submitBtn = screen.getByText(/Оформить продажу/)
+    expect(submitBtn).toBeDisabled()
+
+    fireEvent.click(submitBtn)
+    expect(createServiceOrder).not.toHaveBeenCalled()
+  })
+
+  it('заказ уходит именно в выбранную мастерскую, а не в первую попавшуюся', async () => {
+    await openWorkshopSectionMulti()
+
+    fireEvent.change(getWorkshopSelect(), { target: { value: 'workshop-2' } })
+
+    const submitBtn = screen.getByText(/Оформить продажу/)
+    expect(submitBtn).not.toBeDisabled()
+    fireEvent.click(submitBtn)
+
+    await waitFor(() => expect(createServiceOrder).toHaveBeenCalledTimes(1))
+    const payload = vi.mocked(createServiceOrder).mock.calls[0][0]
+    expect(payload.branch_id).toBe('workshop-2')
+    expect(payload.created_branch_id).toBe('branch-1')
   })
 })

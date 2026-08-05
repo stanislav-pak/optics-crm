@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
-import { WORKSHOP_BRANCH_ID } from '../constants';
 
 async function notifyBranch(branchId: string, title: string, body: string) {
   try {
@@ -32,12 +31,18 @@ export async function fetchServices(branchId: string | null): Promise<Service[]>
 
 // fetchServiceOrders с учётом роли:
 // - admin: видит все заказы (опционально фильтр по branchId)
-// - мастер (employeeBranchId === WORKSHOP_BRANCH_ID): видит заказы по branch_id = мастерская
+// - мастер (isMasterView=true): видит заказы, направленные в ЕГО КОНКРЕТНУЮ
+//   мастерскую (branch_id = employeeBranchId) — не во все мастерские сразу,
+//   иначе при нескольких мастерских одна видела бы заказы другой
 // - менеджер: видит заказы по created_branch_id = его филиал
+// isMasterView вычисляет вызывающая сторона (employeeBranchId входит в набор
+// филиалов с is_workshop=true) — сам сервис не знает, какие branch id считать
+// мастерскими, это не хардкод здесь.
 export async function fetchServiceOrders(
   branchId: string | null,
   role: string,
   employeeBranchId: string,
+  isMasterView: boolean,
   filters?: { status?: ServiceOrderStatus }
 ): Promise<{ data: ServiceOrder[] | null; error: string | null }> {
   let query = supabase
@@ -48,9 +53,9 @@ export async function fetchServiceOrders(
   if (role === 'admin') {
     // Admin видит все, опционально фильтр по выбранному филиалу
     if (branchId) query = query.eq('branch_id', branchId);
-  } else if (employeeBranchId === WORKSHOP_BRANCH_ID) {
-    // Мастер видит все заказы направленные в мастерскую
-    query = query.eq('branch_id', WORKSHOP_BRANCH_ID);
+  } else if (isMasterView) {
+    // Мастер видит заказы, направленные именно в его мастерскую
+    query = query.eq('branch_id', employeeBranchId);
   } else {
     // Менеджер видит заказы созданные его филиалом
     query = query.eq('created_branch_id', employeeBranchId);
@@ -141,9 +146,10 @@ export async function createServiceOrder(data: {
 
   if (error) throw error;
 
-  // Уведомить мастерскую о новом заказе
+  // Уведомить именно ту мастерскую, куда направлен заказ (data.branch_id — не
+  // хардкод, конкретная мастерская выбрана отправителем)
   notifyBranch(
-    WORKSHOP_BRANCH_ID,
+    data.branch_id,
     'Новый заказ!',
     `${data.client_name} — ${data.service_name}`
   ).catch(console.error);

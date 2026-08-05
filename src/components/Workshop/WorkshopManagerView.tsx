@@ -97,7 +97,7 @@ export default function WorkshopManagerView({ branchId, role }: Props) {
             <ServiceOrderCard
               key={order.id}
               order={order}
-              viewerBranchId={branchId}
+              isMaster={false}
               onStatusChange={handleStatusChange}
             />
           ))

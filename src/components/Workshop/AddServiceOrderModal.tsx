@@ -3,12 +3,14 @@ import { X, ChevronDown } from 'lucide-react';
 import { createServiceOrder, createService } from '../../services/workshop';
 import { formatPhone, clampPrepayment } from '@/utils/formatters';
 import type { Service } from '../../types';
-import { WORKSHOP_BRANCH_ID } from '../../constants';
 
 type PaymentType = 'prepaid' | 'full' | 'on_delivery';
 
 interface Props {
-  branchId: string;       // филиал создателя (created_branch_id)
+  // Модал открывают только из WorkshopPage самим мастером для своей же
+  // мастерской — branchId одновременно и created_branch_id, и целевая
+  // мастерская (branch_id заказа/услуги), т.к. это один и тот же филиал.
+  branchId: string;
   employeeId: string;
   services: Service[];
   onClose: () => void;
@@ -92,7 +94,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
     const result = await createService({
       name,
       price: newServicePrice,
-      branch_id: WORKSHOP_BRANCH_ID,
+      branch_id: branchId,
       is_active: true,
     });
     setCreatingService(false);
@@ -126,7 +128,7 @@ export default function AddServiceOrderModal({ branchId, employeeId, services, o
         ? clampPrepayment(parseFloat(prepayment) || 0, total)
         : parseFloat(prepayment) || 0;
       await createServiceOrder({
-        branch_id: WORKSHOP_BRANCH_ID,
+        branch_id: branchId,
         created_branch_id: branchId,
         client_name: clientName.trim(),
         client_phone: clientPhone.trim() || undefined,

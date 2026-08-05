@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { restoreServiceOrder } from '../../services/workshop';
 import type { ServiceOrder, ServiceOrderStatus } from '../../types';
-import { WORKSHOP_BRANCH_ID } from '../../constants';
 
 interface StatusConfig {
   label: string;
@@ -20,17 +19,16 @@ const STATUS_CONFIG: Record<ServiceOrderStatus, StatusConfig> = {
 
 interface Props {
   order: ServiceOrder;
-  viewerBranchId: string;
+  isMaster: boolean;
   onStatusChange: (id: string, status: ServiceOrderStatus, prepayment?: number) => void;
 }
 
-export default function ServiceOrderCard({ order, viewerBranchId, onStatusChange }: Props) {
+export default function ServiceOrderCard({ order, isMaster, onStatusChange }: Props) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
   const config = STATUS_CONFIG[order.status];
-  const isMaster = viewerBranchId === WORKSHOP_BRANCH_ID;
 
   // Итого: приоритет — новые поля, иначе старое price
   const total = (order.service_price || 0) + (order.parts_price || 0) || order.price || 0;

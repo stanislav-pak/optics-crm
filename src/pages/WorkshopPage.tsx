@@ -6,7 +6,7 @@ import type { Service, ServiceOrder, ServiceOrderStatus } from '../types';
 import AddServiceOrderModal from '../components/Workshop/AddServiceOrderModal';
 import ServiceOrderCard from '../components/Workshop/ServiceOrderCard';
 import ServicesManager from '../components/Workshop/ServicesManager';
-import { WORKSHOP_BRANCH_ID } from '../constants';
+import type { WorkshopBranchOption } from '../types';
 
 interface WorkshopPageProps {
   branchId: string | null; // null = admin «Все»
@@ -14,6 +14,7 @@ interface WorkshopPageProps {
   role: 'manager' | 'branch_admin' | 'admin';
   onBack?: () => void;
   onBadgeChange?: (count: number) => void;
+  workshopBranches: WorkshopBranchOption[];
 }
 
 type StatusFilter = 'all' | ServiceOrderStatus;
@@ -30,7 +31,12 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled',   label: 'Отменены' },
 ];
 
-export default function WorkshopPage({ branchId, employeeId, role, onBack, onBadgeChange }: WorkshopPageProps) {
+export default function WorkshopPage({ branchId, employeeId, role, onBack, onBadgeChange, workshopBranches }: WorkshopPageProps) {
+  // Раньше isMaster (через viewerBranchId) был жёстко "true" внутри этого
+  // экрана — WorkshopPage открывают только мастер или admin, оба получали
+  // права мастера на карточке заказа. Сохраняем то же поведение, но теперь
+  // явной проверкой (не хардкод одного id, т.к. мастерских несколько).
+  const isMaster = role === 'admin' || workshopBranches.some(b => b.id === branchId);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<ServiceOrder[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -145,7 +151,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
     setLoading(true);
     try {
       const [result, svc] = await Promise.all([
-        fetchServiceOrders(selectedBranch, role, branchId ?? ''),
+        fetchServiceOrders(selectedBranch, role, branchId ?? '', isMaster),
         fetchServices(selectedBranch),
       ]);
       if (result.error) console.error('fetchServiceOrders:', result.error);
@@ -162,7 +168,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
 
   async function loadOrders() {
     try {
-      const result = await fetchServiceOrders(selectedBranch, role, branchId ?? '');
+      const result = await fetchServiceOrders(selectedBranch, role, branchId ?? '', isMaster);
       if (result.error) console.error('fetchServiceOrders:', result.error);
       const data = result.data ?? [];
       setOrders(data);
@@ -208,6 +214,15 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
       alert('Выберите конкретный филиал для добавления заказа');
       return;
     }
+    // Свитчер филиалов вверху показывает ВСЕ филиалы (нужно для вкладки
+    // «Журнал» — там admin фильтрует по created_branch_id любого филиала),
+    // но заказ мастерской можно создать только в реальную мастерскую —
+    // иначе branch_id заказа укажет на обычный филиал, и ни один мастер
+    // его не увидит (fetchServiceOrders фильтрует мастеру по branch_id).
+    if (role === 'admin' && selectedBranch !== null && !workshopBranches.some(b => b.id === selectedBranch)) {
+      alert('Заказ можно создать только в филиале-мастерской. Выберите мастерскую в переключателе выше.');
+      return;
+    }
     setShowAddModal(true);
   }
 
@@ -237,9 +252,6 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
 
     return result;
   })();
-
-  // viewerBranchId для карточек в WorkshopPage — всегда мастерская
-  const viewerBranchId = WORKSHOP_BRANCH_ID;
 
   if (loading) {
     return (
@@ -385,7 +397,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
               }`}>
               Все
             </button>
-            {adminBranches.filter(b => b.id !== WORKSHOP_BRANCH_ID).map(b => (
+            {adminBranches.filter(b => !workshopBranches.some(w => w.id === b.id)).map(b => (
               <button key={b.id}
                 onClick={() => setJournalBranchFilter(b.id)}
                 className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -426,7 +438,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
                     )}
                     <ServiceOrderCard
                       order={order}
-                      viewerBranchId={viewerBranchId}
+                      isMaster={isMaster}
                       onStatusChange={handleStatusChange}
                     />
                   </div>
@@ -449,7 +461,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
               <ServiceOrderCard
                 key={order.id}
                 order={order}
-                viewerBranchId={viewerBranchId}
+                isMaster={isMaster}
                 onStatusChange={handleStatusChange}
               />
             ))
@@ -460,7 +472,7 @@ export default function WorkshopPage({ branchId, employeeId, role, onBack, onBad
       {/* Модал создания */}
       {showAddModal && (selectedBranch !== null || role !== 'admin') && (
         <AddServiceOrderModal
-          branchId={selectedBranch ?? WORKSHOP_BRANCH_ID}
+          branchId={selectedBranch ?? ''}
           employeeId={employeeId}
           services={services}
           onClose={() => setShowAddModal(false)}

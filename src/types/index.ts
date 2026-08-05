@@ -10,7 +10,16 @@ export interface Branch {
   phone?: string;
   waba_phone_id?: string;
   is_warehouse?: boolean;
+  is_workshop?: boolean;
   created_at: string;
+}
+
+// Филиалов с is_workshop=true может быть несколько — этот минимальный набор
+// полей прокидывается сверху вниз (App.tsx → InventoryPage/WorkshopPage/...)
+// вместо хардкода одного WORKSHOP_BRANCH_ID.
+export interface WorkshopBranchOption {
+  id: string;
+  name: string;
 }
 
 export interface Employee {

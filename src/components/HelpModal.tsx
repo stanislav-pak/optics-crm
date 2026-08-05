@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { WORKSHOP_BRANCH_ID } from '../constants';
+import type { WorkshopBranchOption } from '../types';
 
 interface HelpModalProps {
   role: 'admin' | 'branch_admin' | 'manager';
   branchId: string;
   initialSection?: string;
   onClose: () => void;
+  workshopBranches: WorkshopBranchOption[];
 }
 
 type HelpBlock = {
@@ -650,8 +651,8 @@ function adminSections(role: 'admin' | 'branch_admin', isWorkshop: boolean): Hel
 
 // ─── КОМПОНЕНТ ────────────────────────────────────────────────────────────────
 
-export default function HelpModal({ role, branchId, initialSection, onClose }: HelpModalProps) {
-  const isWorkshop = branchId === WORKSHOP_BRANCH_ID;
+export default function HelpModal({ role, branchId, initialSection, onClose, workshopBranches }: HelpModalProps) {
+  const isWorkshop = workshopBranches.some(b => b.id === branchId);
   const isAdmin = role === 'admin' || role === 'branch_admin';
 
   const sections = isAdmin

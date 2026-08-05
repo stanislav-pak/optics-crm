@@ -9,8 +9,7 @@ import { formatPhone, clampPrepayment } from '@/utils/formatters';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
-import type { Product, Client, Service } from '../../types';
-import { WORKSHOP_BRANCH_ID } from '../../constants';
+import type { Product, Client, Service, WorkshopBranchOption } from '../../types';
 type WorkshopPaymentType = 'prepaid' | 'full' | 'on_delivery';
 
 interface SaleItem {
@@ -31,11 +30,12 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   initialTab?: 'sale' | 'preorder';
+  workshopBranches: WorkshopBranchOption[];
 }
 
 type ClientSnap = Pick<Client, 'id' | 'phone'> & { name?: string; branch?: { name: string } | null };
 
-export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess, initialTab }: Props) {
+export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess, initialTab, workshopBranches }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<ClientSnap[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -71,6 +71,8 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const [workshopShowServiceList, setWorkshopShowServiceList] = useState(false);
   const [workshopShowCreateService, setWorkshopShowCreateService] = useState(false);
   const [workshopPrepayment, setWorkshopPrepayment] = useState(0);
+  // В какую мастерскую направить заказ — мастерских может быть несколько
+  const [workshopOrderBranchId, setWorkshopOrderBranchId] = useState('');
 
   // Предоплата за товар (обычная продажа, без мастерской) — клиент забирает
   // товар сейчас, остаток становится долгом (sales.debt_amount)
@@ -112,8 +114,22 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchBranchClients();
-    fetchServices(WORKSHOP_BRANCH_ID).then(setWorkshopServices).catch(console.error);
   }, [branchId]);
+
+  // Мастерская выбирается явно (их может быть несколько) — если она одна,
+  // выбираем её по умолчанию, но список всё равно показываем.
+  useEffect(() => {
+    if (workshopBranches.length === 1 && !workshopOrderBranchId) {
+      setWorkshopOrderBranchId(workshopBranches[0].id);
+    }
+  }, [workshopBranches, workshopOrderBranchId]);
+
+  // Услуги мастерской зависят от того, какая мастерская выбрана — грузим сразу
+  // (пока мастерская не выбрана — общий список по всем) и перезагружаем при
+  // смене выбора, чтобы список сузился до конкретной мастерской.
+  useEffect(() => {
+    fetchServices(workshopOrderBranchId || null).then(setWorkshopServices).catch(console.error);
+  }, [workshopOrderBranchId]);
 
   async function fetchBranchClients() {
     setClientsLoading(true);
@@ -453,6 +469,12 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
       return;
     }
 
+    if (addWorkshop && workshopServiceName.trim() && !workshopOrderBranchId) {
+      alert('Выберите мастерскую, куда направить заказ');
+      isSubmittingRef.current = false;
+      return;
+    }
+
     const sessionOpen = await isCashSessionOpenToday(branchId);
     if (!sessionOpen) {
       alert('Касса закрыта. Откройте кассу в разделе «Магазин» перед оформлением продажи.');
@@ -547,7 +569,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             ? clampPrepayment(workshopPrepayment, wsTotal)
             : 0;
         await createServiceOrder({
-          branch_id: WORKSHOP_BRANCH_ID,
+          branch_id: workshopOrderBranchId,
           created_branch_id: branchId,
           client_name: clientName,
           client_phone: clientPhone,
@@ -1025,6 +1047,21 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
               {addWorkshop && (
                 <div className="px-4 py-3 space-y-3 bg-white">
+
+                  {/* Выбор мастерской — их может быть несколько */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Мастерская *</label>
+                    <select
+                      value={workshopOrderBranchId}
+                      onChange={e => setWorkshopOrderBranchId(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">— выберите мастерскую —</option>
+                      {workshopBranches.map(w => (
+                        <option key={w.id} value={w.id}>{w.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
                   {/* Выбор услуги */}
                   <div>
@@ -1587,7 +1624,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0) || (mode === 'sale' && prepaymentExceedsTotal) || (mode === 'sale' && saleDebtExceedsTotal) || (mode === 'preorder' && preorderPrepaymentExceedsTotal)}
+              disabled={loading || (mode === 'sale' && items.length === 0 && !addWorkshop) || (mode === 'preorder' && items.length === 0) || (mode === 'sale' && prepaymentExceedsTotal) || (mode === 'sale' && saleDebtExceedsTotal) || (mode === 'preorder' && preorderPrepaymentExceedsTotal) || (mode === 'sale' && addWorkshop && workshopServiceName.trim() !== '' && !workshopOrderBranchId)}
               className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
               style={{ background: mode === 'preorder' ? '#f59e0b' : '#16a34a' }}
             >

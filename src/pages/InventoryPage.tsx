@@ -10,10 +10,10 @@ import {
   updateStockRequestItemQuantities, settleSaleDebt,
 } from '../services/inventory';
 import { supabase } from '../services/supabase';
-import { WORKSHOP_BRANCH_ID, WAREHOUSE_ID } from '../constants';
+import { WAREHOUSE_ID } from '../constants';
 import type {
   Product, Stock, InventoryStats, StockAlert,
-  StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder, StockRequest
+  StockMovement, PurchaseOrder, Sale, Revision, Branch, ServiceOrder, StockRequest, WorkshopBranchOption
 } from '../types';
 import AddProductModal from '../components/Inventory/AddProductModal';
 import AddPurchaseModal from '../components/Inventory/AddPurchaseModal';
@@ -49,6 +49,7 @@ interface InventoryPageProps {
   onWorkshopBadgeChange?: (count: number) => void;
   onBadgeChange?: (count: number) => void;
   resetBadgeKey?: number;
+  workshopBranches: WorkshopBranchOption[];
 }
 
 // ---- Excel export helpers ----
@@ -86,7 +87,8 @@ const ExportBtn = ({ onClick }: { onClick: () => void }) => (
 
 const PRINT_HISTORY_PAGE_SIZE = 30;
 
-export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey }: InventoryPageProps) {
+export default function InventoryPage({ branchId, employeeId, role, defaultTab, storefront, onPendingTransfersChange, onWorkshopBadgeChange, onBadgeChange, resetBadgeKey, workshopBranches }: InventoryPageProps) {
+  const isWorkshopBranch = (id?: string | null) => !!id && workshopBranches.some(b => b.id === id);
   const lastTransferCheckRef = useRef(new Date().toISOString());
   const [hasUnreadTransfers, setHasUnreadTransfers] = useState(false);
   const [tab, setTab] = useState<Tab>(defaultTab ?? 'overview');
@@ -397,7 +399,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
 
   // Запоминаем предыдущий филиал перед переходом в Мастерскую
   useEffect(() => {
-    if (activeBranchId !== WORKSHOP_BRANCH_ID) {
+    if (!isWorkshopBranch(activeBranchId)) {
       setPrevActiveBranchId(activeBranchId);
     }
   }, [activeBranchId]);
@@ -750,7 +752,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   }
 
   const isWarehouseBranch = branchId === WAREHOUSE_ID;
-  const canSubmitRequest = !isWarehouseBranch && branchId !== WORKSHOP_BRANCH_ID && role !== 'admin';
+  const canSubmitRequest = !isWarehouseBranch && !isWorkshopBranch(branchId) && role !== 'admin';
   // Склад/админ видят вкладку чтобы обрабатывать заявки; обычный менеджер филиала —
   // чтобы видеть историю/статус своих же заявок (без кнопок одобрить/отклонить/отправить)
   const canManageRequests = role === 'admin' || isWarehouseBranch;
@@ -892,7 +894,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const hasActiveRevision = revisions.some(r => r.status === 'in_progress');
   const overviewBlocked = role === 'manager' && hasActiveRevision;
 
-  if (role === 'admin' && activeBranchId === WORKSHOP_BRANCH_ID) {
+  if (role === 'admin' && isWorkshopBranch(activeBranchId)) {
     return (
       <div className="min-h-screen bg-gray-50">
         {allBranches.length > 0 && (
@@ -913,7 +915,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
             ))}
           </div>
         )}
-        <WorkshopPage branchId={null} employeeId={employeeId} role="admin" onBack={() => setActiveBranchId(prevActiveBranchId)} />
+        <WorkshopPage branchId={null} employeeId={employeeId} role="admin" onBack={() => setActiveBranchId(prevActiveBranchId)} workshopBranches={workshopBranches} />
       </div>
     );
   }
@@ -3787,6 +3789,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           onClose={() => setShowAddSale(false)}
           onSuccess={loadAll}
           initialTab={addSaleInitialTab}
+          workshopBranches={workshopBranches}
         />
       )}
       {showSuppliers && (

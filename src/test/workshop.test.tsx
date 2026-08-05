@@ -40,7 +40,7 @@ const mockServices: Service[] = [
 
 describe('ServiceOrderCard', () => {
   it('рендерится с правильным статус-бейджем "Новый"', () => {
-    render(<ServiceOrderCard order={mockOrder} onStatusChange={vi.fn()} />)
+    render(<ServiceOrderCard order={mockOrder} isMaster={false} onStatusChange={vi.fn()} />)
     expect(screen.getByText('Новый')).toBeInTheDocument()
     expect(screen.getByText('Иван Иванов')).toBeInTheDocument()
     expect(screen.getByText('Ремонт оправы')).toBeInTheDocument()
@@ -50,6 +50,7 @@ describe('ServiceOrderCard', () => {
     render(
       <ServiceOrderCard
         order={{ ...mockOrder, status: 'in_progress' }}
+        isMaster={false}
         onStatusChange={vi.fn()}
       />
     )
@@ -58,21 +59,21 @@ describe('ServiceOrderCard', () => {
 
   it('показывает бейдж "Готов" для статуса ready', () => {
     render(
-      <ServiceOrderCard order={{ ...mockOrder, status: 'ready' }} onStatusChange={vi.fn()} />
+      <ServiceOrderCard order={{ ...mockOrder, status: 'ready' }} isMaster={false} onStatusChange={vi.fn()} />
     )
     expect(screen.getByText('Готов')).toBeInTheDocument()
   })
 
   it('показывает бейдж "Выдан" для статуса done', () => {
     render(
-      <ServiceOrderCard order={{ ...mockOrder, status: 'done' }} onStatusChange={vi.fn()} />
+      <ServiceOrderCard order={{ ...mockOrder, status: 'done' }} isMaster={false} onStatusChange={vi.fn()} />
     )
     expect(screen.getByText('Выдан')).toBeInTheDocument()
   })
 
   it('показывает бейдж "Отменён" для статуса cancelled', () => {
     render(
-      <ServiceOrderCard order={{ ...mockOrder, status: 'cancelled' }} onStatusChange={vi.fn()} />
+      <ServiceOrderCard order={{ ...mockOrder, status: 'cancelled' }} isMaster={false} onStatusChange={vi.fn()} />
     )
     expect(screen.getByText('Отменён')).toBeInTheDocument()
   })
@@ -146,7 +147,7 @@ describe('workshop сервисные функции', () => {
     const fromSpy = vi.mocked(supabase.from)
 
     // from() вызывается синхронно до первого await внутри функции
-    fetchServiceOrders('branch-1', 'manager', 'branch-1').catch(() => {})
+    fetchServiceOrders('branch-1', 'manager', 'branch-1', false).catch(() => {})
 
     expect(fromSpy).toHaveBeenCalledWith('service_orders')
   })
@@ -181,7 +182,7 @@ describe('workshop сервисные функции', () => {
     const { supabase } = await import('@/services/supabase')
     const fromSpy = vi.mocked(supabase.from)
 
-    fetchServiceOrders(null, 'admin', '').catch(() => {})
+    fetchServiceOrders(null, 'admin', '', false).catch(() => {})
 
     expect(fromSpy).toHaveBeenCalledWith('service_orders')
 
@@ -189,6 +190,34 @@ describe('workshop сервисные функции', () => {
     const queryObj = fromSpy.mock.results[0]?.value as {
       eq: ReturnType<typeof vi.fn>
     } | undefined
+    const eqCalls: unknown[][] = queryObj?.eq?.mock.calls ?? []
+    expect(eqCalls.some(call => call[0] === 'branch_id')).toBe(false)
+  })
+
+  // ──────────────────────────────────────────────
+  // 7. fetchServiceOrders — мастер видит СВОЮ мастерскую, не хардкод одного id
+  // ──────────────────────────────────────────────
+
+  it('isMasterView=true фильтрует по branch_id = employeeBranchId — работает для любой мастерской, не одной захардкоженной', async () => {
+    const { supabase } = await import('@/services/supabase')
+    const fromSpy = vi.mocked(supabase.from)
+
+    // Мастерская "на Абая" — id, о котором сервис ничего не знает заранее
+    fetchServiceOrders(null, 'manager', 'workshop-abaya-id', true).catch(() => {})
+
+    expect(fromSpy).toHaveBeenCalledWith('service_orders')
+    const queryObj = fromSpy.mock.results[0]?.value as { eq: ReturnType<typeof vi.fn> } | undefined
+    expect(queryObj?.eq).toHaveBeenCalledWith('branch_id', 'workshop-abaya-id')
+  })
+
+  it('isMasterView=false (обычный менеджер) фильтрует по created_branch_id, не по branch_id', async () => {
+    const { supabase } = await import('@/services/supabase')
+    const fromSpy = vi.mocked(supabase.from)
+
+    fetchServiceOrders(null, 'manager', 'branch-gum', false).catch(() => {})
+
+    const queryObj = fromSpy.mock.results[0]?.value as { eq: ReturnType<typeof vi.fn> } | undefined
+    expect(queryObj?.eq).toHaveBeenCalledWith('created_branch_id', 'branch-gum')
     const eqCalls: unknown[][] = queryObj?.eq?.mock.calls ?? []
     expect(eqCalls.some(call => call[0] === 'branch_id')).toBe(false)
   })
