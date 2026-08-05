@@ -9,9 +9,10 @@ import { CRMSidebar } from './components/CRM/CRMSidebar';
 import { PendingManagers } from './components/Dashboard/PendingManagers';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { WatchlistPanel, useWatchlistCount } from './components/Dashboard/WatchlistPanel';
-import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote, MessageSquare, HelpCircle } from 'lucide-react';
+import { ShieldAlert, Wrench, Receipt, ChevronLeft, Banknote, MessageSquare, HelpCircle, History } from 'lucide-react';
 import AdminCashView from './components/Admin/AdminCashView';
 import AdminSalesHistory from './components/Admin/AdminSalesHistory';
+import ActivityAuditView from './components/Admin/ActivityAuditView';
 import ExpensesTab from './components/Inventory/ExpensesTab';
 import { ReportsPanel } from './components/Dashboard/ReportsPanel';
 import { EmployeeActivity } from './components/Dashboard/EmployeeActivity';
@@ -60,7 +61,7 @@ function AppContent() {
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [pendingTransfersCount, setPendingTransfersCount] = useState(0);
   const hasPendingTransfers = pendingTransfersCount > 0;
-  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist' | 'sales-history'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'chat' | 'reports' | 'activity' | 'tasks' | 'inventory' | 'workshop' | 'expenses' | 'cash' | 'settings' | 'watchlist' | 'sales-history' | 'activity-audit'>('dashboard');
   const watchlistCount = useWatchlistCount();
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'main' | 'manager-crm' | 'tasks' | 'inventory' | 'shop' | 'workshop' | 'expenses'>('list');
   const [shopSubView, setShopSubView] = useState<'sales' | 'workshop' | 'payments' | 'expenses' | 'orders' | 'returns'>('sales');
@@ -592,6 +593,13 @@ function AppContent() {
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </button>
               )}
+              {employee.role === 'admin' && (
+                <button onClick={() => { setAdminView('activity-audit'); setActiveChat(null); }}
+                  className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('activity-audit') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
+                  title="Журнал действий">
+                  <History className="w-3.5 h-3.5" />
+                </button>
+              )}
               {isEmployeeWorkshop && (
               <button onClick={() => { setAdminView('workshop'); setActiveChat(null); if (isMobile) setMobileView('workshop'); }}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${isAdminBtnActive('workshop') ? 'bg-emerald-500 text-white' : 'text-[#8696a0] hover:text-[#e9edef]'}`}
@@ -984,6 +992,11 @@ function AppContent() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {isMobile && <MobilePageHeader title="История продаж" onHelp={() => setShowHelp(true)} />}
           <AdminSalesHistory />
+        </div>
+      ) : isAdmin && adminView === 'activity-audit' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobile && <MobilePageHeader title="Журнал действий" onHelp={() => setShowHelp(true)} />}
+          <ActivityAuditView />
         </div>
       ) : isAdmin && adminView === 'cash' ? (
         <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
