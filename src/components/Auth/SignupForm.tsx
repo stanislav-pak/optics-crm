@@ -11,8 +11,6 @@ interface Branch {
   name: string;
 }
 
-const ADMIN_CODE = import.meta.env.VITE_ADMIN_CODE;
-
 export function SignupForm({ onBack }: SignupFormProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,6 +21,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [registeredAsAdmin, setRegisteredAsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.from('branches').select('id, name').order('name').then(({ data }) => {
@@ -30,31 +29,40 @@ export function SignupForm({ onBack }: SignupFormProps) {
     });
   }, []);
 
-  const isAdmin = adminCode === ADMIN_CODE;
+  // Роль (admin/manager) решает сервер (RPC register_employee) по коду
+  // руководителя — клиент этого заранее не знает, поэтому филиал выбирается
+  // всегда (для админа сервер всё равно переопределит его на "Склад").
+  const registerEmployee = async () => {
+    const { data, error: rpcError } = await supabase.rpc('register_employee', {
+      p_branch_id: branchId,
+      p_name: name,
+      p_email: email,
+      p_admin_code: adminCode || null,
+    });
+    if (rpcError) {
+      if (rpcError.message.includes('employee_already_exists')) {
+        throw new Error('Аккаунт с этим email уже зарегистрирован. Войдите в систему.');
+      }
+      if (rpcError.message.includes('branch_required')) {
+        throw new Error('Выберите филиал');
+      }
+      throw new Error(rpcError.message);
+    }
+    const result = Array.isArray(data) ? data[0] : data;
+    setRegisteredAsAdmin(result?.role === 'admin');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!isAdmin && !branchId) {
+    if (!branchId) {
       setError('Выберите филиал');
       return;
     }
 
     setLoading(true);
     try {
-      // Для админа берём ветку "Склад", для менеджера — выбранную
-      let finalBranchId = branchId;
-      if (isAdmin) {
-        const { data: skladBranch } = await supabase
-          .from('branches')
-          .select('id')
-          .eq('name', 'Склад')
-          .single();
-        if (!skladBranch) throw new Error('Ошибка: филиал не найден');
-        finalBranchId = skladBranch.id;
-      }
-
       const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
       if (signUpError) {
@@ -62,15 +70,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
           const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
           if (loginError) throw new Error('Неверный пароль для существующего аккаунта');
           if (!loginData.user) throw new Error('Ошибка входа');
-          const { error: empInsertError } = await supabase.from('employees').insert({
-            user_id: loginData.user.id,
-            branch_id: finalBranchId,
-            name,
-            email,
-            role: isAdmin ? 'admin' : 'manager',
-            is_active: isAdmin,
-          });
-          if (empInsertError) throw new Error(empInsertError.message);
+          await registerEmployee();
           await supabase.auth.signOut();
           setSuccess(true);
           return;
@@ -80,32 +80,12 @@ export function SignupForm({ onBack }: SignupFormProps) {
 
       if (!data.user) throw new Error('Ошибка создания пользователя');
 
-      // Проверяем нет ли уже employee с этим user_id
-      const { data: existing } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('user_id', data.user.id)
-        .single();
-
-      if (existing) {
-        setError('Аккаунт с этим email уже зарегистрирован. Войдите в систему.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      const { error: empError } = await supabase.from('employees').insert({
-        user_id: data.user.id,
-        branch_id: finalBranchId,
-        name,
-        email,
-        role: isAdmin ? 'admin' : 'manager',
-        is_active: isAdmin,
-      });
-      if (empError) throw new Error(empError.message);
+      await registerEmployee();
       await supabase.auth.signOut();
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка регистрации');
+      await supabase.auth.signOut();
     } finally {
       setLoading(false);
     }
@@ -121,10 +101,10 @@ export function SignupForm({ onBack }: SignupFormProps) {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-[#e9edef] mb-2">
-            {isAdmin ? 'Добро пожаловать!' : 'Заявка отправлена'}
+            {registeredAsAdmin ? 'Добро пожаловать!' : 'Заявка отправлена'}
           </h2>
           <p className="text-sm text-[#8696a0] mb-6">
-            {isAdmin
+            {registeredAsAdmin
               ? 'Аккаунт администратора создан. Войдите в систему.'
               : 'Ваша заявка отправлена на подтверждение руководителю.'}
           </p>
@@ -186,22 +166,19 @@ export function SignupForm({ onBack }: SignupFormProps) {
             <PasswordInput value={password} onChange={setPassword} placeholder="••••••••" />
           </div>
 
-          {/* Филиал — только для менеджеров */}
-          {!isAdmin && (
-            <div>
-              <label className="block text-xs text-[#8696a0] mb-1.5">Филиал</label>
-              <select
-                value={branchId}
-                onChange={(e) => setBranchId(e.target.value)}
-                className="w-full bg-[#2a3942] text-[#d1d7db] rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none"
-              >
-                <option value="" disabled className="text-[#8696a0]">Выберите филиал</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-xs text-[#8696a0] mb-1.5">Филиал</label>
+            <select
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+              className="w-full bg-[#2a3942] text-[#d1d7db] rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none"
+            >
+              <option value="" disabled className="text-[#8696a0]">Выберите филиал</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="block text-xs text-[#8696a0] mb-1.5">
@@ -217,7 +194,7 @@ export function SignupForm({ onBack }: SignupFormProps) {
 
           <button
             onClick={handleSubmit}
-            disabled={loading || !name || !email || !password || (!isAdmin && !branchId)}
+            disabled={loading || !name || !email || !password || !branchId}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2.5 text-sm transition-colors mt-2"
           >
             {loading ? 'Регистрация...' : 'Зарегистрироваться'}
