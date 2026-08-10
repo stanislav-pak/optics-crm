@@ -34,7 +34,55 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethodKey, string> = {
   kaspi_transfer: 'Перевод',
 };
 
+/**
+ * Сырые строки за день/период, из которых считается касса. Одинаковый набор
+ * тянут и карточка филиала, и админский свод, и серверная функция
+ * compute_cash_session_totals — она зеркалит арифметику computeCashTotals
+ * один в один (см. миграцию 20260811_compute_cash_session_totals.sql).
+ */
+export interface CashTotalsInput {
+  sales: SalePaidSplit[];
+  workshopPrepayments: { prepayment: number; prepayment_method?: string | null }[];
+  workshopRemaining: {
+    service_price: number; parts_price: number; prepayment: number;
+    original_prepayment?: number | null; remaining_payment_method?: string | null;
+  }[];
+  debtSettlements: { debt_amount: number; debt_payment_method?: string | null }[];
+  preorderPayments: { prepayment_amount: number; prepayment_method?: string | null }[];
+  prepaymentRefunds: { original_prepayment?: number | null; prepayment_refund_method?: string | null }[];
+  remainingRefunds: {
+    service_price: number; parts_price: number; prepayment: number;
+    original_prepayment?: number | null; remaining_refund_method?: string | null;
+  }[];
+  returnMovements: { quantity: number; product_id: string; reference_id: string | null }[];
+  returnSaleItems: { sale_id: string; product_id: string; price: number }[];
+  returnSales: ({ id: string } & SalePaidSplit)[];
+  expenses: { amount: number; payment_method?: string | null }[];
+}
+
+export interface CashTotals {
+  sales: PocketTotals;
+  workshopPrepaid: PocketTotals;
+  workshopRemaining: PocketTotals;
+  debtSettled: PocketTotals;
+  preorderPaid: PocketTotals;
+  prepaymentRefund: PocketTotals;
+  remainingRefund: PocketTotals;
+  returns: PocketTotals;
+  systemCash: number;
+  systemKaspi: number;
+  systemHalyk: number;
+  systemKaspiTransfer: number;
+  systemTotal: number;
+  expensesCash: number;
+  expensesKaspi: number;
+}
+
 const ZERO: ReturnAllocation = { cash: 0, kaspi: 0, halyk: 0, kaspiTransfer: 0 };
+
+function sumField<T>(rows: T[] | null | undefined, get: (row: T) => number): number {
+  return (rows ?? []).reduce((s, r) => s + (Number(get(r)) || 0), 0);
+}
 
 export function emptyPockets(): PocketTotals {
   return { ...ZERO };
@@ -141,6 +189,80 @@ export function allocateReturnsByPaymentMethod(
  * Считает стоимость возвращённого по каждой продаже: количество из движения
  * склада × цена этой позиции в исходной продаже.
  */
+export function computeCashTotals(input: CashTotalsInput): CashTotals {
+  const sales = {
+    cash: sumField(input.sales, s => s.paid_cash),
+    kaspi: sumField(input.sales, s => s.paid_kaspi),
+    halyk: sumField(input.sales, s => s.paid_halyk),
+    kaspiTransfer: sumField(input.sales, s => s.paid_kaspi_transfer),
+  };
+
+  const workshopPrepaid = sumByPaymentMethod(
+    input.workshopPrepayments, o => o.prepayment_method, o => o.prepayment ?? 0
+  );
+  const workshopRemaining = sumByPaymentMethod(
+    input.workshopRemaining,
+    o => o.remaining_payment_method,
+    o => o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)
+  );
+  const debtSettled = sumByPaymentMethod(
+    input.debtSettlements, s => s.debt_payment_method, s => s.debt_amount ?? 0
+  );
+  const preorderPaid = sumByPaymentMethod(
+    input.preorderPayments, o => o.prepayment_method, o => o.prepayment_amount ?? 0
+  );
+  const prepaymentRefund = sumByPaymentMethod(
+    input.prepaymentRefunds, o => o.prepayment_refund_method, o => o.original_prepayment ?? 0
+  );
+  const remainingRefund = sumByPaymentMethod(
+    input.remainingRefunds,
+    o => o.remaining_refund_method,
+    o => Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment))
+  );
+
+  const salesById: Record<string, SalePaidSplit> = {};
+  for (const s of input.returnSales) salesById[s.id] = s;
+  const returns = allocateReturnsByPaymentMethod(
+    sumReturnedValueBySale(input.returnMovements, input.returnSaleItems),
+    salesById
+  );
+
+  // Приход по карману минус возвраты по нему же.
+  const income = (p: keyof PocketTotals) =>
+    workshopPrepaid[p] + preorderPaid[p] + workshopRemaining[p] + debtSettled[p]
+    - prepaymentRefund[p] - remainingRefund[p] - returns[p];
+
+  const systemCash = sales.cash + income('cash');
+  const systemKaspi = sales.kaspi + income('kaspi');
+  const systemHalyk = sales.halyk + income('halyk');
+  const systemKaspiTransfer = sales.kaspiTransfer + income('kaspiTransfer');
+
+  return {
+    sales,
+    workshopPrepaid,
+    workshopRemaining,
+    debtSettled,
+    preorderPaid,
+    prepaymentRefund,
+    remainingRefund,
+    returns,
+    systemCash,
+    systemKaspi,
+    systemHalyk,
+    systemKaspiTransfer,
+    systemTotal: systemCash + systemKaspi + systemHalyk + systemKaspiTransfer,
+    // Расходы НАМЕРЕННО не входят в system_*: их вычитает close_cash_session
+    // при закрытии (наличные) и витрины при показе (Kaspi). Если вычесть их
+    // здесь, расхождение при закрытии посчитается по расходам дважды.
+    expensesCash: sumField(
+      input.expenses.filter(e => e.payment_method === 'cash'), e => e.amount
+    ),
+    expensesKaspi: sumField(
+      input.expenses.filter(e => e.payment_method === 'kaspi'), e => e.amount
+    ),
+  };
+}
+
 export function sumReturnedValueBySale(
   returnMovements: { quantity: number; product_id: string; reference_id: string | null }[],
   saleItems: { sale_id: string; product_id: string; price: number }[]
