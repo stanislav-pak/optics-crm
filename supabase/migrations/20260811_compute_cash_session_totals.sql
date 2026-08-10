@@ -73,7 +73,7 @@ COMMENT ON COLUMN public.service_orders.remaining_refund_method IS
 -- 1. Серверный расчёт кассы
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION public.compute_cash_session_totals(
+CREATE OR REPLACE FUNCTION public.compute_cash_session_totals_internal(
   p_branch_id uuid,
   p_date date
 )
@@ -96,32 +96,15 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_actor_role   text;
-  v_actor_branch uuid;
-  v_from         timestamptz;
-  v_to           timestamptz;
+  v_from timestamptz;
+  v_to   timestamptz;
 BEGIN
-  -- Права: функция обходит RLS, поэтому проверяем явно (та же модель, что в
-  -- settle_sale_debt). Иначе любой сотрудник читал бы выручку чужого филиала.
-  SELECT role, branch_id
-    INTO v_actor_role, v_actor_branch
-  FROM employees
-  WHERE user_id = auth.uid()
-    AND COALESCE(is_active, true)
-  LIMIT 1;
-
-  -- auth.uid() пуст при вызове из другой SECURITY DEFINER функции под
-  -- service_role (например, из close_cash_session при серверных сценариях) —
-  -- такой вызов считаем доверенным.
-  IF auth.uid() IS NOT NULL THEN
-    IF v_actor_role IS NULL THEN
-      RAISE EXCEPTION 'FORBIDDEN: расчёт кассы доступен только активным сотрудникам';
-    END IF;
-    IF v_actor_role <> 'admin' AND p_branch_id IS DISTINCT FROM v_actor_branch THEN
-      RAISE EXCEPTION 'FORBIDDEN: касса другого филиала';
-    END IF;
-  END IF;
-
+  -- ВНУТРЕННЯЯ функция: БЕЗ проверки прав, вызывать её напрямую нельзя (EXECUTE
+  -- отозван у всех, кроме владельца). Права проверяет обёртка
+  -- compute_cash_session_totals ниже. Разделение сделано намеренно: если бы
+  -- проверка стояла здесь, close_cash_session перестала бы закрывать смену
+  -- чужого филиала — раньше она это позволяла, и менять поведение закрытия
+  -- в рамках этой задачи мы не хотим.
   v_from := (p_date::text || ' 00:00:00')::timestamp AT TIME ZONE 'UTC';
   v_to   := (p_date::text || ' 23:59:59')::timestamp AT TIME ZONE 'UTC';
 
@@ -147,7 +130,7 @@ BEGIN
   pocket_moves AS (
     -- Предоплаты мастерской. ТОЛЬКО заказы без привязанной продажи: заказ,
     -- оформленный внутри продажи, уже посчитан в paid_* самой продажи.
-    SELECT so.prepayment_method AS method, so.prepayment::numeric AS amount
+    SELECT so.prepayment_method AS method, COALESCE(so.prepayment, 0)::numeric AS amount
     FROM service_orders so
     WHERE so.created_branch_id = p_branch_id
       AND so.sale_id IS NULL
@@ -159,7 +142,7 @@ BEGIN
     UNION ALL
     -- Оплата предзаказа (предоплата или 100%). Продажа под предзаказом не
     -- создаётся, поэтому деньги берём прямо из orders.
-    SELECT o.prepayment_method, o.prepayment_amount::numeric
+    SELECT o.prepayment_method, COALESCE(o.prepayment_amount, 0)::numeric
     FROM orders o
     WHERE o.branch_id = p_branch_id
       AND o.prepayment_paid_at IS NOT NULL
@@ -171,8 +154,8 @@ BEGIN
     UNION ALL
     -- Доплаты мастерской при выдаче (остаток).
     SELECT so.remaining_payment_method,
-           (so.service_price + so.parts_price
-             - COALESCE(so.original_prepayment, so.prepayment))::numeric
+           (COALESCE(so.service_price, 0) + COALESCE(so.parts_price, 0)
+             - COALESCE(so.original_prepayment, so.prepayment, 0))::numeric
     FROM service_orders so
     WHERE so.created_branch_id = p_branch_id
       AND so.remaining_paid_at IS NOT NULL
@@ -181,7 +164,7 @@ BEGIN
 
     UNION ALL
     -- Погашения долга по товару.
-    SELECT s.debt_payment_method, s.debt_amount::numeric
+    SELECT s.debt_payment_method, COALESCE(s.debt_amount, 0)::numeric
     FROM sales s
     WHERE s.branch_id = p_branch_id
       AND s.debt_paid_at IS NOT NULL
@@ -200,8 +183,8 @@ BEGIN
     UNION ALL
     -- Возвраты доплат мастерской (минус).
     SELECT so.remaining_refund_method,
-           -GREATEST(0, so.service_price + so.parts_price
-             - COALESCE(so.original_prepayment, so.prepayment))::numeric
+           -GREATEST(0, COALESCE(so.service_price, 0) + COALESCE(so.parts_price, 0)
+             - COALESCE(so.original_prepayment, so.prepayment, 0))::numeric
     FROM service_orders so
     WHERE so.created_branch_id = p_branch_id
       AND so.remaining_refunded_at IS NOT NULL
@@ -240,7 +223,7 @@ BEGIN
 
   returned_by_sale AS (
     SELECT m.reference_id AS sale_id,
-           SUM(m.quantity * sip.price)::numeric AS returned_value
+           SUM(COALESCE(m.quantity, 0) * COALESCE(sip.price, 0))::numeric AS returned_value
     FROM stock_movements m
     JOIN sale_item_prices sip
       ON sip.sale_id = m.reference_id AND sip.product_id = m.product_id
@@ -331,6 +314,66 @@ BEGIN
 END;
 $$;
 
+COMMENT ON FUNCTION public.compute_cash_session_totals_internal(uuid, date) IS
+  'Внутренний расчёт сумм кассы БЕЗ проверки прав. Напрямую не вызывается: EXECUTE отозван у всех. Публичная точка входа — compute_cash_session_totals.';
+
+-- Внутреннюю функцию не может вызвать никто, кроме владельца (то есть только
+-- другие SECURITY DEFINER функции: обёртка и close_cash_session).
+REVOKE ALL ON FUNCTION public.compute_cash_session_totals_internal(uuid, date) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.compute_cash_session_totals_internal(uuid, date) FROM anon;
+REVOKE ALL ON FUNCTION public.compute_cash_session_totals_internal(uuid, date) FROM authenticated;
+
+-- ============================================================
+-- 2. Публичная обёртка с проверкой прав
+-- ============================================================
+-- Функция обходит RLS, поэтому права проверяем явно (та же модель, что в
+-- settle_sale_debt): иначе любой сотрудник читал бы выручку чужого филиала.
+
+CREATE OR REPLACE FUNCTION public.compute_cash_session_totals(
+  p_branch_id uuid,
+  p_date date
+)
+RETURNS TABLE (
+  sales_cash            numeric,
+  sales_kaspi           numeric,
+  sales_halyk           numeric,
+  sales_kaspi_transfer  numeric,
+  system_cash           numeric,
+  system_kaspi          numeric,
+  system_halyk          numeric,
+  system_kaspi_transfer numeric,
+  system_total          numeric,
+  expenses_cash         numeric,
+  expenses_kaspi        numeric
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_actor_role   text;
+  v_actor_branch uuid;
+BEGIN
+  SELECT e.role, e.branch_id
+    INTO v_actor_role, v_actor_branch
+  FROM employees e
+  WHERE e.user_id = auth.uid()
+    AND COALESCE(e.is_active, true)
+  LIMIT 1;
+
+  IF v_actor_role IS NULL THEN
+    RAISE EXCEPTION 'FORBIDDEN: расчёт кассы доступен только активным сотрудникам';
+  END IF;
+  IF v_actor_role <> 'admin' AND p_branch_id IS DISTINCT FROM v_actor_branch THEN
+    RAISE EXCEPTION 'FORBIDDEN: касса другого филиала';
+  END IF;
+
+  RETURN QUERY
+  SELECT * FROM compute_cash_session_totals_internal(p_branch_id, p_date);
+END;
+$$;
+
 COMMENT ON FUNCTION public.compute_cash_session_totals(uuid, date) IS
   'Авторитетный серверный расчёт системных сумм кассы за день. Зеркалит computeCashTotals() из src/services/cashCalc.ts. Расходы возвращаются отдельно и НЕ входят в system_*.';
 
@@ -369,8 +412,11 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Сессия не найдена'; END IF;
   IF v_session.status = 'closed' THEN RAISE EXCEPTION 'Касса уже закрыта'; END IF;
 
+  -- Внутренний вариант, БЕЗ проверки прав: раньше close_cash_session прав не
+  -- проверяла вовсе, и ужесточать закрытие смены в этой задаче мы не хотим —
+  -- иначе сотрудник, подменяющий другой филиал, внезапно не смог бы закрыть кассу.
   SELECT * INTO v_totals
-  FROM compute_cash_session_totals(v_session.branch_id, v_session.date);
+  FROM compute_cash_session_totals_internal(v_session.branch_id, v_session.date);
 
   v_cash_expenses := COALESCE(v_totals.expenses_cash, 0);
   v_expected_cash := v_totals.system_cash - v_cash_expenses;

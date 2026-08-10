@@ -59,7 +59,11 @@ async function runSql<T = Record<string, unknown>>(sql: string, attempt = 0): Pr
  * пересказ в тесте.
  */
 function inlineServerQuery(branchId: string, date: string, hasRemainingRefund: boolean): string {
-  const sql = fs.readFileSync(MIGRATION, 'utf8')
+  // Нормализуем переводы строк: на Windows файл может лежать с CRLF,
+  // и разметка для вырезания ветки/подстановки перестала бы совпадать.
+  // Переводы строк приводим к LF: на Windows файл может лежать с CRLF, и тогда
+  // разметка для вырезания ветки и подстановки параметров не совпадёт.
+  const sql = fs.readFileSync(MIGRATION, 'utf8').split('\r\n').join('\n')
   const start = sql.indexOf('RETURN QUERY')
   const end = sql.indexOf('ON true;', start)
   if (start === -1 || end === -1) throw new Error('Не найдено тело запроса в миграции')
