@@ -102,11 +102,19 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     const salesHalyk = (sales || []).reduce((s, x) => s + (Number(x.paid_halyk) || 0), 0);
     const salesKaspiTransfer = (sales || []).reduce((s, x) => s + (Number(x.paid_kaspi_transfer) || 0), 0);
 
-    // Предоплаты мастерской за сегодня (created_branch_id = этот филиал)
+    // Предоплаты мастерской за сегодня (created_branch_id = этот филиал).
+    // ТОЛЬКО заказы без привязанной продажи (sale_id IS NULL). Заказ, оформленный
+    // внутри продажи (AddSaleModal), кладёт ту же сумму и в paid_cash/paid_kaspi
+    // самой продажи, и в prepayment заказа — считать оба значит задвоить кассу
+    // (баг: ремонт на 500 ₸ показывал 1000 ₸). Заказ, созданный напрямую через
+    // мастерскую, продажи под собой не имеет — его считать обязательно.
+    // Доплату при выдаче (remaining_paid_at ниже) это не касается: она нигде,
+    // кроме заказа, не фиксируется и задвоения не даёт.
     const { data: workshopPrepayments } = await supabase
       .from('service_orders')
       .select('prepayment, prepayment_method')
       .eq('created_branch_id', branchId)
+      .is('sale_id', null)
       .gte('prepayment_paid_at', todayStr + 'T00:00:00')
       .lte('prepayment_paid_at', todayStr + 'T23:59:59')
       .gt('prepayment', 0)

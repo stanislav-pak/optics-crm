@@ -42,10 +42,16 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
         .lte('created_at', dateEnd),
 
       // 2. Workshop prepayments
+      // ТОЛЬКО заказы без привязанной продажи (sale_id IS NULL). Заказ, оформленный
+      // внутри продажи (AddSaleModal), кладёт ту же сумму и в paid_cash/paid_kaspi
+      // самой продажи, и в prepayment заказа — считать оба значит задвоить кассу.
+      // Заказ, созданный напрямую через мастерскую, продажи под собой не имеет,
+      // деньги учтены только здесь — его считать обязательно.
       supabase
         .from('service_orders')
         .select('prepayment, prepayment_method')
         .eq('created_branch_id', branchId)
+        .is('sale_id', null)
         .gte('prepayment_paid_at', dateStart)
         .lte('prepayment_paid_at', dateEnd)
         .gt('prepayment', 0)
