@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 import type { Branch } from '../types';
+import {
+  allocateReturnsByPaymentMethod, sumReturnedValueBySale,
+  type ReturnAllocation, type SalePaidSplit,
+} from './cashCalc';
 
 export interface AdminCashData {
   salesCash: number;
@@ -17,6 +21,7 @@ export interface AdminCashData {
   refundCash: number;
   refundKaspi: number;
   returnsCash: number;
+  returnsKaspi: number;
   expensesCash: number;
   expensesKaspi: number;
   expenseItems: { name: string; amount: number }[];
@@ -156,27 +161,36 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     .filter(o => o.prepayment_refund_method === 'kaspi')
     .reduce((s, o) => s + (o.original_prepayment ?? 0), 0);
 
-  // 5. Returns cash (sale items price × returned quantity)
-  let returnsCash = 0;
+  // 5. Возвраты товаров — вычитаем из того кармана, которым платили за исходную
+  // продажу (раньше всё уходило в минус по наличным). Общая логика с кассой
+  // филиала — см. services/cashCalc.ts.
+  let returns: ReturnAllocation = { cash: 0, kaspi: 0, halyk: 0, kaspiTransfer: 0 };
   const returnMovements = returnMovementsRes.data ?? [];
   const returnSaleIds = [...new Set(returnMovements.map(r => r.reference_id).filter(Boolean))] as string[];
   if (returnSaleIds.length > 0) {
-    const { data: saleItems } = await supabase
-      .from('sale_items')
-      .select('sale_id, product_id, price')
-      .in('sale_id', returnSaleIds);
+    const [{ data: saleItems }, { data: returnSales }] = await Promise.all([
+      supabase
+        .from('sale_items')
+        .select('sale_id, product_id, price')
+        .in('sale_id', returnSaleIds),
+      supabase
+        .from('sales')
+        .select('id, paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer')
+        .in('id', returnSaleIds),
+    ]);
 
-    const priceMap: Record<string, Record<string, number>> = {};
-    (saleItems ?? []).forEach((si: { sale_id: string; product_id: string; price: number }) => {
-      if (!priceMap[si.sale_id]) priceMap[si.sale_id] = {};
-      priceMap[si.sale_id][si.product_id] = si.price;
+    const salesById: Record<string, SalePaidSplit> = {};
+    (returnSales ?? []).forEach((s: { id: string } & SalePaidSplit) => {
+      salesById[s.id] = s;
     });
 
-    returnsCash = returnMovements.reduce((sum, r) => {
-      const unitPrice = priceMap[r.reference_id ?? '']?.[r.product_id] ?? 0;
-      return sum + r.quantity * unitPrice;
-    }, 0);
+    returns = allocateReturnsByPaymentMethod(
+      sumReturnedValueBySale(returnMovements, saleItems ?? []),
+      salesById
+    );
   }
+  const returnsCash = returns.cash;
+  const returnsKaspi = returns.kaspi;
 
   // 6. Expenses
   const expenses = expensesRes.data ?? [];
@@ -201,8 +215,9 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
   const systemCash =
     salesCash + workshopPrepaidCash + workshopRemainingCash + saleDebtSettledCash - refundCash - returnsCash;
   const systemKaspi =
-    salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi + saleDebtSettledKaspi - refundKaspi;
-  const systemTotal = systemCash + systemKaspi + salesHalyk + salesKaspiTransfer;
+    salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi + saleDebtSettledKaspi - refundKaspi - returnsKaspi;
+  const systemTotal =
+    systemCash + systemKaspi + (salesHalyk - returns.halyk) + (salesKaspiTransfer - returns.kaspiTransfer);
 
   return {
     salesCash,
@@ -220,6 +235,7 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     refundCash,
     refundKaspi,
     returnsCash,
+    returnsKaspi,
     expensesCash,
     expensesKaspi,
     expenseItems,

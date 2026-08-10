@@ -6,6 +6,11 @@ import {
   getCashSession, openCashSession, closeCashSession, reopenCashSession, getCashSessionClosures,
   type CashSession, type CashSessionClosure,
 } from '../../services/cashSessions';
+import {
+  allocateReturnsByPaymentMethod, sumReturnedValueBySale,
+  type ReturnAllocation, type SalePaidSplit,
+} from '../../services/cashCalc';
+import { CASH_CHANGED_EVENT } from '../../services/cashEvents';
 
 interface Props {
   branchId: string;
@@ -34,8 +39,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const loadSession = async () => {
-    setLoading(true);
+  // silent=true — пересчитать и перезаписать суммы, не показывая спиннер вместо
+  // карточки. Нужно при закрытии кассы: иначе открытый модал закрытия пропал бы
+  // с экрана на время пересчёта.
+  const loadSession = async (silent = false) => {
+    if (!silent) setLoading(true);
     const existing = await getCashSession(branchId, todayStr);
 
     if (!existing) {
@@ -205,35 +213,45 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .gte('created_at', todayStr + 'T00:00:00')
       .lte('created_at', todayStr + 'T23:59:59');
 
-    let saleReturnsCash = 0;
+    // Возврат вычитается из ТОГО кармана, которым платили за исходную продажу
+    // (раньше всегда из наличных — при возврате Kaspi-продажи наличные занижались,
+    // Kaspi оставался завышенным, у менеджера вылезала ложная недостача).
+    let returns: ReturnAllocation = { cash: 0, kaspi: 0, halyk: 0, kaspiTransfer: 0 };
     const returnSaleIds = [
       ...new Set((returnMovements ?? []).map(r => r.reference_id).filter(Boolean)),
-    ];
+    ] as string[];
     if (returnSaleIds.length > 0) {
-      const { data: saleItems } = await supabase
-        .from('sale_items')
-        .select('sale_id, product_id, price')
-        .in('sale_id', returnSaleIds);
+      const [{ data: saleItems }, { data: returnSales }] = await Promise.all([
+        supabase
+          .from('sale_items')
+          .select('sale_id, product_id, price')
+          .in('sale_id', returnSaleIds),
+        supabase
+          .from('sales')
+          .select('id, paid_cash, paid_kaspi, paid_halyk, paid_kaspi_transfer')
+          .in('id', returnSaleIds),
+      ]);
 
-      const priceMap: Record<string, Record<string, number>> = {};
-      (saleItems ?? []).forEach((si: { sale_id: string; product_id: string; price: number }) => {
-        if (!priceMap[si.sale_id]) priceMap[si.sale_id] = {};
-        priceMap[si.sale_id][si.product_id] = si.price;
+      const salesById: Record<string, SalePaidSplit> = {};
+      (returnSales ?? []).forEach((s: { id: string } & SalePaidSplit) => {
+        salesById[s.id] = s;
       });
 
-      saleReturnsCash = (returnMovements ?? []).reduce((sum, r) => {
-        const unitPrice = priceMap[r.reference_id ?? '']?.[r.product_id] ?? 0;
-        return sum + r.quantity * unitPrice;
-      }, 0);
+      returns = allocateReturnsByPaymentMethod(
+        sumReturnedValueBySale(returnMovements ?? [], saleItems ?? []),
+        salesById
+      );
     }
 
-    const systemCash = salesCash + prepaidCash + cashWorkshop + saleDebtSettledCash - refundCash - saleReturnsCash - remainingRefundCash;
-    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop + saleDebtSettledKaspi - refundKaspi - remainingRefundKaspi;
+    const systemCash = salesCash + prepaidCash + cashWorkshop + saleDebtSettledCash - refundCash - returns.cash - remainingRefundCash;
+    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop + saleDebtSettledKaspi - refundKaspi - returns.kaspi - remainingRefundKaspi;
     // Halyk/Kaspi-перевод не хранятся отдельными колонками в cash_sessions — пересчитываются
     // каждый раз наравне с остальным, но не входят в system_cash (не требуют физической сдачи)
-    setSystemHalyk(salesHalyk);
-    setSystemKaspiTransfer(salesKaspiTransfer);
-    const systemTotal = systemCash + systemKaspi + salesHalyk + salesKaspiTransfer;
+    const halykTotal = salesHalyk - returns.halyk;
+    const kaspiTransferTotal = salesKaspiTransfer - returns.kaspiTransfer;
+    setSystemHalyk(halykTotal);
+    setSystemKaspiTransfer(kaspiTransferTotal);
+    const systemTotal = systemCash + systemKaspi + halykTotal + kaspiTransferTotal;
 
     const { data: updated } = await supabase
       .from('cash_sessions')
@@ -258,11 +276,18 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
 
   useEffect(() => { loadSession(); }, [branchId]);
 
-  // Обновить кассу после возврата продажи
+  // Обновить кассу после возврата продажи и после любой другой денежной операции
+  // (погашение долга, новая продажа, расход — см. services/cashEvents.ts).
+  // Без этого итог кассы оставался старым до перезагрузки страницы, а при закрытии
+  // смены устаревшая сумма замерзала в истории навсегда.
   useEffect(() => {
     const refresh = () => loadSession();
     window.addEventListener('sale-returned', refresh);
-    return () => window.removeEventListener('sale-returned', refresh);
+    window.addEventListener(CASH_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener('sale-returned', refresh);
+      window.removeEventListener(CASH_CHANGED_EVENT, refresh);
+    };
   }, []);
 
   const handleClose = async () => {
@@ -270,6 +295,13 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     isSubmittingRef.current = true;
     setSaving(true);
     try {
+      // Принудительный пересчёт ПЕРЕД закрытием. close_cash_session берёт суммы
+      // из строки cash_sessions как есть и не пересчитывает — то есть замораживает
+      // в историю то, что последним записал браузер. Без этого любая операция,
+      // сделанная после последнего пересчёта, терялась навсегда (реальный случай:
+      // погашение долга 3000 ₸ за 3 минуты до закрытия кассы «Гум»).
+      // silent — чтобы модал закрытия не подменился спиннером.
+      await loadSession(true);
       await closeCashSession(session.id, parseFloat(actualCash), employeeId, notes);
       setShowModal(false);
       setActualCash('');

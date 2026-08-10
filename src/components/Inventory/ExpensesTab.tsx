@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 import { getExpenses, deleteExpense, calcExpenseSummary, type Expense } from '../../services/expenses';
 import AddExpenseModal from './AddExpenseModal';
+import { notifyCashChanged } from '../../services/cashEvents';
 
 interface Props {
   branchId: string;
@@ -60,6 +61,8 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
     try {
       await deleteExpense(id);
       setExpenses(prev => prev.filter(e => e.id !== id));
+      // Удалённый расход тоже меняет «к сдаче наличными» — пересчитываем кассу.
+      notifyCashChanged();
     } catch (err) {
       console.error(err);
     } finally {
@@ -82,7 +85,7 @@ export default function ExpensesTab({ branchId, employeeId, isAdmin }: Props) {
         branchId={branchId}
         employeeId={employeeId}
         onClose={() => setShowAddModal(false)}
-        onCreated={() => { load(); setShowAddModal(false); }}
+        onCreated={() => { notifyCashChanged(); load(); setShowAddModal(false); }}
       />
     );
   }

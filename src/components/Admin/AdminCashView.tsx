@@ -308,7 +308,7 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
       data.refundCash + data.refundKaspi) > 0;
 
   const hasSaleDebtSettled = data && (data.saleDebtSettledCash + data.saleDebtSettledKaspi) > 0;
-  const hasReturns = data && data.returnsCash > 0;
+  const hasReturns = data && (data.returnsCash + data.returnsKaspi) > 0;
   const hasExpenses = data && (data.expensesCash + data.expensesKaspi) > 0;
 
   return (
@@ -442,7 +442,8 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
             {/* Возвраты товаров */}
             {hasReturns && (
               <Section title="Возвраты товаров">
-                <Row label="Наличные" value={-data.returnsCash} red />
+                {data.returnsCash > 0 && <Row label="Наличные" value={-data.returnsCash} red />}
+                {data.returnsKaspi > 0 && <Row label="Kaspi QR" value={-data.returnsKaspi} red />}
               </Section>
             )}
 

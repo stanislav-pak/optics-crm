@@ -36,6 +36,7 @@ import ExpensesTab from '../components/Inventory/ExpensesTab';
 import StockRequestModal from '../components/Inventory/StockRequestModal';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
+import { notifyCashChanged } from '../services/cashEvents';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels' | 'requests' | 'warehouse';
 
@@ -742,6 +743,8 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
       } : prev);
       setShowDebtPayDialog(false);
       setSalesRefreshKey(k => k + 1);
+      // Погашение долга — живые деньги в кассе, пересчитываем смену.
+      notifyCashChanged();
       await loadSales();
     } catch (e: any) {
       alert('Ошибка: ' + e.message);
@@ -3787,7 +3790,7 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
           branchId={activeBranchId}
           employeeId={employeeId}
           onClose={() => setShowAddSale(false)}
-          onSuccess={loadAll}
+          onSuccess={() => { notifyCashChanged(); loadAll(); }}
           initialTab={addSaleInitialTab}
           workshopBranches={workshopBranches}
         />
