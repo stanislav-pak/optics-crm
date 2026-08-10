@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethodKey } from '../../services/cashCalc';
 import type { ServiceOrder } from '../../types';
 
 const STATUS_RU: Record<string, string> = {
@@ -20,7 +21,8 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-600',
 };
 
-type PaymentMethod = 'cash' | 'kaspi';
+type PaymentMethod = PaymentMethodKey;
+const REFUND_METHODS = ['cash', 'kaspi'] as const;
 
 interface ConfirmState {
   order: ServiceOrder;
@@ -313,27 +315,23 @@ export default function PendingPaymentsView({ branchId, onCountChange }: Props) 
               <p className="text-xs font-medium text-gray-500 mb-2">
                 {confirm.type === 'dopay' ? 'Способ оплаты' : 'Способ возврата'}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setConfirm(prev => prev ? { ...prev, method: 'cash' } : prev)}
-                  className={`py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                    confirm.method === 'cash'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  💵 Наличные
-                </button>
-                <button
-                  onClick={() => setConfirm(prev => prev ? { ...prev, method: 'kaspi' } : prev)}
-                  className={`py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                    confirm.method === 'kaspi'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  📱 Kaspi
-                </button>
+              {/* Доплату можно принять любым из 4 способов. Возврат предоплаты —
+                  по-прежнему только наличные/Kaspi: колонка prepayment_refund_method
+                  других значений не принимает (менять её в этот заход не стали). */}
+              <div className={confirm.type === 'dopay' ? 'grid grid-cols-4 gap-1' : 'grid grid-cols-2 gap-2'}>
+                {(confirm.type === 'dopay' ? PAYMENT_METHODS : REFUND_METHODS).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setConfirm(prev => prev ? { ...prev, method: m } : prev)}
+                    className={`py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                      confirm.method === m
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {PAYMENT_METHOD_LABELS[m]}
+                  </button>
+                ))}
               </div>
             </div>
 

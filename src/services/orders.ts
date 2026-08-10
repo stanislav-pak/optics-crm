@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { PaymentMethodKey } from './cashCalc';
 
 export type OrderStatus = 'new' | 'confirmed' | 'awaiting' | 'ready' | 'completed' | 'cancelled';
 export type OrderPaymentType = 'none' | 'prepaid' | 'full';
@@ -21,7 +22,7 @@ export interface Order {
   status: OrderStatus;
   payment_type: OrderPaymentType;
   prepayment_amount: number;
-  prepayment_method?: 'cash' | 'kaspi' | null;
+  prepayment_method?: PaymentMethodKey | null;
   prepayment_paid_at?: string | null;
   total_amount: number;
   source_branch_id?: string | null;
@@ -44,7 +45,8 @@ export interface CreateOrderData {
   client_id?: string | null;
   payment_type: OrderPaymentType;
   prepayment_amount?: number;
-  prepayment_method?: 'cash' | 'kaspi' | null;
+  prepayment_method?: PaymentMethodKey | null;
+  prepayment_paid_at?: string | null;
   total_amount: number;
   source_branch_id?: string | null;
   notes?: string;
@@ -118,12 +120,18 @@ export async function getOrderById(id: string): Promise<Order> {
 
 export async function createOrder(data: CreateOrderData): Promise<Order> {
   const { items, ...orderPayload } = data;
+  const prepayment = orderPayload.prepayment_amount ?? 0;
 
   const { data: newOrder, error: orderError } = await supabase
     .from('orders')
     .insert({
       ...orderPayload,
-      prepayment_amount: orderPayload.prepayment_amount ?? 0,
+      prepayment_amount: prepayment,
+      // Отметка «деньги получены тогда-то» — по ней касса относит предоплату
+      // предзаказа к нужному дню (тот же приём, что у мастерской). Без неё
+      // деньги предзаказа не попадали в кассу вообще.
+      prepayment_paid_at:
+        prepayment > 0 ? (orderPayload.prepayment_paid_at ?? new Date().toISOString()) : null,
     })
     .select('id')
     .single();

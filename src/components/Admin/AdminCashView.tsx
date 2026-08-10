@@ -6,6 +6,15 @@ import { getCashSessionClosures, type CashSessionClosure } from '../../services/
 
 type PeriodTab = 'today' | 'week' | 'month' | 'custom';
 
+// Порядок и подписи строк с разбивкой по способам оплаты. Полные названия —
+// в отличие от коротких кнопок в модалках, тут места хватает.
+const POCKET_ROWS = [
+  { key: 'cash', label: 'Наличные' },
+  { key: 'kaspi', label: 'Kaspi QR' },
+  { key: 'halyk', label: 'POST' },
+  { key: 'kaspiTransfer', label: 'Kaspi перевод' },
+] as const;
+
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-KZ', {
     style: 'currency',
@@ -307,7 +316,10 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
       data.workshopRemainingCash + data.workshopRemainingKaspi +
       data.refundCash + data.refundKaspi) > 0;
 
-  const hasSaleDebtSettled = data && (data.saleDebtSettledCash + data.saleDebtSettledKaspi) > 0;
+  const sumPockets = (p: { cash: number; kaspi: number; halyk: number; kaspiTransfer: number }) =>
+    p.cash + p.kaspi + p.halyk + p.kaspiTransfer;
+  const hasSaleDebtSettled = data && sumPockets(data.saleDebtSettled) > 0;
+  const hasPreorders = data && sumPockets(data.preorderPaid) > 0;
   const hasReturns = data && (data.returnsCash + data.returnsKaspi) > 0;
   const hasExpenses = data && (data.expensesCash + data.expensesKaspi) > 0;
 
@@ -384,12 +396,23 @@ function DetailScreen({ branch, onBack }: DetailScreenProps) {
             {/* Долги по товару (частичная оплата, без мастерской) */}
             {hasSaleDebtSettled && (
               <Section title="Погашение долгов по товару">
-                {data.saleDebtSettledCash > 0 && (
-                  <Row label="Наличные" value={data.saleDebtSettledCash} />
-                )}
-                {data.saleDebtSettledKaspi > 0 && (
-                  <Row label="Kaspi" value={data.saleDebtSettledKaspi} />
-                )}
+                {POCKET_ROWS.map(({ key, label }) => (
+                  data.saleDebtSettled[key] > 0
+                    ? <Row key={key} label={label} value={data.saleDebtSettled[key]} />
+                    : null
+                ))}
+              </Section>
+            )}
+
+            {/* Предзаказы: продажа под ними не создаётся, деньги учитываются
+                прямо из orders — раньше не попадали в кассу вообще. */}
+            {hasPreorders && (
+              <Section title="Предзаказы (оплата)">
+                {POCKET_ROWS.map(({ key, label }) => (
+                  data.preorderPaid[key] > 0
+                    ? <Row key={key} label={label} value={data.preorderPaid[key]} />
+                    : null
+                ))}
               </Section>
             )}
 

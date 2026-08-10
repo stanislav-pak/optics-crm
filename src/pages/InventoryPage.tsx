@@ -37,6 +37,7 @@ import StockRequestModal from '../components/Inventory/StockRequestModal';
 import WorkshopPage from './WorkshopPage';
 import { fetchServiceOrderBySaleId, updateServiceOrderStatus } from '../services/workshop';
 import { notifyCashChanged } from '../services/cashEvents';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethodKey } from '../services/cashCalc';
 
 type Tab = 'overview' | 'products' | 'movements' | 'purchases' | 'sales' | 'revisions' | 'writeoffs' | 'returns' | 'labels' | 'requests' | 'warehouse';
 
@@ -192,9 +193,9 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleWorkshopOrder, setSaleWorkshopOrder] = useState<ServiceOrder | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
-  const [payMethod, setPayMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [payMethod, setPayMethod] = useState<PaymentMethodKey>('cash');
   const [showDebtPayDialog, setShowDebtPayDialog] = useState(false);
-  const [debtPayMethod, setDebtPayMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [debtPayMethod, setDebtPayMethod] = useState<PaymentMethodKey>('cash');
   const [settlingDebt, setSettlingDebt] = useState(false);
   const settlingDebtRef = useRef(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -3445,19 +3446,17 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                           <p className="text-sm font-medium mb-2">
                             Погасить долг ₸{selectedSale.debt_amount.toLocaleString()}?
                           </p>
-                          <div className="flex gap-2 mb-2">
-                            <button
-                              onClick={() => setDebtPayMethod('cash')}
-                              className={`flex-1 py-1.5 rounded-lg text-sm border ${debtPayMethod === 'cash' ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
-                            >
-                              Наличные
-                            </button>
-                            <button
-                              onClick={() => setDebtPayMethod('kaspi')}
-                              className={`flex-1 py-1.5 rounded-lg text-sm border ${debtPayMethod === 'kaspi' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
-                            >
-                              Kaspi
-                            </button>
+                          {/* Все 4 способа: долг можно закрыть и через POST, и переводом */}
+                          <div className="grid grid-cols-4 gap-1 mb-2">
+                            {PAYMENT_METHODS.map(m => (
+                              <button
+                                key={m}
+                                onClick={() => setDebtPayMethod(m)}
+                                className={`py-1.5 rounded-lg text-xs border ${debtPayMethod === m ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
+                              >
+                                {PAYMENT_METHOD_LABELS[m]}
+                              </button>
+                            ))}
                           </div>
                           <div className="flex gap-2">
                             <button
@@ -3562,19 +3561,16 @@ export default function InventoryPage({ branchId, employeeId, role, defaultTab, 
                             <p className="text-sm font-medium mb-2">
                               Принять доплату ₸{wsRemainder.toLocaleString()} от {order.client_name}?
                             </p>
-                            <div className="flex gap-2 mb-2">
-                              <button
-                                onClick={() => setPayMethod('cash')}
-                                className={`flex-1 py-1.5 rounded-lg text-sm border ${payMethod === 'cash' ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
-                              >
-                                Наличные
-                              </button>
-                              <button
-                                onClick={() => setPayMethod('kaspi')}
-                                className={`flex-1 py-1.5 rounded-lg text-sm border ${payMethod === 'kaspi' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
-                              >
-                                Kaspi
-                              </button>
+                            <div className="grid grid-cols-4 gap-1 mb-2">
+                              {PAYMENT_METHODS.map(m => (
+                                <button
+                                  key={m}
+                                  onClick={() => setPayMethod(m)}
+                                  className={`py-1.5 rounded-lg text-xs border ${payMethod === m ? 'bg-green-600 text-white border-green-600' : 'border-gray-300'}`}
+                                >
+                                  {PAYMENT_METHOD_LABELS[m]}
+                                </button>
+                              ))}
                             </div>
                             <div className="flex gap-2">
                               <button

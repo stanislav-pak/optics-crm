@@ -6,6 +6,8 @@ import { createServiceOrder, fetchServices, createService } from '../../services
 import { createOrder } from '../../services/orders';
 import { supabase } from '../../services/supabase';
 import { formatPhone, clampPrepayment } from '@/utils/formatters';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethodKey } from '../../services/cashCalc';
+import { notifyCashChanged } from '../../services/cashEvents';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import BarcodeScanner from '../Shared/BarcodeScanner';
 import KaspiQRModal from './KaspiQRModal';
@@ -104,7 +106,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   // Состояния предзаказа
   const [preorderPaymentType, setPreorderPaymentType] = useState<'none' | 'prepaid' | 'full'>('none');
   const [prepaymentAmount, setPrepaymentAmount] = useState('');
-  const [prepaymentMethod, setPrepaymentMethod] = useState<'cash' | 'kaspi'>('cash');
+  const [prepaymentMethod, setPrepaymentMethod] = useState<PaymentMethodKey>('cash');
   const [expectedDate, setExpectedDate] = useState('');
   const [preorderNotes, setPreorderNotes] = useState('');
   const isSubmittingRef = useRef(false);
@@ -410,8 +412,17 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           client_name: orderClientName,
           client_phone: orderClientPhone,
           payment_type: preorderPaymentType,
-          prepayment_amount: preorderPaymentType === 'prepaid' ? clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total) : 0,
-          prepayment_method: preorderPaymentType === 'prepaid' ? prepaymentMethod : null,
+          // При 100% оплате в prepayment_amount раньше писался 0, продажа не
+          // создавалась — и полученные деньги не были записаны НИГДЕ. Теперь
+          // 'full' пишет всю сумму заказа (тот же приём, что у мастерской),
+          // и касса видит её по prepayment_paid_at.
+          prepayment_amount:
+            preorderPaymentType === 'full'
+              ? total
+              : preorderPaymentType === 'prepaid'
+                ? clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total)
+                : 0,
+          prepayment_method: preorderPaymentType === 'none' ? null : prepaymentMethod,
           total_amount: total,
           expected_date: expectedDate || null,
           notes: preorderNotes.trim() || undefined,
@@ -445,6 +456,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
         }
 
         window.dispatchEvent(new CustomEvent('preorder-created'));
+        // Предзаказ не проходит через onSuccess, а оплата по нему теперь попадает
+        // в кассу — иначе итог смены остался бы старым до перезагрузки страницы.
+        notifyCashChanged();
         onClose();
       } catch (e: any) {
         alert('Ошибка: ' + (e?.message || JSON.stringify(e)));
@@ -1543,46 +1557,53 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                   </div>
                 </div>
 
-                {/* Предоплата */}
-                {preorderPaymentType === 'prepaid' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={prepaymentAmount}
-                        onChange={e => setPrepaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-                        onBlur={() => {
-                          if (total <= 0) return;
-                          const clamped = clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total);
-                          setPrepaymentAmount(clamped === 0 ? '' : String(clamped));
-                        }}
-                        placeholder="0"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                      />
-                      {preorderPrepaymentExceedsTotal && (
-                        <p className="text-xs text-red-500 mt-1">
-                          Предоплата не может превышать стоимость товаров
-                        </p>
-                      )}
-                    </div>
+                {/* Оплата предзаказа. Способ спрашиваем и при полной оплате —
+                    её сумма теперь тоже попадает в кассу, и ей нужен карман. */}
+                {preorderPaymentType !== 'none' && (
+                  <div className="space-y-2">
+                    {preorderPaymentType === 'prepaid' ? (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Сумма предоплаты ₸</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={prepaymentAmount}
+                          onChange={e => setPrepaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onBlur={() => {
+                            if (total <= 0) return;
+                            const clamped = clampPrepayment(parseFloat(prepaymentAmount || '0') || 0, total);
+                            setPrepaymentAmount(clamped === 0 ? '' : String(clamped));
+                          }}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                        {preorderPrepaymentExceedsTotal && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Предоплата не может превышать стоимость товаров
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        К оплате сейчас: <span className="font-semibold text-gray-800">₸{total.toLocaleString()}</span>
+                      </p>
+                    )}
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Способ</label>
-                      <div className="flex gap-1 h-[38px]">
-                        {(['cash', 'kaspi'] as const).map(m => (
+                      <div className="grid grid-cols-4 gap-1 h-[38px]">
+                        {PAYMENT_METHODS.map(m => (
                           <button
                             key={m}
                             type="button"
                             onClick={() => setPrepaymentMethod(m)}
-                            className="flex-1 rounded-lg text-xs font-medium border transition-colors"
+                            className="rounded-lg text-xs font-medium border transition-colors"
                             style={{
                               background: prepaymentMethod === m ? '#f59e0b' : 'transparent',
                               color: prepaymentMethod === m ? '#fff' : '#6b7280',
                               borderColor: prepaymentMethod === m ? '#f59e0b' : '#e5e7eb',
                             }}
                           >
-                            {m === 'cash' ? 'Нал' : 'Kaspi'}
+                            {PAYMENT_METHOD_LABELS[m]}
                           </button>
                         ))}
                       </div>

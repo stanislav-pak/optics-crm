@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 import type { Branch } from '../types';
 import {
-  allocateReturnsByPaymentMethod, sumReturnedValueBySale,
-  type ReturnAllocation, type SalePaidSplit,
+  allocateReturnsByPaymentMethod, sumReturnedValueBySale, sumByPaymentMethod,
+  type ReturnAllocation, type SalePaidSplit, type PocketTotals,
 } from './cashCalc';
 
 export interface AdminCashData {
@@ -18,6 +18,14 @@ export interface AdminCashData {
   workshopRemainingKaspi: number;
   saleDebtSettledCash: number;
   saleDebtSettledKaspi: number;
+  /** Погашения долга по всем 4 способам (POST/перевод раньше были недоступны). */
+  saleDebtSettled: PocketTotals;
+  /** Доплаты мастерской по всем 4 способам. */
+  workshopRemaining: PocketTotals;
+  /** Оплаты предзаказов (предоплата и 100%) — раньше в кассу не попадали вовсе. */
+  preorderPaid: PocketTotals;
+  /** Возвраты доплат мастерской — раньше админский свод их не вычитал. */
+  remainingRefund: PocketTotals;
   refundCash: number;
   refundKaspi: number;
   returnsCash: number;
@@ -35,7 +43,10 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
   const dateFrom = dateStart.split('T')[0];
   const dateTo = dateEnd.split('T')[0];
 
-  const [salesRes, prepaidRes, remainingRes, debtSettledRes, refundsRes, returnMovementsRes, expensesRes, sessionRes] =
+  const [
+    salesRes, prepaidRes, remainingRes, debtSettledRes, refundsRes,
+    remainingRefundsRes, preorderRes, returnMovementsRes, expensesRes, sessionRes,
+  ] =
     await Promise.all([
       // 1. Sales
       supabase
@@ -89,6 +100,29 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
         .lte('prepayment_refunded_at', dateEnd)
         .not('prepayment_refunded_at', 'is', null),
 
+      // 4б. Возвраты ДОПЛАТ мастерской. Касса филиала их вычитала, админский свод —
+      // нет, из-за чего две витрины по одним данным давали разные суммы.
+      supabase
+        .from('service_orders')
+        .select('service_price, parts_price, prepayment, original_prepayment, remaining_refund_method')
+        .eq('created_branch_id', branchId)
+        .gte('remaining_refunded_at', dateStart)
+        .lte('remaining_refunded_at', dateEnd)
+        .not('remaining_refunded_at', 'is', null),
+
+      // 4в. Предзаказы, оплаченные в периоде (предоплата или 100%). Продажа под
+      // предзаказом не создаётся, поэтому деньги берём прямо из orders — иначе
+      // они не попадают в кассу вообще.
+      supabase
+        .from('orders')
+        .select('prepayment_amount, prepayment_method')
+        .eq('branch_id', branchId)
+        .gte('prepayment_paid_at', dateStart)
+        .lte('prepayment_paid_at', dateEnd)
+        .gt('prepayment_amount', 0)
+        .not('prepayment_paid_at', 'is', null)
+        .neq('status', 'cancelled'),
+
       // 5. Return stock movements
       supabase
         .from('stock_movements')
@@ -130,36 +164,38 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
   const avgCheck = salesCount > 0 ? (salesCash + salesKaspi + salesHalyk + salesKaspiTransfer) / salesCount : 0;
 
   // 2. Workshop prepayments
-  const workshopPrepaidCash = (prepaidRes.data ?? [])
-    .filter(o => o.prepayment_method === 'cash')
-    .reduce((s, o) => s + (o.prepayment ?? 0), 0);
-  const workshopPrepaidKaspi = (prepaidRes.data ?? [])
-    .filter(o => o.prepayment_method === 'kaspi')
-    .reduce((s, o) => s + (o.prepayment ?? 0), 0);
+  const wsPrepaid = sumByPaymentMethod(
+    prepaidRes.data, o => o.prepayment_method, o => o.prepayment ?? 0
+  );
 
   // 3. Workshop remaining (используем original_prepayment — неизменяемое поле)
-  const workshopRemainingCash = (remainingRes.data ?? [])
-    .filter(o => o.remaining_payment_method === 'cash')
-    .reduce((s, o) => s + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
-  const workshopRemainingKaspi = (remainingRes.data ?? [])
-    .filter(o => o.remaining_payment_method === 'kaspi')
-    .reduce((s, o) => s + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
+  const wsRemaining = sumByPaymentMethod(
+    remainingRes.data,
+    o => o.remaining_payment_method,
+    o => o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)
+  );
 
   // 3.5. Sale debt settlements
-  const saleDebtSettledCash = (debtSettledRes.data ?? [])
-    .filter(s => s.debt_payment_method === 'cash')
-    .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
-  const saleDebtSettledKaspi = (debtSettledRes.data ?? [])
-    .filter(s => s.debt_payment_method === 'kaspi')
-    .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+  const debtSettled = sumByPaymentMethod(
+    debtSettledRes.data, s => s.debt_payment_method, s => s.debt_amount ?? 0
+  );
+
+  // 3.6. Предзаказы, оплаченные в периоде
+  const preorderPaid = sumByPaymentMethod(
+    preorderRes.data, o => o.prepayment_method, o => o.prepayment_amount ?? 0
+  );
 
   // 4. Prepayment refunds
-  const refundCash = (refundsRes.data ?? [])
-    .filter(o => o.prepayment_refund_method === 'cash')
-    .reduce((s, o) => s + (o.original_prepayment ?? 0), 0);
-  const refundKaspi = (refundsRes.data ?? [])
-    .filter(o => o.prepayment_refund_method === 'kaspi')
-    .reduce((s, o) => s + (o.original_prepayment ?? 0), 0);
+  const prepayRefund = sumByPaymentMethod(
+    refundsRes.data, o => o.prepayment_refund_method, o => o.original_prepayment ?? 0
+  );
+
+  // 4б. Возвраты доплат мастерской
+  const remainingRefund = sumByPaymentMethod(
+    remainingRefundsRes.data,
+    o => o.remaining_refund_method,
+    o => Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment))
+  );
 
   // 5. Возвраты товаров — вычитаем из того кармана, которым платили за исходную
   // продажу (раньше всё уходило в минус по наличным). Общая логика с кассой
@@ -212,12 +248,17 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     .sort((a, b) => b.amount - a.amount);
 
   // Formulas
-  const systemCash =
-    salesCash + workshopPrepaidCash + workshopRemainingCash + saleDebtSettledCash - refundCash - returnsCash;
-  const systemKaspi =
-    salesKaspi + workshopPrepaidKaspi + workshopRemainingKaspi + saleDebtSettledKaspi - refundKaspi - returnsKaspi;
+  // Приход по каждому карману минус возвраты по нему же.
+  const income = (p: keyof ReturnAllocation) =>
+    wsPrepaid[p] + preorderPaid[p] + wsRemaining[p] + debtSettled[p]
+    - prepayRefund[p] - remainingRefund[p] - returns[p];
+
+  const systemCash = salesCash + income('cash');
+  const systemKaspi = salesKaspi + income('kaspi');
   const systemTotal =
-    systemCash + systemKaspi + (salesHalyk - returns.halyk) + (salesKaspiTransfer - returns.kaspiTransfer);
+    systemCash + systemKaspi
+    + (salesHalyk + income('halyk'))
+    + (salesKaspiTransfer + income('kaspiTransfer'));
 
   return {
     salesCash,
@@ -226,14 +267,18 @@ export async function getAdminCashData(branchId: string, dateStart: string, date
     salesKaspiTransfer,
     salesCount,
     avgCheck,
-    workshopPrepaidCash,
-    workshopPrepaidKaspi,
-    workshopRemainingCash,
-    workshopRemainingKaspi,
-    saleDebtSettledCash,
-    saleDebtSettledKaspi,
-    refundCash,
-    refundKaspi,
+    workshopPrepaidCash: wsPrepaid.cash,
+    workshopPrepaidKaspi: wsPrepaid.kaspi,
+    workshopRemainingCash: wsRemaining.cash,
+    workshopRemainingKaspi: wsRemaining.kaspi,
+    workshopRemaining: wsRemaining,
+    saleDebtSettledCash: debtSettled.cash,
+    saleDebtSettledKaspi: debtSettled.kaspi,
+    saleDebtSettled: debtSettled,
+    preorderPaid,
+    refundCash: prepayRefund.cash,
+    refundKaspi: prepayRefund.kaspi,
+    remainingRefund,
     returnsCash,
     returnsKaspi,
     expensesCash,

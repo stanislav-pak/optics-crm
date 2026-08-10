@@ -39,6 +39,7 @@ function fakeBuilder(): Record<string, unknown> {
     select: () => builder,
     update: () => builder,
     eq: () => builder,
+    neq: () => builder,
     in: () => builder,
     is: () => builder,
     gt: () => builder,

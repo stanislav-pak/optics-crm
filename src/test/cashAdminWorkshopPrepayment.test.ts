@@ -44,6 +44,7 @@ function makeBuilder(table: string, calls: { table: string; filters: Filters }[]
   const builder: Record<string, unknown> = {
     select: () => builder,
     eq: () => builder,
+    neq: () => builder,
     in: () => builder,
     gt: () => builder,
     gte: () => builder,

@@ -397,7 +397,7 @@ export interface Sale {
   // погашение фиксируется через debt_paid_at/debt_payment_method.
   debt_amount: number;
   debt_paid_at?: string | null;
-  debt_payment_method?: 'cash' | 'kaspi' | null;
+  debt_payment_method?: 'cash' | 'kaspi' | 'halyk' | 'kaspi_transfer' | null;
   // Relations
   branch?: Branch;
   client?: Client;
@@ -528,7 +528,7 @@ export interface ServiceOrder {
   sale_id?: string;
   estimated_ready_at?: string;
   completed_at?: string;
-  remaining_payment_method?: 'cash' | 'kaspi';
+  remaining_payment_method?: 'cash' | 'kaspi' | 'halyk' | 'kaspi_transfer';
   remaining_paid_at?: string;
   prepayment_refunded_at?: string;
   prepayment_refund_method?: 'cash' | 'kaspi';

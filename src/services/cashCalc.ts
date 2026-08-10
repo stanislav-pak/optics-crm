@@ -15,7 +15,57 @@ export interface ReturnAllocation {
   kaspiTransfer: number;
 }
 
+/** Четыре «кармана» кассы. Совпадает по форме с ReturnAllocation. */
+export type PocketTotals = ReturnAllocation;
+
+/** Способы оплаты, которыми можно закрыть долг/доплату/предоплату. */
+export type PaymentMethodKey = 'cash' | 'kaspi' | 'halyk' | 'kaspi_transfer';
+
+/** Порядок кнопок выбора способа оплаты — одинаковый во всех местах. */
+export const PAYMENT_METHODS: readonly PaymentMethodKey[] = [
+  'cash', 'kaspi', 'halyk', 'kaspi_transfer',
+];
+
+/** Короткие подписи для кнопок (места мало, особенно на телефоне). */
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethodKey, string> = {
+  cash: 'Нал',
+  kaspi: 'Kaspi',
+  halyk: 'POST',
+  kaspi_transfer: 'Перевод',
+};
+
 const ZERO: ReturnAllocation = { cash: 0, kaspi: 0, halyk: 0, kaspiTransfer: 0 };
+
+export function emptyPockets(): PocketTotals {
+  return { ...ZERO };
+}
+
+/**
+ * Раскладывает суммы по карманам согласно способу оплаты каждой записи.
+ * Заменяет повторяющиеся `.filter(m === 'cash').reduce(...)` — раньше они были
+ * написаны по два раза на каждый денежный поток и знали только про наличные и
+ * Kaspi QR, из-за чего оплата через POST или Kaspi-перевод просто терялась.
+ * Неизвестный способ игнорируется (в карман не попадёт).
+ */
+export function sumByPaymentMethod<T>(
+  rows: T[] | null | undefined,
+  getMethod: (row: T) => string | null | undefined,
+  getAmount: (row: T) => number
+): PocketTotals {
+  const totals = emptyPockets();
+  for (const row of rows ?? []) {
+    const amount = Number(getAmount(row)) || 0;
+    if (!amount) continue;
+    switch (getMethod(row)) {
+      case 'cash': totals.cash += amount; break;
+      case 'kaspi': totals.kaspi += amount; break;
+      case 'halyk': totals.halyk += amount; break;
+      case 'kaspi_transfer': totals.kaspiTransfer += amount; break;
+      default: break;
+    }
+  }
+  return totals;
+}
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;

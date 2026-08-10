@@ -7,7 +7,7 @@ import {
   type CashSession, type CashSessionClosure,
 } from '../../services/cashSessions';
 import {
-  allocateReturnsByPaymentMethod, sumReturnedValueBySale,
+  allocateReturnsByPaymentMethod, sumReturnedValueBySale, sumByPaymentMethod,
   type ReturnAllocation, type SalePaidSplit,
 } from '../../services/cashCalc';
 import { CASH_CHANGED_EVENT } from '../../services/cashEvents';
@@ -30,6 +30,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
   const [saving, setSaving] = useState(false);
   const isSubmittingRef = useRef(false);
   const [cashExpenses, setCashExpenses] = useState(0);
+  const [kaspiExpenses, setKaspiExpenses] = useState(0);
   const [cashExpenseItems, setCashExpenseItems] = useState<{name: string; amount: number}[]>([]);
   const [opening, setOpening] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -51,6 +52,7 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       // ждём явного нажатия "Открыть кассу"
       setSession(null);
       setCashExpenses(0);
+      setKaspiExpenses(0);
       setCashExpenseItems([]);
       setClosures([]);
       setSystemHalyk(0);
@@ -72,6 +74,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       const cashExps = exps.filter(e => e.payment_method === 'cash');
       const total = cashExps.reduce((s, e) => s + e.amount, 0);
       setCashExpenses(total);
+      // Расходы по Kaspi раньше в кассе филиала не учитывались нигде (в админском
+      // своде вычитались) — из-за этого две витрины расходились.
+      setKaspiExpenses(
+        exps.filter(e => e.payment_method === 'kaspi').reduce((s, e) => s + e.amount, 0)
+      );
       const byCat: Record<string, number> = {};
       for (const e of cashExps) {
         const key = e.category?.name ?? 'Прочее';
@@ -128,13 +135,27 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .gt('prepayment', 0)
       .not('prepayment_paid_at', 'is', null);
 
-    const prepaidCash = (workshopPrepayments ?? [])
-      .filter(o => o.prepayment_method === 'cash')
-      .reduce((sum, o) => sum + (o.prepayment ?? 0), 0);
+    const wsPrepaid = sumByPaymentMethod(
+      workshopPrepayments, o => o.prepayment_method, o => o.prepayment ?? 0
+    );
 
-    const prepaidKaspi = (workshopPrepayments ?? [])
-      .filter(o => o.prepayment_method === 'kaspi')
-      .reduce((sum, o) => sum + (o.prepayment ?? 0), 0);
+    // Предзаказы, оплаченные сегодня (предоплата или 100%). Продажа под
+    // предзаказом НЕ создаётся — статус просто доходит до «выполнен», — поэтому
+    // деньги учитываются прямо из orders, как у мастерской из service_orders.
+    // Без этого предоплата предзаказа не попадала в кассу вообще.
+    const { data: preorderPayments } = await supabase
+      .from('orders')
+      .select('prepayment_amount, prepayment_method')
+      .eq('branch_id', branchId)
+      .gte('prepayment_paid_at', todayStr + 'T00:00:00')
+      .lte('prepayment_paid_at', todayStr + 'T23:59:59')
+      .gt('prepayment_amount', 0)
+      .not('prepayment_paid_at', 'is', null)
+      .neq('status', 'cancelled');
+
+    const preorderPaid = sumByPaymentMethod(
+      preorderPayments, o => o.prepayment_method, o => o.prepayment_amount ?? 0
+    );
 
     // Доплаты мастерской за сегодня (остатки при выдаче)
     const { data: workshopPayments } = await supabase
@@ -145,13 +166,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .lte('remaining_paid_at', todayStr + 'T23:59:59')
       .not('remaining_paid_at', 'is', null);
 
-    const cashWorkshop = (workshopPayments ?? [])
-      .filter(o => o.remaining_payment_method === 'cash')
-      .reduce((sum, o) => sum + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
-
-    const kaspiWorkshop = (workshopPayments ?? [])
-      .filter(o => o.remaining_payment_method === 'kaspi')
-      .reduce((sum, o) => sum + (o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
+    const wsRemaining = sumByPaymentMethod(
+      workshopPayments,
+      o => o.remaining_payment_method,
+      o => o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)
+    );
 
     // Погашения долга по товару за сегодня (частичная оплата, без мастерской)
     const { data: saleDebtSettlements } = await supabase
@@ -162,13 +181,9 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .lte('debt_paid_at', todayStr + 'T23:59:59')
       .not('debt_paid_at', 'is', null);
 
-    const saleDebtSettledCash = (saleDebtSettlements ?? [])
-      .filter(s => s.debt_payment_method === 'cash')
-      .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
-
-    const saleDebtSettledKaspi = (saleDebtSettlements ?? [])
-      .filter(s => s.debt_payment_method === 'kaspi')
-      .reduce((sum, s) => sum + (s.debt_amount ?? 0), 0);
+    const debtSettled = sumByPaymentMethod(
+      saleDebtSettlements, s => s.debt_payment_method, s => s.debt_amount ?? 0
+    );
 
     // Возвраты предоплат мастерской сегодня
     const { data: refunds } = await supabase
@@ -179,13 +194,9 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .lte('prepayment_refunded_at', todayStr + 'T23:59:59')
       .not('prepayment_refunded_at', 'is', null);
 
-    const refundCash = (refunds ?? [])
-      .filter(o => o.prepayment_refund_method === 'cash')
-      .reduce((sum, o) => sum + (o.original_prepayment ?? 0), 0);
-
-    const refundKaspi = (refunds ?? [])
-      .filter(o => o.prepayment_refund_method === 'kaspi')
-      .reduce((sum, o) => sum + (o.original_prepayment ?? 0), 0);
+    const prepayRefund = sumByPaymentMethod(
+      refunds, o => o.prepayment_refund_method, o => o.original_prepayment ?? 0
+    );
 
     // Возвраты доплат мастерской сегодня (remaining_refunded_at)
     const { data: remainingRefunds } = await supabase
@@ -196,13 +207,11 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       .lte('remaining_refunded_at', todayStr + 'T23:59:59')
       .not('remaining_refunded_at', 'is', null);
 
-    const remainingRefundCash = (remainingRefunds ?? [])
-      .filter(o => o.remaining_refund_method === 'cash')
-      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
-
-    const remainingRefundKaspi = (remainingRefunds ?? [])
-      .filter(o => o.remaining_refund_method === 'kaspi')
-      .reduce((sum, o) => sum + Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment)), 0);
+    const remainingRefund = sumByPaymentMethod(
+      remainingRefunds,
+      o => o.remaining_refund_method,
+      o => Math.max(0, o.service_price + o.parts_price - (o.original_prepayment ?? o.prepayment))
+    );
 
     // Возвраты товаров за сегодня (stock_movements type=return, price=null → берём из sale_items)
     const { data: returnMovements } = await supabase
@@ -243,12 +252,18 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
       );
     }
 
-    const systemCash = salesCash + prepaidCash + cashWorkshop + saleDebtSettledCash - refundCash - returns.cash - remainingRefundCash;
-    const systemKaspi = salesKaspi + prepaidKaspi + kaspiWorkshop + saleDebtSettledKaspi - refundKaspi - returns.kaspi - remainingRefundKaspi;
+    // Приход по каждому карману минус возвраты по нему же. Долг и доплата
+    // мастерской теперь умеют все 4 способа (POST и перевод раньше терялись).
+    const income = (p: keyof ReturnAllocation) =>
+      wsPrepaid[p] + preorderPaid[p] + wsRemaining[p] + debtSettled[p]
+      - prepayRefund[p] - remainingRefund[p] - returns[p];
+
+    const systemCash = salesCash + income('cash');
+    const systemKaspi = salesKaspi + income('kaspi');
     // Halyk/Kaspi-перевод не хранятся отдельными колонками в cash_sessions — пересчитываются
     // каждый раз наравне с остальным, но не входят в system_cash (не требуют физической сдачи)
-    const halykTotal = salesHalyk - returns.halyk;
-    const kaspiTransferTotal = salesKaspiTransfer - returns.kaspiTransfer;
+    const halykTotal = salesHalyk + income('halyk');
+    const kaspiTransferTotal = salesKaspiTransfer + income('kaspiTransfer');
     setSystemHalyk(halykTotal);
     setSystemKaspiTransfer(kaspiTransferTotal);
     const systemTotal = systemCash + systemKaspi + halykTotal + kaspiTransferTotal;
@@ -265,6 +280,9 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
     const cashExps = exps.filter(e => e.payment_method === 'cash');
     const total = cashExps.reduce((s, e) => s + e.amount, 0);
     setCashExpenses(total);
+    setKaspiExpenses(
+      exps.filter(e => e.payment_method === 'kaspi').reduce((s, e) => s + e.amount, 0)
+    );
     const byCat: Record<string, number> = {};
     for (const e of cashExps) {
       const key = e.category?.name ?? 'Прочее';
@@ -451,6 +469,21 @@ export default function CashSessionCard({ branchId, employeeId }: Props) {
             <div className="flex justify-between text-sm font-semibold border-t border-gray-100 pt-1.5">
               <span className="text-gray-700">К сдаче наличными</span>
               <span className="text-gray-900">{(session.system_cash - cashExpenses).toLocaleString('ru-KZ')} ₸</span>
+            </div>
+          </div>
+        )}
+
+        {/* Расходы по Kaspi: физической сдачи не требуют, но Kaspi-итог уменьшают.
+            Раньше в кассе филиала не показывались вовсе — расходились с админкой. */}
+        {kaspiExpenses > 0 && (
+          <div className="border-t pt-2 mt-1 space-y-1.5">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Расходы по Kaspi</span>
+              <span className="text-red-500">−{kaspiExpenses.toLocaleString('ru-KZ')} ₸</span>
+            </div>
+            <div className="flex justify-between text-sm font-semibold border-t border-gray-100 pt-1.5">
+              <span className="text-gray-700">Kaspi за вычетом расходов</span>
+              <span className="text-gray-900">{(session.system_kaspi - kaspiExpenses).toLocaleString('ru-KZ')} ₸</span>
             </div>
           </div>
         )}

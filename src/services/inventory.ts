@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { PaymentMethodKey } from './cashCalc';
 import type {
   Product, ProductCategory, Brand, Stock, StockMovement,
   Supplier, PurchaseOrder, PurchaseOrderItem,
@@ -569,7 +570,7 @@ export async function createSale(
 // Проверки прав (активный сотрудник, не-админ только свой филиал), наличие
 // долга и защита от гонки — внутри функции БД, см. миграцию
 // 20260810_settle_sale_debt_rpc.sql.
-export async function settleSaleDebt(saleId: string, method: 'cash' | 'kaspi'): Promise<void> {
+export async function settleSaleDebt(saleId: string, method: PaymentMethodKey): Promise<void> {
   const { error } = await supabase.rpc('settle_sale_debt', {
     p_sale_id: saleId,
     p_method: method,
