@@ -688,7 +688,15 @@ export async function createReturn(
     p_sale_id: saleId,
     p_new_status: newStatus,
   });
-  if (statusError) throw new Error(`Не удалось обновить статус продажи: ${statusError.message}`);
+  if (statusError) {
+    // FORBIDDEN приходит из guard'а внутри update_sale_status_for_return
+    // (активный сотрудник; не-админ — только свой филиал). В штатном сценарии
+    // не срабатывает: чужую продажу не даёт даже прочитать RLS выше по коду.
+    if ((statusError.message ?? '').includes('FORBIDDEN')) {
+      throw new Error('Недостаточно прав для возврата');
+    }
+    throw new Error(`Не удалось обновить статус продажи: ${statusError.message}`);
+  }
 
   // 7. Пересчитываем остатки
   await supabase.rpc('recalculate_stock', { p_branch_id: sale.branch_id });
