@@ -562,28 +562,28 @@ export async function createSale(
 // отчёт задвоил бы сумму при погашении в тот же день, что и сама продажа —
 // он и так суммирует paid_cash по дате продажи, и debt_amount отдельно по
 // debt_paid_at.
+// Идёт через RPC settle_sale_debt (SECURITY DEFINER), а не прямым UPDATE:
+// RLS-политика employees_update_sales пускает не-админа к строке sales только
+// при status='pending', а продажа с долгом создаётся сразу со status='paid'.
+// Прямой UPDATE у менеджера задевал 0 строк → "нет прав на изменение".
+// Проверки прав (активный сотрудник, не-админ только свой филиал), наличие
+// долга и защита от гонки — внутри функции БД, см. миграцию
+// 20260810_settle_sale_debt_rpc.sql.
 export async function settleSaleDebt(saleId: string, method: 'cash' | 'kaspi'): Promise<void> {
-  const { data: sale, error } = await supabase
-    .from('sales')
-    .select('debt_amount, debt_paid_at')
-    .eq('id', saleId)
-    .single();
-  if (error || !sale) throw new Error('Продажа не найдена');
-  if (!sale.debt_amount || sale.debt_amount <= 0) throw new Error('По этой продаже нет долга');
-  if (sale.debt_paid_at) throw new Error('Долг уже погашен');
+  const { error } = await supabase.rpc('settle_sale_debt', {
+    p_sale_id: saleId,
+    p_method: method,
+  });
+  if (!error) return;
 
-  // .is('debt_paid_at', null) в UPDATE — атомарная защита от гонки при
-  // двойном клике/двух вкладках: если долг успели погасить между SELECT и
-  // UPDATE, апдейт затронет 0 строк и .single() превратит это в ошибку
-  // вместо повторного (второго) погашения.
-  const { error: updErr } = await supabase
-    .from('sales')
-    .update({ debt_paid_at: new Date().toISOString(), debt_payment_method: method })
-    .eq('id', saleId)
-    .is('debt_paid_at', null)
-    .select('id')
-    .single();
-  if (updErr) throw new Error('Не удалось погасить долг — возможно, уже погашен, либо нет прав на изменение.');
+  // Префиксы (ALREADY_SETTLED и т.д.) задаёт RAISE EXCEPTION в самой функции —
+  // переводим их в человеческий текст, чтобы менеджер понимал, что произошло.
+  const msg = error.message ?? '';
+  if (msg.includes('ALREADY_SETTLED')) throw new Error('Долг уже погашен');
+  if (msg.includes('FORBIDDEN')) throw new Error('Недостаточно прав');
+  if (msg.includes('NO_DEBT')) throw new Error('По этой продаже нет долга');
+  if (msg.includes('NOT_FOUND')) throw new Error('Продажа не найдена');
+  throw new Error('Не удалось погасить долг. Попробуйте ещё раз.');
 }
 
 export async function createReturn(
