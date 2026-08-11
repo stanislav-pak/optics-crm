@@ -19,12 +19,24 @@ function touchEvent(type: string, points: Point[], target: EventTarget) {
   return e
 }
 
-function swipe(from: Point, to: Point, target: EventTarget = document.body, opts: { move?: boolean } = {}) {
+type SwipeOpts = {
+  /** false — не слать touchmove вовсе (палец «телепортировался») */
+  move?: boolean
+  /** промежуточные точки траектории */
+  path?: Point[]
+  /** элемент, на котором палец оторвался (по умолчанию тот же) */
+  endTarget?: EventTarget
+}
+
+function swipe(from: Point, to: Point, target: EventTarget = document.body, opts: SwipeOpts = {}) {
   document.dispatchEvent(touchEvent('touchstart', [from], target))
   if (opts.move !== false) {
+    for (const p of opts.path ?? []) {
+      document.dispatchEvent(touchEvent('touchmove', [p], target))
+    }
     document.dispatchEvent(touchEvent('touchmove', [to], target))
   }
-  document.dispatchEvent(touchEvent('touchend', [to], target))
+  document.dispatchEvent(touchEvent('touchend', [to], opts.endTarget ?? target))
 }
 
 function mockSelection(text: string) {
@@ -32,6 +44,25 @@ function mockSelection(text: string) {
     isCollapsed: text.length === 0,
     toString: () => text,
   } as unknown as Selection)
+}
+
+/**
+ * jsdom не поддерживает свойство touch-action в CSS-движке, поэтому задаём его
+ * и в атрибуте, и напрямую в объекте style — хук читает computed, а при пустом
+ * значении откатывается на inline.
+ */
+function withTouchAction(el: HTMLElement, value: string) {
+  el.setAttribute('style', `touch-action: ${value}`)
+  Object.defineProperty(el.style, 'touchAction', { value, configurable: true })
+  return el
+}
+
+function fixedEl(width: number, height: number) {
+  const el = document.createElement('div')
+  el.style.position = 'fixed'
+  el.getBoundingClientRect = () =>
+    ({ width, height, top: 0, left: 0, right: width, bottom: height }) as DOMRect
+  return el
 }
 
 let onBack: Mock<() => void>
@@ -45,12 +76,13 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
-// --- tests ---------------------------------------------------------------
+// --- срабатывание --------------------------------------------------------
 
-describe('useSwipeBack — свайп из любого места', () => {
+describe('useSwipeBack — явный горизонтальный свайп', () => {
   it('срабатывает при свайпе вправо из середины экрана', () => {
     renderHook(() => useSwipeBack(onBack))
     swipe({ x: 200, y: 400 }, { x: 320, y: 410 })
@@ -63,6 +95,29 @@ describe('useSwipeBack — свайп из любого места', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
+  it('срабатывает при плавной траектории с небольшим вертикальным дрожанием', () => {
+    renderHook(() => useSwipeBack(onBack))
+    swipe({ x: 100, y: 400 }, { x: 260, y: 405 }, document.body, {
+      path: [
+        { x: 140, y: 395 },
+        { x: 190, y: 412 },
+        { x: 230, y: 402 },
+      ],
+    })
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('снимает слушатели при размонтировании', () => {
+    const { unmount } = renderHook(() => useSwipeBack(onBack))
+    unmount()
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 })
+    expect(onBack).not.toHaveBeenCalled()
+  })
+})
+
+// --- геометрия жеста -----------------------------------------------------
+
+describe('useSwipeBack — траектория', () => {
   it('не срабатывает при коротком движении (dx <= 80)', () => {
     renderHook(() => useSwipeBack(onBack))
     swipe({ x: 200, y: 400 }, { x: 260, y: 400 })
@@ -75,10 +130,22 @@ describe('useSwipeBack — свайп из любого места', () => {
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('не срабатывает при диагонали (dx <= |dy| * 1.5)', () => {
+  it('не срабатывает при диагонали — горизонталь не доминирует (dx <= 2 * |dy|)', () => {
     renderHook(() => useSwipeBack(onBack))
-    // dx = 100, dy = 90 -> 100 <= 135
-    swipe({ x: 100, y: 300 }, { x: 200, y: 390 }, document.body, { move: false })
+    // dx = 100, dy = 60 -> 100 <= 120
+    swipe({ x: 100, y: 300 }, { x: 200, y: 360 })
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает, если по пути был вертикальный уход больше 40px (диагональ-крюк)', () => {
+    renderHook(() => useSwipeBack(onBack))
+    // финиш почти на той же высоте, но в середине жеста палец ушёл вниз на 70px
+    swipe({ x: 100, y: 300 }, { x: 260, y: 305 }, document.body, {
+      path: [
+        { x: 150, y: 340 },
+        { x: 200, y: 370 },
+      ],
+    })
     expect(onBack).not.toHaveBeenCalled()
   })
 
@@ -99,6 +166,16 @@ describe('useSwipeBack — свайп из любого места', () => {
     expect(onBack).not.toHaveBeenCalled()
   })
 
+  it('сбрасывает жест, если второй палец появился по ходу движения', () => {
+    renderHook(() => useSwipeBack(onBack))
+    document.dispatchEvent(touchEvent('touchstart', [{ x: 100, y: 300 }], document.body))
+    document.dispatchEvent(
+      touchEvent('touchmove', [{ x: 150, y: 300 }, { x: 250, y: 300 }], document.body)
+    )
+    document.dispatchEvent(touchEvent('touchend', [{ x: 260, y: 300 }], document.body))
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
   it('сбрасывается по touchcancel', () => {
     renderHook(() => useSwipeBack(onBack))
     document.dispatchEvent(touchEvent('touchstart', [{ x: 100, y: 300 }], document.body))
@@ -107,13 +184,43 @@ describe('useSwipeBack — свайп из любого места', () => {
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('снимает слушатели при размонтировании', () => {
-    const { unmount } = renderHook(() => useSwipeBack(onBack))
-    unmount()
-    swipe({ x: 200, y: 400 }, { x: 320, y: 400 })
+  it('не срабатывает без единого touchmove (движение не наблюдалось)', () => {
+    renderHook(() => useSwipeBack(onBack))
+    swipe({ x: 100, y: 300 }, { x: 250, y: 300 }, document.body, { move: false })
     expect(onBack).not.toHaveBeenCalled()
   })
+
+  it('не срабатывает при долгом тапе без движения (>500мс)', () => {
+    vi.useFakeTimers()
+    renderHook(() => useSwipeBack(onBack))
+    document.dispatchEvent(touchEvent('touchstart', [{ x: 100, y: 300 }], document.body))
+    vi.advanceTimersByTime(700)
+    document.dispatchEvent(touchEvent('touchend', [{ x: 250, y: 300 }], document.body))
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает, если палец лежал >500мс и только потом поехал (выделение на iOS)', () => {
+    vi.useFakeTimers()
+    renderHook(() => useSwipeBack(onBack))
+    document.dispatchEvent(touchEvent('touchstart', [{ x: 100, y: 300 }], document.body))
+    vi.advanceTimersByTime(700)
+    document.dispatchEvent(touchEvent('touchmove', [{ x: 180, y: 300 }], document.body))
+    document.dispatchEvent(touchEvent('touchend', [{ x: 260, y: 300 }], document.body))
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('срабатывает, если пауза перед движением была короткой', () => {
+    vi.useFakeTimers()
+    renderHook(() => useSwipeBack(onBack))
+    document.dispatchEvent(touchEvent('touchstart', [{ x: 100, y: 300 }], document.body))
+    vi.advanceTimersByTime(120)
+    document.dispatchEvent(touchEvent('touchmove', [{ x: 180, y: 300 }], document.body))
+    document.dispatchEvent(touchEvent('touchend', [{ x: 260, y: 300 }], document.body))
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
 })
+
+// --- выделение текста ----------------------------------------------------
 
 describe('useSwipeBack — защита от выделения текста', () => {
   it('не срабатывает, если после жеста есть выделенный текст', () => {
@@ -129,42 +236,143 @@ describe('useSwipeBack — защита от выделения текста', (
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 })
     expect(onBack).toHaveBeenCalledTimes(1)
   })
+})
 
-  it('не начинает жест при касании внутри input', () => {
+// --- интерактивные элементы ---------------------------------------------
+
+describe('useSwipeBack — жест не начинается на интерактивном элементе', () => {
+  const cases: Array<[string, () => HTMLElement]> = [
+    ['input', () => document.createElement('input')],
+    ['input[type=range]', () => {
+      const el = document.createElement('input')
+      el.type = 'range'
+      return el
+    }],
+    ['input[type=number]', () => {
+      const el = document.createElement('input')
+      el.type = 'number'
+      return el
+    }],
+    ['textarea', () => document.createElement('textarea')],
+    ['select', () => document.createElement('select')],
+    ['button', () => document.createElement('button')],
+    ['a[href]', () => {
+      const el = document.createElement('a')
+      el.href = '#test'
+      return el
+    }],
+    ['label', () => document.createElement('label')],
+    ['canvas', () => document.createElement('canvas')],
+    ['video', () => document.createElement('video')],
+    ['img', () => document.createElement('img')],
+    ['[role=slider]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'slider')
+      return el
+    }],
+    ['[role=switch]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'switch')
+      return el
+    }],
+    ['[role=tab]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'tab')
+      return el
+    }],
+    ['[role=button]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'button')
+      return el
+    }],
+    ['[role=menuitem]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'menuitem')
+      return el
+    }],
+    ['[draggable=true]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('draggable', 'true')
+      return el
+    }],
+    ['[data-no-swipe]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('data-no-swipe', '')
+      return el
+    }],
+    ['[contenteditable=true]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('contenteditable', 'true')
+      return el
+    }],
+  ]
+
+  it.each(cases)('не срабатывает при старте на %s', (_name, make) => {
     renderHook(() => useSwipeBack(onBack))
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, input)
+    const el = make()
+    document.body.appendChild(el)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('не начинает жест при касании внутри textarea', () => {
+  it('не срабатывает при старте на потомке интерактивного элемента', () => {
     renderHook(() => useSwipeBack(onBack))
-    const ta = document.createElement('textarea')
-    document.body.appendChild(ta)
-    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, ta)
-    expect(onBack).not.toHaveBeenCalled()
-  })
-
-  it('не начинает жест внутри contenteditable', () => {
-    renderHook(() => useSwipeBack(onBack))
-    const box = document.createElement('div')
-    box.setAttribute('contenteditable', 'true')
+    const btn = document.createElement('button')
     const span = document.createElement('span')
-    box.appendChild(span)
-    document.body.appendChild(box)
+    btn.appendChild(span)
+    document.body.appendChild(btn)
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, span)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает, если палец оторвался на интерактивном элементе', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const btn = document.createElement('button')
+    document.body.appendChild(btn)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, document.body, { endTarget: btn })
     expect(onBack).not.toHaveBeenCalled()
   })
 })
 
-describe('useSwipeBack — оверлеи и горизонтальная прокрутка', () => {
-  it('не срабатывает, если жест начался внутри полноэкранного fixed-оверлея', () => {
+// --- touch-action --------------------------------------------------------
+
+describe('useSwipeBack — нестандартный touch-action', () => {
+  it.each(['none', 'pan-x', 'pan-y', 'pan-y pinch-zoom'])(
+    'не срабатывает при touch-action: %s',
+    value => {
+      renderHook(() => useSwipeBack(onBack))
+      const el = withTouchAction(document.createElement('div'), value)
+      document.body.appendChild(el)
+      swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
+      expect(onBack).not.toHaveBeenCalled()
+    }
+  )
+
+  it('не срабатывает, если touch-action задан у предка', () => {
     renderHook(() => useSwipeBack(onBack))
-    const overlay = document.createElement('div')
-    overlay.style.position = 'fixed'
-    overlay.getBoundingClientRect = () =>
-      ({ width: 400, height: 800, top: 0, left: 0, right: 400, bottom: 800 }) as DOMRect
+    const wrap = withTouchAction(document.createElement('div'), 'pan-y')
+    const inner = document.createElement('div')
+    wrap.appendChild(inner)
+    document.body.appendChild(wrap)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, inner)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('срабатывает при touch-action: auto / manipulation', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const el = withTouchAction(document.createElement('div'), 'manipulation')
+    document.body.appendChild(el)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+})
+
+// --- оверлеи и прокрутка -------------------------------------------------
+
+describe('useSwipeBack — оверлеи и горизонтальная прокрутка', () => {
+  it('не срабатывает внутри полноэкранного fixed-оверлея', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const overlay = fixedEl(400, 800)
     const inner = document.createElement('div')
     overlay.appendChild(inner)
     document.body.appendChild(overlay)
@@ -172,15 +380,23 @@ describe('useSwipeBack — оверлеи и горизонтальная про
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('срабатывает, если fixed-элемент маленький (например, нижняя панель)', () => {
+  it('не срабатывает и внутри небольшого fixed-элемента (любой fixed — спорный случай)', () => {
     renderHook(() => useSwipeBack(onBack))
-    const bar = document.createElement('div')
-    bar.style.position = 'fixed'
-    bar.getBoundingClientRect = () =>
-      ({ width: 400, height: 60, top: 740, left: 0, right: 400, bottom: 800 }) as DOMRect
+    const bar = fixedEl(400, 60)
     document.body.appendChild(bar)
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, bar)
-    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает внутри модалки с data-modal="true"', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const modal = document.createElement('div')
+    modal.setAttribute('data-modal', 'true')
+    const inner = document.createElement('div')
+    modal.appendChild(inner)
+    document.body.appendChild(modal)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, inner)
+    expect(onBack).not.toHaveBeenCalled()
   })
 
   it('не срабатывает внутри блока с горизонтальной прокруткой', () => {
