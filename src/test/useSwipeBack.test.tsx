@@ -238,9 +238,9 @@ describe('useSwipeBack — защита от выделения текста', (
   })
 })
 
-// --- интерактивные элементы ---------------------------------------------
+// --- ввод и перетаскивание ----------------------------------------------
 
-describe('useSwipeBack — жест не начинается на интерактивном элементе', () => {
+describe('useSwipeBack — жест не начинается на поле ввода или тянущемся элементе', () => {
   const cases: Array<[string, () => HTMLElement]> = [
     ['input', () => document.createElement('input')],
     ['input[type=range]', () => {
@@ -255,13 +255,6 @@ describe('useSwipeBack — жест не начинается на интера�
     }],
     ['textarea', () => document.createElement('textarea')],
     ['select', () => document.createElement('select')],
-    ['button', () => document.createElement('button')],
-    ['a[href]', () => {
-      const el = document.createElement('a')
-      el.href = '#test'
-      return el
-    }],
-    ['label', () => document.createElement('label')],
     ['canvas', () => document.createElement('canvas')],
     ['[role=slider]', () => {
       const el = document.createElement('div')
@@ -271,21 +264,6 @@ describe('useSwipeBack — жест не начинается на интера�
     ['[role=switch]', () => {
       const el = document.createElement('div')
       el.setAttribute('role', 'switch')
-      return el
-    }],
-    ['[role=tab]', () => {
-      const el = document.createElement('div')
-      el.setAttribute('role', 'tab')
-      return el
-    }],
-    ['[role=button]', () => {
-      const el = document.createElement('div')
-      el.setAttribute('role', 'button')
-      return el
-    }],
-    ['[role=menuitem]', () => {
-      const el = document.createElement('div')
-      el.setAttribute('role', 'menuitem')
       return el
     }],
     ['[draggable=true]', () => {
@@ -333,21 +311,96 @@ describe('useSwipeBack — жест не начинается на интера�
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('не срабатывает при старте на потомке интерактивного элемента', () => {
+  it('не срабатывает при старте на потомке тянущегося элемента', () => {
     renderHook(() => useSwipeBack(onBack))
-    const btn = document.createElement('button')
+    const card = document.createElement('div')
+    card.setAttribute('draggable', 'true')
     const span = document.createElement('span')
-    btn.appendChild(span)
-    document.body.appendChild(btn)
+    card.appendChild(span)
+    document.body.appendChild(card)
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, span)
     expect(onBack).not.toHaveBeenCalled()
   })
 
-  it('не срабатывает, если палец оторвался на интерактивном элементе', () => {
+  it('не срабатывает, если палец оторвался на поле ввода', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, document.body, { endTarget: input })
+    expect(onBack).not.toHaveBeenCalled()
+  })
+})
+
+// --- крупные тап-цели: свайп поверх них разрешён ------------------------
+
+describe('useSwipeBack — свайп поверх кнопок и ссылок работает', () => {
+  const tapTargets: Array<[string, () => HTMLElement]> = [
+    ['button', () => document.createElement('button')],
+    ['a[href]', () => {
+      const el = document.createElement('a')
+      el.href = '#test'
+      return el
+    }],
+    ['label', () => document.createElement('label')],
+    ['[role=button]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'button')
+      return el
+    }],
+    ['[role=tab]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'tab')
+      return el
+    }],
+    ['[role=menuitem]', () => {
+      const el = document.createElement('div')
+      el.setAttribute('role', 'menuitem')
+      return el
+    }],
+  ]
+
+  it.each(tapTargets)('срабатывает при старте на %s', (_name, make) => {
+    renderHook(() => useSwipeBack(onBack))
+    const el = make()
+    document.body.appendChild(el)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(tapTargets)('срабатывает, если палец оторвался на %s', (_name, make) => {
+    renderHook(() => useSwipeBack(onBack))
+    const el = make()
+    document.body.appendChild(el)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, document.body, { endTarget: el })
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('срабатывает на строке-кнопке списка (текст внутри button)', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const row = document.createElement('button')
+    const text = document.createElement('span')
+    row.appendChild(text)
+    document.body.appendChild(row)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, text)
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('обычный тап по кнопке жест не запускает (сдвиг меньше 80px)', () => {
     renderHook(() => useSwipeBack(onBack))
     const btn = document.createElement('button')
     document.body.appendChild(btn)
-    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, document.body, { endTarget: btn })
+    swipe({ x: 200, y: 400 }, { x: 203, y: 401 }, btn)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('кнопка внутри поля-обёртки с полем ввода жест не запускает', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const wrap = document.createElement('div')
+    wrap.setAttribute('data-no-swipe', '')
+    const btn = document.createElement('button')
+    wrap.appendChild(btn)
+    document.body.appendChild(wrap)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, btn)
     expect(onBack).not.toHaveBeenCalled()
   })
 })

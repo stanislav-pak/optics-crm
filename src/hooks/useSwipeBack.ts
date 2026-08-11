@@ -12,27 +12,25 @@ const MOVE_THRESHOLD = 10
 // Удержание дольше этого без движения — долгий тап, не свайп
 const LONG_PRESS_MS = 500
 
-/** Элементы, на которых жест не начинаем: у них свои касания и перетаскивания */
-const INTERACTIVE_SELECTOR = [
+/**
+ * Элементы, на которых жест не начинаем и над которыми не заканчиваем:
+ * ввод текста и всё, что само тянется пальцем.
+ * Обычные кнопки, ссылки, вкладки и строки списков сюда НЕ входят — свайп
+ * поверх них работает, а тап их не сломает: нужен сдвиг больше 80px вправо.
+ * Обычные фото и видео тоже не мешают — только если они draggable.
+ */
+const INPUT_OR_DRAG_SELECTOR = [
   'input',
   'textarea',
   'select',
   '[contenteditable=""]',
   '[contenteditable="true"]',
-  'button',
-  'a[href]',
-  'label',
   '[role="slider"]',
   '[role="switch"]',
-  '[role="tab"]',
-  '[role="button"]',
-  '[role="menuitem"]',
   '[draggable="true"]',
   'canvas',
   '[data-no-swipe]',
 ].join(', ')
-// Обычные фото и видео жесту не мешают — блокируем их только если они перетаскиваемые
-// (это покрывает селектор [draggable="true"] выше).
 
 /** Контейнеры, внутри которых жест не начинаем */
 const BLOCKING_SELECTOR = '[data-modal="true"], [data-no-swipe]'
@@ -50,7 +48,8 @@ const hasTextSelection = (): boolean => {
 const toElement = (target: EventTarget | null): Element | null =>
   target instanceof Element ? target : null
 
-const isInteractive = (el: Element | null): boolean => !!el?.closest(INTERACTIVE_SELECTOR)
+const isInputOrDraggable = (el: Element | null): boolean =>
+  !!el?.closest(INPUT_OR_DRAG_SELECTOR)
 
 /**
  * touch-action, отличный от auto/manipulation, означает, что элемент сам
@@ -113,7 +112,7 @@ export const useSwipeBack = (onBack: () => void) => {
       const target = toElement(e.target)
       if (isAnyModalOpen()) return cancel()
       if (hasTextSelection()) return cancel()
-      if (isInteractive(target)) return cancel()
+      if (isInputOrDraggable(target)) return cancel()
       if (isBlockedContainer(target)) return cancel()
 
       tracking = true
@@ -161,8 +160,8 @@ export const useSwipeBack = (onBack: () => void) => {
       // модал мог открыться уже по ходу жеста
       if (isAnyModalOpen()) return
 
-      // палец оторвался на кнопке/ссылке — считаем это нажатием, а не свайпом
-      if (isInteractive(toElement(e.target))) return
+      // палец оторвался на поле ввода или тянущемся элементе — не наш жест
+      if (isInputOrDraggable(toElement(e.target))) return
 
       // пользователь выделял текст вправо, а не листал назад
       if (hasTextSelection()) return
