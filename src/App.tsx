@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { AuthContext, useAuthProvider } from './hooks/useAuth';
 import { supabase } from './services/supabase';
 import { LoginForm } from './components/Auth/LoginForm';
@@ -21,6 +21,7 @@ import { TasksPanel } from './components/Dashboard/TasksPanel';
 import { signOut } from './services/auth';
 import { ImportExcel } from './components/Chat/ImportExcel';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { useSwipeBack } from './hooks/useSwipeBack';
 import InventoryPage from './pages/InventoryPage';
 import OrdersListView from './components/Inventory/OrdersListView';
 import WorkshopPage from './pages/WorkshopPage';
@@ -164,7 +165,6 @@ function AppContent() {
     setMobileView(view);
   };
 
-  const swipeRef = useRef({ x: 0, y: 0 });
   const mobileViewRef = useRef(mobileView);
   useEffect(() => { mobileViewRef.current = mobileView; }, [mobileView]);
   const mobileHistoryRef = useRef(mobileHistory);
@@ -184,40 +184,29 @@ function AppContent() {
     setMobileView(prev);
   };
 
-  useEffect(() => {
+  // Свайп «назад» на мобильном. Распознаванием жеста занимается useSwipeBack
+  // (свайп из любой точки, но только явно горизонтальный и не поверх
+  // выделения текста, полей ввода, модалок и прокручиваемых блоков).
+  const handleSwipeBack = useCallback(() => {
     if (!isMobile) return;
-    const onStart = (e: TouchEvent) => {
-      swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    };
-    const onEnd = (e: TouchEvent) => {
-      if (document.querySelector('[data-modal="true"]')) return;
-      const dx = e.changedTouches[0].clientX - swipeRef.current.x;
-      const dy = Math.abs(e.changedTouches[0].clientY - swipeRef.current.y);
-      if (dy < 80 && dx > 60) {
-        const view = mobileViewRef.current;
-        // Если внутри подраздела Магазина — возвращаемся к Продажам, а не на главную
-        if (view === 'shop' && shopSubViewRef.current !== 'sales') {
-          setShopSubView('sales');
-          return;
-        }
-        if (view === 'inventory' || view === 'shop' || view === 'workshop' || (view === 'main' && (adminViewRef.current === 'inventory' || adminViewRef.current === 'workshop'))) {
-          setMobileView('list');
-        } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings', 'watchlist'].includes(adminViewRef.current)) {
-          setActiveChat(null);
-          setMobileView('list');
-          setAdminView('dashboard');
-        } else {
-          navigateBackRef.current();
-        }
-      }
-    };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend', onEnd, { passive: true });
-    return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchend', onEnd);
-    };
+    const view = mobileViewRef.current;
+    // Если внутри подраздела Магазина — возвращаемся к Продажам, а не на главную
+    if (view === 'shop' && shopSubViewRef.current !== 'sales') {
+      setShopSubView('sales');
+      return;
+    }
+    if (view === 'inventory' || view === 'shop' || view === 'workshop' || (view === 'main' && (adminViewRef.current === 'inventory' || adminViewRef.current === 'workshop'))) {
+      setMobileView('list');
+    } else if (view === 'main' && ['reports', 'tasks', 'activity', 'settings', 'watchlist'].includes(adminViewRef.current)) {
+      setActiveChat(null);
+      setMobileView('list');
+      setAdminView('dashboard');
+    } else {
+      navigateBackRef.current();
+    }
   }, [isMobile]);
+
+  useSwipeBack(handleSwipeBack);
 
   // Счётчик незакрытых доплат мастерской (только для менеджеров не из мастерской)
   useEffect(() => {
