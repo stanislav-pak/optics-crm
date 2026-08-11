@@ -29,13 +29,16 @@ const INTERACTIVE_SELECTOR = [
   '[role="menuitem"]',
   '[draggable="true"]',
   'canvas',
-  'video',
-  'img',
   '[data-no-swipe]',
 ].join(', ')
+// Обычные фото и видео жесту не мешают — блокируем их только если они перетаскиваемые
+// (это покрывает селектор [draggable="true"] выше).
 
 /** Контейнеры, внутри которых жест не начинаем */
 const BLOCKING_SELECTOR = '[data-modal="true"], [data-no-swipe]'
+
+/** Открыт любой модал — «назад» не даём, даже если палец вне него */
+const isAnyModalOpen = (): boolean => !!document.querySelector('[data-modal="true"]')
 
 /** Есть ли на странице непустое выделение текста */
 const hasTextSelection = (): boolean => {
@@ -108,6 +111,7 @@ export const useSwipeBack = (onBack: () => void) => {
       if (e.touches.length > 1) return cancel()
 
       const target = toElement(e.target)
+      if (isAnyModalOpen()) return cancel()
       if (hasTextSelection()) return cancel()
       if (isInteractive(target)) return cancel()
       if (isBlockedContainer(target)) return cancel()
@@ -153,6 +157,9 @@ export const useSwipeBack = (onBack: () => void) => {
       if (Math.max(maxDeviationY, Math.abs(dy)) > MAX_DEVIATION_DY) return
       if (dx <= MIN_DX) return
       if (dx <= Math.abs(dy) * DIRECTION_RATIO) return
+
+      // модал мог открыться уже по ходу жеста
+      if (isAnyModalOpen()) return
 
       // палец оторвался на кнопке/ссылке — считаем это нажатием, а не свайпом
       if (isInteractive(toElement(e.target))) return

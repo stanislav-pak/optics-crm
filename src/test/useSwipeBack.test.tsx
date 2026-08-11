@@ -263,8 +263,6 @@ describe('useSwipeBack — жест не начинается на интера�
     }],
     ['label', () => document.createElement('label')],
     ['canvas', () => document.createElement('canvas')],
-    ['video', () => document.createElement('video')],
-    ['img', () => document.createElement('img')],
     ['[role=slider]', () => {
       const el = document.createElement('div')
       el.setAttribute('role', 'slider')
@@ -312,6 +310,26 @@ describe('useSwipeBack — жест не начинается на интера�
     const el = make()
     document.body.appendChild(el)
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['img', () => document.createElement('img')],
+    ['video', () => document.createElement('video')],
+  ])('срабатывает при старте на обычном %s (фото жесту не мешает)', (_name, make) => {
+    renderHook(() => useSwipeBack(onBack))
+    const el = make()
+    document.body.appendChild(el)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, el)
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('не срабатывает при старте на перетаскиваемой картинке', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const img = document.createElement('img')
+    img.setAttribute('draggable', 'true')
+    document.body.appendChild(img)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, img)
     expect(onBack).not.toHaveBeenCalled()
   })
 
@@ -396,6 +414,26 @@ describe('useSwipeBack — оверлеи и горизонтальная про
     modal.appendChild(inner)
     document.body.appendChild(modal)
     swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, inner)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает, если где-то на странице открыт модал (палец вне него)', () => {
+    renderHook(() => useSwipeBack(onBack))
+    const modal = document.createElement('div')
+    modal.setAttribute('data-modal', 'true')
+    document.body.appendChild(modal)
+    swipe({ x: 200, y: 400 }, { x: 320, y: 400 }, document.body)
+    expect(onBack).not.toHaveBeenCalled()
+  })
+
+  it('не срабатывает, если модал открылся уже по ходу жеста', () => {
+    renderHook(() => useSwipeBack(onBack))
+    document.dispatchEvent(touchEvent('touchstart', [{ x: 200, y: 400 }], document.body))
+    document.dispatchEvent(touchEvent('touchmove', [{ x: 280, y: 400 }], document.body))
+    const modal = document.createElement('div')
+    modal.setAttribute('data-modal', 'true')
+    document.body.appendChild(modal)
+    document.dispatchEvent(touchEvent('touchend', [{ x: 320, y: 400 }], document.body))
     expect(onBack).not.toHaveBeenCalled()
   })
 
