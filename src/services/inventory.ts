@@ -56,24 +56,60 @@ export async function getProductsFromStock(branchId: string): Promise<Product[]>
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ru'));
 }
 
-export async function getProductByBarcode(barcode: string, branchId?: string): Promise<Product | null> {
-  if (branchId) {
-    const { data, error } = await supabase
+// Продажа разрешена в минус, поэтому список товаров для неё не фильтруется по
+// остатку: берём и позиции с нулём/минусом (строка в stock есть), и товары
+// филиала, которые ни разу не приходовались (строки в stock ещё нет).
+// getProductsFromStock выше оставлена нетронутой (её семантика — «только
+// положительный остаток»), хотя после этой правки вызовов у неё не осталось:
+// в InventoryPage импорт был неиспользуемым ещё до задачи.
+export async function getProductsForSale(branchId: string): Promise<Product[]> {
+  const productFields = `
+    id, name, sku, barcode, price, cost_price, unit, min_stock, is_active, branch_id, created_at, category_id, attributes,
+    category:product_categories(id, name, slug),
+    brand:brands(id, name),
+    stock(quantity, branch_id)
+  `;
+
+  const [stockRes, ownRes] = await Promise.all([
+    // Всё, что физически числится за филиалом, включая нули и минусы
+    supabase
+      .from('stock')
+      .select(`product:products(${productFields})`)
+      .eq('branch_id', branchId),
+    // Товары самого филиала — сюда попадают те, у кого строки в stock нет вовсе
+    supabase
       .from('products')
-      .select(`
-        *,
-        category:product_categories(id, name, slug),
-        brand:brands(id, name),
-        stock!inner(quantity, branch_id)
-      `)
-      .eq('barcode', barcode)
-      .eq('stock.branch_id', branchId)
-      .gt('stock.quantity', 0)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Product | null;
+      .select(productFields)
+      .eq('branch_id', branchId)
+      .eq('is_active', true),
+  ]);
+
+  if (stockRes.error) throw stockRes.error;
+  if (ownRes.error) throw ownRes.error;
+
+  const stockRows = (stockRes.data ?? []) as unknown as Array<{ product: Product | null }>;
+  const ownRows = (ownRes.data ?? []) as unknown as Product[];
+
+  const byId = new Map<string, Product>();
+  for (const { product } of stockRows) {
+    if (product && product.is_active !== false) byId.set(product.id, product);
+  }
+  for (const product of ownRows) {
+    if (!byId.has(product.id)) byId.set(product.id, product);
   }
 
+  return [...byId.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'ru'));
+}
+
+// Фильтр по филиалу убран вместе с параметром branchId: штрихкод уникален
+// глобально (см. findDuplicateProduct), поэтому филиальный фильтр на деле лишь
+// прятал товар с нулевым остатком — а такой теперь можно продавать. Остаток
+// нужного филиала вызывающий берёт сам из product.stock.
+// is_active обязателен: удалённый товар не должен находиться сканом, а главное —
+// findDuplicateProduct проверяет штрихкод только среди активных, то есть после
+// удаления товара его штрихкод можно выдать новому. Без фильтра такой штрихкод
+// вернул бы две строки, и maybeSingle() свалился бы с ошибкой на ровном месте.
+export async function getProductByBarcode(barcode: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from('products')
     .select(`
@@ -83,6 +119,7 @@ export async function getProductByBarcode(barcode: string, branchId?: string): P
       stock(quantity, branch_id)
     `)
     .eq('barcode', barcode)
+    .eq('is_active', true)
     .maybeSingle();
   if (error) throw error;
   return data as Product | null;
@@ -1039,7 +1076,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
         .from('stock')
         .select('quantity, product:products(price, cost_price, min_stock)')
         .eq('branch_id', branchId)
-        .gt('quantity', 0),
+        .neq('quantity', 0),
       supabase
         .from('stock_movements')
         .select('id', { count: 'exact' })
@@ -1047,6 +1084,10 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
         .or(`branch_id.eq.${branchId},to_branch_id.eq.${branchId}`),
     ]);
 
+    // Раньше запрос отсекал quantity > 0, и позиции, ушедшие в минус, пропадали
+    // из обзора вместе с нулевыми. Теперь отсекаем только ноль (таких карточек
+    // сотни — это просто заведённые товары), а минус считаем: товар физически
+    // должен, и в стоимости склада он тоже должен отражаться.
     const stock = stockRes.data ?? [];
     const totalValue = stock.reduce((sum, s) =>
       sum + s.quantity * ((s.product as any)?.cost_price ?? 0), 0);
@@ -1054,7 +1095,7 @@ export async function getInventoryStats(branchId?: string): Promise<InventorySta
       s.quantity <= ((s.product as any)?.min_stock ?? 0)).length;
 
     return {
-      total_products: stock.length,   // уникальных товаров в наличии (quantity > 0)
+      total_products: stock.length,   // позиций с ненулевым остатком (в наличии или в минусе)
       total_skus: stock.length,       // позиций на складе
       low_stock_count: lowStock,
       total_value: totalValue,

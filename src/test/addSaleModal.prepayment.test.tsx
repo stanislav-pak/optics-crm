@@ -4,7 +4,7 @@ import AddSaleModal from '@/components/Inventory/AddSaleModal'
 import type { Product } from '@/types'
 
 vi.mock('@/services/inventory', () => ({
-  getProductsFromStock: vi.fn().mockResolvedValue([]),
+  getProductsForSale: vi.fn().mockResolvedValue([]),
   getProductByBarcode: vi.fn().mockResolvedValue(null),
   createStockRequest: vi.fn().mockResolvedValue({ id: 'req-1' }),
   createSale: vi.fn().mockResolvedValue({ id: 'sale-1' }),
@@ -27,7 +27,7 @@ vi.mock('@/services/orders', () => ({
   createOrder: vi.fn().mockResolvedValue({ id: 'preorder-1' }),
 }))
 
-import { createSale, getProductsFromStock } from '@/services/inventory'
+import { createSale, getProductsForSale } from '@/services/inventory'
 import { createServiceOrder } from '@/services/workshop'
 import { supabase } from '@/services/supabase'
 
@@ -68,7 +68,7 @@ async function openWorkshopSectionWithService() {
     />
   )
 
-  // дождаться начальной загрузки (getProductsFromStock/fetchServices/clients)
+  // дождаться начальной загрузки (getProductsForSale/fetchServices/clients)
   await waitFor(() => expect(screen.getByText('Новая продажа')).toBeInTheDocument())
 
   fireEvent.click(screen.getByText('Добавить заказ в мастерскую'))
@@ -179,7 +179,7 @@ describe('AddSaleModal — клемп предоплаты предзаказа 
   })
 
   async function openPreorderWithItem() {
-    vi.mocked(getProductsFromStock).mockResolvedValueOnce([mockProduct])
+    vi.mocked(getProductsForSale).mockResolvedValueOnce([mockProduct])
     render(
       <AddSaleModal
         branchId="branch-1"
@@ -269,7 +269,7 @@ describe('AddSaleModal — предоплата на обычный товар �
 
   async function openSaleWithItem() {
     mockStockAvailable()
-    vi.mocked(getProductsFromStock).mockResolvedValueOnce([mockProduct])
+    vi.mocked(getProductsForSale).mockResolvedValueOnce([mockProduct])
     render(
       <AddSaleModal
         branchId="branch-1"
