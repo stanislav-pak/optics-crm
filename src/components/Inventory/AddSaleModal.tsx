@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Search, QrCode, Trash2, ChevronDown, Plus, Check, Wrench } from 'lucide-react';
-import { createSale, getProductsFromStock, getProductByBarcode, createStockRequest } from '../../services/inventory';
+import { createSale, getProductsForSale, getProductByBarcode, createStockRequest } from '../../services/inventory';
 import { isCashSessionOpenToday } from '../../services/cashSessions';
 import { createServiceOrder, fetchServices, createService } from '../../services/workshop';
 import { createOrder } from '../../services/orders';
@@ -112,7 +112,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
-    getProductsFromStock(branchId).then(data =>
+    getProductsForSale(branchId).then(data =>
       setProducts([...data].sort((a, b) => a.name.localeCompare(b.name, 'ru')))
     );
     fetchBranchClients();
@@ -295,8 +295,10 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
     setItems(prev => {
       const existing = prev.findIndex(i => i.product_id === product.id);
       if (existing >= 0) {
+        // Без клемпа по остатку: продажа в минус разрешена, менеджера
+        // предупреждаем в карточке позиции и перед отправкой
         return prev.map((item, idx) =>
-          idx === existing ? { ...item, quantity: Math.min(item.quantity + 1, stockQty) } : item
+          idx === existing ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...prev, {
@@ -323,9 +325,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
   const handleBarcodeDetected = async (barcode: string) => {
     try {
-      const product = await getProductByBarcode(barcode, branchId);
+      const product = await getProductByBarcode(barcode);
       if (!product) {
-        alert('Товар не найден в вашем филиале');
+        alert('Товар не найден');
       } else {
         addItem(product);
       }
@@ -338,7 +340,7 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
   const updateItem = (idx: number, field: 'quantity' | 'price', value: number) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
-      if (field === 'quantity') return { ...item, quantity: Math.min(Math.max(1, value), item.stock_qty) };
+      if (field === 'quantity') return { ...item, quantity: Math.max(1, value) };
       const discountPct = item.list_price > 0
         ? Math.round(((item.list_price - value) / item.list_price) * 1000) / 10
         : 0;
@@ -498,7 +500,9 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
 
     setLoading(true);
     try {
-      // Проверяем актуальные остатки перед оформлением
+      // Актуальные остатки на момент отправки: продажу они не блокируют
+      // (остаток разрешено уводить в минус), но менеджер должен увидеть это
+      // до оформления — цифры берём свежие, а не те, что были при открытии формы
       if (items.length > 0) {
         const { data: stockData } = await supabase
           .from('stock')
@@ -507,11 +511,20 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
           .eq('branch_id', branchId);
         const stockMap: Record<string, number> = {};
         for (const s of stockData ?? []) stockMap[s.product_id] = s.quantity;
-        for (const item of items) {
-          const available = stockMap[item.product_id] ?? 0;
-          if (item.quantity > available) {
-            throw new Error(`Недостаточно "${item.product_name}": доступно ${available} шт`);
-          }
+
+        const goingNegative = items
+          .map(item => ({ item, remaining: (stockMap[item.product_id] ?? 0) - item.quantity }))
+          .filter(({ remaining }) => remaining < 0);
+
+        if (goingNegative.length > 0) {
+          const lines = goingNegative
+            .map(({ item, remaining }) => `• ${item.product_name} → −${Math.abs(remaining)}`)
+            .join('\n');
+          const ok = window.confirm(
+            `Остаток уйдёт в минус:\n${lines}\n\nОформить продажу?`
+          );
+          // Сбрасывать флаги здесь не нужно — это делает finally этого же try
+          if (!ok) return;
         }
       }
 
@@ -828,6 +841,11 @@ export default function AddSaleModal({ branchId, employeeId, onClose, onSuccess,
                   <div>
                     <p className="text-sm font-medium text-gray-900">{item.product_name}</p>
                     <p className="text-xs text-gray-400">На складе: {item.stock_qty} шт</p>
+                    {item.stock_qty - item.quantity < 0 && (
+                      <p className="text-xs text-orange-500 font-medium">
+                        Остаток уйдёт в минус: −{Math.abs(item.stock_qty - item.quantity)} шт
+                      </p>
+                    )}
                   </div>
                   <button onMouseDown={e => { e.preventDefault(); removeItem(idx); }} className="text-gray-300 hover:text-red-400">
                     <Trash2 size={15} />
